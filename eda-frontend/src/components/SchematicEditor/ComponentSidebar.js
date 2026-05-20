@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import api from '../../utils/Api'
 import {
@@ -11,7 +11,8 @@ import {
   Tooltip,
   TextField,
   InputAdornment,
-  Divider
+  Divider,
+  Typography
 
 } from '@material-ui/core'
 import Loader from 'react-loader-spinner'
@@ -24,8 +25,10 @@ import CloseIcon from '@material-ui/icons/Close'
 
 import './Helper/SchematicEditor.css'
 import { useDispatch, useSelector } from 'react-redux'
-import { fetchLibraries, toggleCollapse, fetchComponents, toggleSimulate } from '../../redux/actions/index'
+import { fetchLibraries, toggleCollapse, fetchComponents, toggleSimulate, fetchComponentsBySearch } from '../../redux/actions/index'
+import CircularProgress from '@material-ui/core/CircularProgress'
 import SideComp from './SideComp.js'
+import ComponentSearchBar from './ComponentSearchBar'
 import SimulationProperties from './SimulationProperties'
 const COMPONENTS_PER_ROW = 3
 
@@ -42,17 +45,7 @@ const useStyles = makeStyles((theme) => ({
   }
 }))
 
-const searchOptions = {
-  NAME: 'name__icontains',
-  KEYWORD: 'keyword__icontains',
-  DESCRIPTION: 'description__icontains',
-  COMPONENT_LIBRARY: 'component_library__library_name__icontains',
-  PREFIX: 'symbol_prefix'
-}
 
-// var tempSearchTxt = ''
-
-const searchOptionsList = ['NAME', 'KEYWORD', 'DESCRIPTION', 'COMPONENT_LIBRARY', 'PREFIX']
 
 export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResult }) {
   const classes = useStyles()
@@ -63,38 +56,23 @@ export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResu
   const auth = useSelector(state => state.authReducer)
 
   const dispatch = useDispatch()
-  const [isSearchedResultsEmpty, setIssearchedResultsEmpty] = useState(false)
-  const [searchText, setSearchText] = useState('')
-  const [loading, setLoading] = useState(false)
   const [favourite, setFavourite] = useState(null)
   const [favOpen, setFavOpen] = useState(false)
-
-  const [searchedComponentList, setSearchedComponents] = useState([])
-  const [searchOption, setSearchOption] = useState('NAME')
   const [uploaded, setuploaded] = useState(false)
   const [def, setdef] = useState(false)
   const [additional, setadditional] = useState(false)
 
-  // const searchedComponentList = React.useRef([])
+  // Redux-backed API search state
+  const searchResults = useSelector(state => state.schematicEditorReducer.searchResults)
+  const searchLoading = useSelector(state => state.schematicEditorReducer.searchLoading)
+  const [activeSearchQuery, setActiveSearchQuery] = useState('')
 
-  const timeoutId = React.useRef()
+  const handleSearchChange = useCallback((query) => {
+    setActiveSearchQuery(query)
+    dispatch(fetchComponentsBySearch(query))
+  }, [dispatch])
 
-  const handleSearchOptionType = (evt) => {
-    setSearchedComponents([])
-    setSearchOption(evt.target.value)
-  }
 
-  const handleSearchText = (evt) => {
-    // tempSearchTxt = evt.target.value
-    if (searchText.length === 0) {
-      setSearchedComponents([])
-    }
-    setSearchText(evt.target.value)
-    setSearchedComponents([])
-    // mimic the value so we can access the latest value in our API call.
-
-    // call api from here. and set the result to searchedComponentList.
-  }
 
   React.useEffect(() => {
     if (auth.isAuthenticated) {
@@ -118,40 +96,7 @@ export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResu
     }
   }, [auth])
 
-  React.useEffect(() => {
-    // if the user keeps typing, stop the API call!
-    clearTimeout(timeoutId.current)
-    // don't make an API call with no data
-    if (!searchText.trim()) return
-    // capture the timeoutId so we can
-    // stop the call if the user keeps typing
-    timeoutId.current = setTimeout(() => {
-      // call api here
-      setLoading(true)
-      let config = {}
-      const token = localStorage.getItem('esim_token')
-      if (token && token !== undefined) {
-        config = {
-          headers: {
-            Authorization: `Token ${token}`
-          }
-        }
-      }
-      api.get(`components/?${searchOptions[searchOption]}=${searchText}`, config)
-        .then(
-          (res) => {
-            if (res.data.length === 0) {
-              setIssearchedResultsEmpty(true)
-            } else {
-              setIssearchedResultsEmpty(false)
-              setSearchedComponents([...res.data])
-            }
-          }
-        )
-        .catch((err) => { console.error(err) })
-      setLoading(false)
-    }, 800)
-  }, [searchText, searchOption])
+
 
   const handleCollapse = (id) => {
     // Fetches Components for given library if not already fetched
@@ -231,79 +176,47 @@ export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResu
           <ListItem button>
             <h2 style={{ margin: '5px' }}>Components List</h2>
           </ListItem>
+
+          {/* Component search bar — dispatches to backend API */}
           <ListItem>
-
-            <TextField
-              id="standard-number"
-              placeholder="Search Component"
-              variant="outlined"
-              size="small"
-              value={searchText}
-              onChange={handleSearchText}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                )
-              }}
+            <ComponentSearchBar
+              onSearchChange={handleSearchChange}
+              placeholder="Search components…"
             />
-
           </ListItem>
 
-          <ListItem divider>
-            <TextField
-              style={{ width: '100%' }}
-              id="searchType"
-              size='small'
-              variant="outlined"
-              select
-              label="Search By"
-              value={searchOption}
-              onChange={handleSearchOptionType}
-              SelectProps={{
-                native: true
-              }}
-            >
 
-              {
-                searchOptionsList.map((value, i) => {
-                  return (<option key={i} value={value}>
-                    {value}
-                  </option>)
-                })
-              }
-
-            </TextField>
-          </ListItem>
           <div style={{ maxHeight: '70vh', overflowY: 'auto', overflowX: 'hidden' }} >
-            {searchText.length !== 0 && searchedComponentList.length !== 0 &&
 
-              searchedComponentList.map((component, i) => {
-                return (<ListItemIcon key={i}>
-                  <SideComp component={component} />
-                </ListItemIcon>)
-              }
+
+            {/* API search results from ComponentSearchBar */}
+            {activeSearchQuery.trim() !== '' && (
+              searchLoading ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '16px' }}>
+                  <CircularProgress size={24} />
+                </div>
+              ) : searchResults.length > 0 ? (
+                chunk(searchResults, COMPONENTS_PER_ROW).map((componentChunk, i) => {
+                  return (
+                    <ListItem key={i} divider>
+                      {componentChunk.map((component) => {
+                        return (
+                          <ListItemIcon key={component.full_name}>
+                            <SideComp component={component} />
+                          </ListItemIcon>
+                        )
+                      })}
+                    </ListItem>
+                  )
+                })
+              ) : (
+                <Typography variant="body2" style={{ padding: '16px', color: '#999' }}>
+                  No components found for "{activeSearchQuery}"
+                </Typography>
               )
+            )}
 
-            }
 
-            <ListItem>
-
-              <Loader
-                type="TailSpin"
-                color="#F44336"
-                height={100}
-                width={100}
-                visible={loading}
-              />
-            </ListItem>
-
-            {!loading && searchText.length !== 0 && isSearchedResultsEmpty &&
-
-              <span style={{ margin: '20px' }}>No Components Found</span>
-
-            }
 
             {/* Collapsing List Mapped by Libraries fetched by the API */}
             {favourite && favourite.length > 0 &&
@@ -342,7 +255,7 @@ export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResu
                 </Collapse>
               </>
             }
-            {searchText.length === 0 &&
+            {activeSearchQuery.trim() === '' &&
             <>
               <div style={!def ? { display: 'none' } : {}}>
                 <Divider />
@@ -399,6 +312,8 @@ export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResu
               </div>
             </>
             }
+
+
           </div>
         </List>
       </div>

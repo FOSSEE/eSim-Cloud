@@ -227,3 +227,41 @@ export const toggleSimulate = () => (dispatch) => {
     type: actions.TOGGLE_SIMULATE
   })
 }
+
+// Api call for searching components via backend SearchFilter
+export const fetchComponentsBySearch = (query) => (dispatch) => {
+  if (!query || !query.trim()) {
+    dispatch({
+      type: actions.SEARCH_COMPONENTS_SUCCESS,
+      payload: []
+    })
+    return
+  }
+
+  dispatch({ type: actions.SEARCH_COMPONENTS_LOADING })
+
+  const token = store.getState().authReducer.token
+  const config = {
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  }
+  if (token) { config.headers.Authorization = `Token ${token}` }
+
+  api.get(`components/?search=${encodeURIComponent(query.trim())}`, config)
+    .then(
+      (res) => {
+        dispatch({
+          type: actions.SEARCH_COMPONENTS_SUCCESS,
+          payload: res.data
+        })
+      }
+    )
+    .catch((err) => {
+      console.error(err)
+      dispatch({
+        type: actions.SEARCH_COMPONENTS_ERROR,
+        payload: err.message
+      })
+    })
+}
