@@ -66,7 +66,6 @@ export const saveSchematic = (title, description, xml, base64, newBranch = false
     config.headers.Authorization = `Token ${token}`
   }
   if (!newBranch) {
-    console.log('New Version not Branch')
     body.version = randomstring.generate({
       length: 20
     })
@@ -74,7 +73,6 @@ export const saveSchematic = (title, description, xml, base64, newBranch = false
       //  Updating saved schemaic
       body.save_id = schSave.details.save_id
       body.branch = decodeURI(window.location.href.split('branch=')[1])
-      console.log(window.location.href.split('branch=')[1])
       api
         .post('save', queryString.stringify(body), config)
         .then((res) => {
@@ -104,7 +102,6 @@ export const saveSchematic = (title, description, xml, base64, newBranch = false
         })
     }
   } else {
-    console.log('New Branch not Version')
     let flag = 0
     for (let i = 0; i < versions.length; i++) {
       if (branchName === versions[i][0]) { flag = 1 }
@@ -155,8 +152,6 @@ export const saveToGallery = (title, description, xml, base64) => (dispatch, get
   if (token) {
     config.headers.Authorization = `Token ${token}`
   }
-  console.log(token)
-  console.log(config)
 
   const libraries = []
   getState().schematicEditorReducer.libraries.forEach(e => { libraries.push(e.id) })
@@ -168,14 +163,11 @@ export const saveToGallery = (title, description, xml, base64) => (dispatch, get
     esim_libraries: JSON.stringify([...libraries]),
     save_id: 'gallery' + uuidv4()
   }
-  console.log('successfully saved to gallery')
-  console.log(body)
 
   api
     .post('save/gallery/' + body.save_id, queryString.stringify(body), config)
     .then(
       (res) => {
-        console.log(res)
       }
     )
     .catch((err) => { console.error(err) })
@@ -232,7 +224,6 @@ export const fetchGallerySchematic = (Id) => (dispatch, getState) => {
 
   api.get('save/gallery/' + Id, config)
     .then((res) => {
-      console.log(res.data)
       const data = res.data
       dispatch(setTitle('* ' + data.name))
       dispatch(setSchTitle(data.name))

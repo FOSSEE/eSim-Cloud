@@ -189,9 +189,8 @@ export default function SchematicToolbar ({
           setActiveSimResult(res.data[res.data.length - 1].id)
         })
         .catch((err) => {
-          console.log(err)
+          console.error(err)
         })
-      console.log('SIM RESULTS FOUND')
       setLtiSimResult(false)
     }
     // eslint-disable-next-line
@@ -307,14 +306,13 @@ export default function SchematicToolbar ({
             setScored(res.data.scored)
           }
         })
-        .catch((err) => console.log(err))
+        .catch((err) => console.error(err))
     }
     // eslint-disable-next-line
   }, [ltiId]);
 
   useEffect(() => {
     if (consumerKey) {
-      console.log(schSave)
       api
         .get(`lti/exist/${id}`)
         .then((res) => {
@@ -324,7 +322,7 @@ export default function SchematicToolbar ({
             setScored(res.data.scored)
           }
         })
-        .catch((err) => console.log(err))
+        .catch((err) => console.error(err))
     }
     // eslint-disable-next-line
   }, [consumerKey]);
@@ -340,18 +338,16 @@ export default function SchematicToolbar ({
         },
         student_simulation: activeSimResult
       }
-      console.log(body)
       api
         .post('lti/submit/', body)
         .then((res) => {
-          console.log(res.data)
           setSubmissionDetails(res.data)
           setResults(true)
           setSubmit(true)
           setSubmitMessage(res.data.message)
         })
         .catch((err) => {
-          console.log(err)
+          console.error(err)
           setSubmit(true)
           setSubmitMessage(
             'There was an error while submitting. Please try again later!'
@@ -705,7 +701,7 @@ export default function SchematicToolbar ({
     window.addEventListener('keydown', shrtcts)
 
     return () => {
-      window.addEventListener('keydown', shrtcts)
+      window.removeEventListener('keydown', shrtcts)
     }
     // eslint-disable-next-line
   }, []);
