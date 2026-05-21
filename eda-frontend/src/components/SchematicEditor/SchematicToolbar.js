@@ -917,7 +917,7 @@ export default function SchematicToolbar ({
           <RotateLeft fontSize="small" />
         </IconButton>
       </Tooltip>
-      <Tooltip title="Rotate ClockWise (Alt + Right Arrow)">
+      <Tooltip title="Rotate ClockWise (Ctrl + R / Alt + Right Arrow)">
         <IconButton
           color="inherit"
           className={classes.tools}

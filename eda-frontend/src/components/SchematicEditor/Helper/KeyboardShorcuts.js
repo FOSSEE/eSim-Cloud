@@ -87,10 +87,18 @@ export default function KeyboardShortcuts (graph) {
     }
   })
 
-  // Zoom Out - Ctrl + Y
+  // Zoom Act - Ctrl + Y
   keyHandler.bindControlKey(89, function (evt) {
     if (graph.isEnabled()) {
       ZoomAct()
+    }
+  })
+
+  // Rotate Clockwise - Ctrl + R (preventDefault stops browser page refresh)
+  keyHandler.bindControlKey(82, function (evt) {
+    evt.preventDefault()
+    if (graph.isEnabled()) {
+      Rotate()
     }
   })
 }
