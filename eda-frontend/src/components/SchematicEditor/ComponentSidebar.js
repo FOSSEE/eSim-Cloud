@@ -184,7 +184,7 @@ export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResu
 
   const handleCollapse = (id) => {
     // Fetches Components for given library if not already fetched
-    if (collapse[id] === false && components[id].length === 0) {
+    if (collapse[id] === false && (!components[id] || components[id].length === 0)) {
       dispatch(fetchComponents(id))
     }
 
@@ -225,7 +225,7 @@ export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResu
         <Collapse in={collapse[library.id]} timeout={'auto'} unmountOnExit mountOnEnter exit={false}>
           <List component="div" disablePadding dense >
             {/* Chunked Components of Library */}
-            {chunk(components[library.id], COMPONENTS_PER_ROW).map((componentChunk) => {
+            {components[library.id] && chunk(components[library.id], COMPONENTS_PER_ROW).map((componentChunk) => {
               return (
                 <ListItem key={componentChunk[0].svg_path} divider>
                   {componentChunk.map((component) => {
@@ -317,7 +317,7 @@ export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResu
                 <Typography variant="body2" style={{ padding: '16px', color: '#c62828' }}>
                   Search failed. Please try again.
                 </Typography>
-              ) : searchResults.length > 0 ? (
+              ) : (searchResults && searchResults.length > 0) ? (
                 chunk(searchResults, COMPONENTS_PER_ROW).map((componentChunk) => {
                   return (
                     <ListItem key={componentChunk.map((c) => c.id).join('-')} divider>

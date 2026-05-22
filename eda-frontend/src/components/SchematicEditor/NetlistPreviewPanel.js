@@ -8,7 +8,6 @@ import {
   Typography,
   IconButton,
   Snackbar,
-  Divider,
   Box,
   CircularProgress,
   Switch,
@@ -24,9 +23,11 @@ import CloseIcon from '@material-ui/icons/Close'
 import AceEditor from 'react-ace'
 import 'brace/theme/monokai'
 import 'brace/theme/github'
-import { useSelector } from 'react-redux'
+import { useSelector, useDispatch } from 'react-redux'
+import { useHistory } from 'react-router-dom'
+import { setNetlist } from '../../redux/actions/index'
 
-import { buildNetlistFromGraph } from './Helper/NetlistExporter'
+import { buildNetlistFromGraph, sanitizeNetlistForExport } from './Helper/NetlistExporter'
 
 const useStyles = makeStyles((theme) => ({
   actions: {
@@ -58,6 +59,8 @@ export default function NetlistPreviewPanel ({ gridRef }) {
 
   const schSave = useSelector(state => state.saveSchematicReducer)
   const projectName = schSave.title || 'Untitled_Schematic'
+  const history = useHistory()
+  const dispatch = useDispatch()
 
   const handleThemeChange = (event) => {
     setThemeState({ ...themeState, [event.target.name]: event.target.checked })
@@ -123,6 +126,14 @@ export default function NetlistPreviewPanel ({ gridRef }) {
     document.body.removeChild(element)
   }
 
+  const handleSendToSimulator = () => {
+    const sanitized = sanitizeNetlistForExport(netlistText)
+    dispatch(setNetlist(sanitized))
+    setSnackMessage('Netlist loaded in Simulator')
+    setSnackOpen(true)
+    history.push('/simulator/ngspice')
+  }
+
   const handleCloseSnack = (event, reason) => {
     if (reason === 'clickaway') return
     setSnackOpen(false)
@@ -171,6 +182,14 @@ export default function NetlistPreviewPanel ({ gridRef }) {
               variant="outlined"
             >
               Download
+            </Button>
+            <Button
+              size="small"
+              onClick={handleSendToSimulator}
+              variant="contained"
+              color="primary"
+            >
+              Send to Simulator
             </Button>
             <FormControlLabel
               style={{ marginLeft: 'auto' }}

@@ -248,55 +248,55 @@ export function annotate(graph) {
     }
   }
 
-  for (var property in list) {
-    if (list[property].Component === true && list[property].symbol !== 'PWR') {
+  for (var cellId in list) {
+    if (list[cellId].Component === true && list[cellId].symbol !== 'PWR') {
       mxCell.prototype.ConnectedNode = null;
-      var component = list[property];
+      var compNode = list[cellId];
 
-      if (component.symbol === 'R') {
+      if (compNode.symbol === 'R') {
         component.value = component.symbol + r.toString();
         component.properties.PREFIX = component.value;
         ++r;
-      } else if (component.symbol === 'V') {
-        component.value = component.symbol + v.toString();
-        component.properties.PREFIX = component.value;
+      } else if (compNode.symbol === 'V') {
+        compNode.value = compNode.symbol + v.toString();
+        compNode.properties.PREFIX = compNode.value;
         ++v;
-      } else if (component.symbol === 'C') {
-        component.value = component.symbol + c.toString();
-        component.properties.PREFIX = component.value;
+      } else if (compNode.symbol === 'C') {
+        compNode.value = compNode.symbol + c.toString();
+        compNode.properties.PREFIX = compNode.value;
         ++c;
-      } else if (component.symbol === 'D') {
-        component.value = component.symbol + d.toString();
-        component.properties.PREFIX = component.value;
+      } else if (compNode.symbol === 'D') {
+        compNode.value = compNode.symbol + d.toString();
+        compNode.properties.PREFIX = compNode.value;
         ++d;
-      } else if (component.symbol === 'Q') {
-        component.value = component.symbol + q.toString();
-        component.properties.PREFIX = component.value;
+      } else if (compNode.symbol === 'Q') {
+        compNode.value = compNode.symbol + q.toString();
+        compNode.properties.PREFIX = compNode.value;
         ++q;
       } else {
-        component.value = component.symbol + w.toString();
-        component.properties.PREFIX = component.value;
+        compNode.value = compNode.symbol + w.toString();
+        compNode.properties.PREFIX = compNode.value;
         ++w;
       }
 
-      if (component.children !== null) {
-        for (var child in component.children) {
-          var pin = component.children[child];
+      if (compNode.children !== null) {
+        for (var childIdx in compNode.children) {
+          var pinElem = compNode.children[childIdx];
 
-          if (pin.vertex === true && pin.connectable) {
-            if (pin.edges !== null && pin.edges.length !== 0) {
+          if (pinElem.vertex === true && pinElem.connectable) {
+            if (pinElem.edges !== null && pinElem.edges.length !== 0) {
               NODE_SETS.forEach((e, i) => {
                 var done = 0;
                 e.forEach((vertex) => {
-                  if (vertex.id == pin.id && done === 0) {
+                  if (vertex.id == pinElem.id && done === 0) {
                     if (i === 0) {
-                      pin.edges[0].node = 0;
-                      pin.ConnectedNode = 0;
-                      pin.edges[0].value = pin.edges[0].node;
+                      pinElem.edges[0].node = 0;
+                      pinElem.ConnectedNode = 0;
+                      pinElem.edges[0].value = pinElem.edges[0].node;
                     } else {
-                      pin.edges[0].node = 'COM.' + i.toString();
-                      pin.ConnectedNode = 'COM.' + i.toString();
-                      pin.edges[0].value = pin.edges[0].node;
+                      pinElem.edges[0].node = 'COM.' + i.toString();
+                      pinElem.ConnectedNode = 'COM.' + i.toString();
+                      pinElem.edges[0].value = pinElem.edges[0].node;
                     }
                     done = 1;
                   }
@@ -305,18 +305,18 @@ export function annotate(graph) {
             }
           }
           // Additional condition to handle ground connection
-          if (pin.edges !== null && pin.edges.length !== 0) {
-            pin.edges.forEach((edge) => {
+          if (pinElem.edges !== null && pinElem.edges.length !== 0) {
+            pinElem.edges.forEach((edge) => {
               if (
                 edge.target === null ||
                 edge.target.ParentComponent === null ||
                 (edge.target.ParentComponent.symbol !== 'PWR' && edge.target.ParentComponent.symbol !== 'GND')
               ) {
-                if (pin.ConnectedNode === 0) {
+                if (pinElem.ConnectedNode === 0) {
                   edge.node = 0;
                   edge.value = edge.node;
                 } else {
-                  edge.node = pin.ConnectedNode;
+                  edge.node = pinElem.ConnectedNode;
                   edge.value = edge.node;
                 }
               }
@@ -411,9 +411,9 @@ export function buildNetlistFromGraph(graph) {
         compobj.name = component.symbol
         compobj.magnitude = 10
         var nodeNumber = 0
-        for(var child in component.children){
+        for(var childIdx in component.children){
             nodeNumber++
-            var pinEdges = component.children[child].edges
+            var pinEdges = component.children[childIdx].edges
             var nodeVal = (pinEdges && pinEdges.length > 0 && pinEdges[0].node !== undefined) ? pinEdges[0].node : 'NC'
             compobj['node' + nodeNumber.toString()] = nodeVal
             if (nodeVal !== 'NC') {
@@ -516,4 +516,28 @@ export function buildNetlistFromGraph(graph) {
     componentlist: compDetails.componentlist,
     nodelist: compDetails.nodelist
   }
+}
+
+export const sanitizeNetlistForExport = (code) => {
+  const codeArray = code.split('\n')
+  let cleanCode = ''
+  let frontPlot = ''
+  for (let line = 0; line < codeArray.length; line++) {
+    if (codeArray[line].includes('plot') && !codeArray[line].includes('setplot')) {
+      frontPlot += codeArray[line].split('plot ')[1] + ' '
+    }
+  }
+  frontPlot = `print ${frontPlot} > data.txt \n`
+  let flag = 0
+  for (let i = 0; i < codeArray.length; i++) {
+    if (codeArray[i].includes('plot') && !codeArray[i].includes('setplot')) {
+      if (!flag) {
+        cleanCode += frontPlot
+        flag = 1
+      }
+    } else {
+      cleanCode += codeArray[i] + '\n'
+    }
+  }
+  return cleanCode
 }
