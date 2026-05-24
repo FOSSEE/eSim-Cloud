@@ -37,7 +37,8 @@ import queryString from 'query-string'
 
 const useStyles = makeStyles((theme) => ({
   toolbarTitle: {
-    marginRight: theme.spacing(2)
+    marginRight: theme.spacing(2),
+    flexShrink: 0
   },
   input: {
     marginLeft: theme.spacing(1),
@@ -52,8 +53,8 @@ const useStyles = makeStyles((theme) => ({
     marginRight: theme.spacing(0.7)
   },
   small: {
-    width: theme.spacing(3.7),
-    height: theme.spacing(3.7)
+    width: theme.spacing(3.75),
+    height: theme.spacing(3.75)
   },
   tools: {
     padding: theme.spacing(1),
@@ -349,7 +350,7 @@ function Header ({ gridRef }) {
         <SimpleSnackbar open={snacOpen} close={handleSnacClose} message={message} />
 
         {/* Display logo */}
-        <IconButton edge="start" className={classes.button} color="primary">
+        <IconButton className={classes.button} color="primary">
           <Avatar alt="esim logo" src={logo} className={classes.small} />
         </IconButton>
         <Typography

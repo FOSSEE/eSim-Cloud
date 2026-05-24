@@ -63,7 +63,10 @@ import {
   Redo,
   Save,
   ClearGrid,
-  RotateACW
+  RotateACW,
+  CopyComponents,
+  PasteComponents,
+  SelectAll
 } from './Helper/ToolbarTools'
 import {
   toggleSimulate,
@@ -695,6 +698,23 @@ export default function SchematicToolbar ({
         } else {
           handleLocalSchSave()
         }
+      }
+      // Copy - Ctrl + C
+      if (event.ctrlKey && event.keyCode === 67) {
+        console.log('[shortcut] Ctrl+C detected')
+        event.preventDefault()
+        CopyComponents()
+      }
+      // Paste - Ctrl + V
+      if (event.ctrlKey && event.keyCode === 86) {
+        console.log('[shortcut] Ctrl+V detected')
+        event.preventDefault()
+        PasteComponents()
+      }
+      // Select All - Ctrl + A
+      if (event.ctrlKey && event.keyCode === 65) {
+        event.preventDefault()
+        SelectAll()
       }
     }
 

@@ -45,7 +45,7 @@ const {
   mxImage
 } = new mxGraphFactory()
 
-export default function LoadGrid (container, sidebar, outline) {
+export default function LoadGrid(container, sidebar, outline) {
   // Checks if the browser is supported
   if (!mxClient.isBrowserSupported()) {
     // Displays an error message if the browser is not supported.
@@ -88,7 +88,7 @@ export default function LoadGrid (container, sidebar, outline) {
 
     // Creates the graph inside the given container
     graph = new mxGraph(container)
-   
+
 
     mxConnectionHandler.prototype.movePreviewAway = false
     mxConnectionHandler.prototype.waypointsEnabled = true
@@ -102,90 +102,89 @@ export default function LoadGrid (container, sidebar, outline) {
 
     // Enables rubberband selection
     new mxRubberband(graph)
-    if(outline !== null)
-    {
+    if (outline !== null) {
       var outln = new mxOutline(graph, outline)
       // To show the images in the outline, uncomment the following code
       outln.outline.labelsVisible = true
       outln.outline.setHtmlLabels(true)
-  
-  
+
+
       graph.view.scale = 1
       graph.setPanning(true)
       graph.setConnectable(true)
       graph.setConnectableEdges(true)
       graph.setDisconnectOnMove(false)
       graph.foldingEnabled = false
-  
+
       // Panning handler consumed right click so this must be
       // disabled if right click should stop connection handler.
       graph.panningHandler.isPopupTrigger = function () { return false }
-  
+
       // Enables return key to stop editing (use shift-enter for newlines)
       graph.setEnterStopsCellEditing(true)
-  
+
       // Adds rubberband selection
       new mxRubberband(graph)
-  
+
       // Alternative solution for implementing connection points without child cells.
       // This can be extended as shown in portrefs.html example to allow for per-port
       // incoming/outgoing direction.
       graph.getAllConnectionConstraints = function (terminal) {
         var geo = (terminal != null) ? this.getCellGeometry(terminal.cell) : null
-  
+
         if ((geo != null ? !geo.relative : false) && this.getModel().isVertex(terminal.cell) && this.getModel().getChildCount(terminal.cell) === 0) {
           return [new mxConnectionConstraint(new mxPoint(0, 0.5), false), new mxConnectionConstraint(new mxPoint(1, 0.5), false)]
         }
-  
+
         return null
       }
-  
+
       // Makes sure non-relative cells can only be connected via constraints
       graph.connectionHandler.isConnectableCell = function (cell) {
         if (this.graph.getModel().isEdge(cell)) {
           return true
         } else {
           var geo = (cell != null) ? this.graph.getCellGeometry(cell) : null
-  
+
           return (geo != null) ? geo.relative : false
         }
       }
       mxEdgeHandler.prototype.isConnectableCell = function (cell) {
         return graph.connectionHandler.isConnectableCell(cell)
       }
-  
+
       // Adds a special tooltip for edges
       graph.setTooltips(true)
-  
+
       var getTooltipForCell = graph.getTooltipForCell
       graph.getTooltipForCell = function (cell) {
         var tip = ''
-  
+
         if (cell != null) {
           var src = this.getModel().getTerminal(cell, true)
-  
+
           if (src != null) {
             tip += this.getTooltipForCell(src) + ' '
           }
-  
+
           var parent = this.getModel().getParent(cell)
-  
+
           if (this.getModel().isVertex(parent)) {
             tip += this.getTooltipForCell(parent) + '.'
           }
-  
+
           tip += getTooltipForCell.apply(this, arguments)
-  
+
           var trg = this.getModel().getTerminal(cell, false)
-  
+
           if (trg != null) {
             tip += ' ' + this.getTooltipForCell(trg)
           }
         }
-  
+
         return tip
       }
-  
+
     }
     graph.addListener(mxEvent.DOUBLE_CLICK, function (sender, evt) {
       var cell = evt.getProperty('cell')
@@ -216,7 +215,7 @@ export default function LoadGrid (container, sidebar, outline) {
     })
     // Creates the outline (navigator, overview) for moving
     // around the graph in the top, right corner of the window.
-    
+
     // Switch for black background and bright styles
     var invert = false
 
@@ -270,8 +269,7 @@ export default function LoadGrid (container, sidebar, outline) {
     style.strokeWidth = strokeWidth
 
     // var parent = graph.getDefaultParent()
-    if(sidebar !== null)
-    {
+    if (sidebar !== null) {
     }
     SideBar(graph, sidebar)
 
@@ -296,16 +294,16 @@ export default function LoadGrid (container, sidebar, outline) {
      editor.readGraphModel(node); */
     graph.getModel().beginUpdate()
     try {
-       /* var xml = '<mxGraphModel><root><mxCell id="0" CellType="This is where you say what the vertex is" pinType=" " Component="0" Pin="0" PinNumber="0" PinName=""><Object as="properties"/></mxCell><mxCell id="1" CellType="This is where you say what the vertex is" pinType=" " Component="0" Pin="0" PinNumber="0" PinName=""><Object as="properties"/></mxCell><mxCell value="PRI_LO" style="shape=image;fontColor=blue;image=../kicad-symbols/symbol_svgs/power/PWR-PRI_LO-1-A.svg;imageVerticalAlign=bottom;verticalAlign=bottom;imageAlign=bottom;align=bottom;spacingLeft=25" id="2" vertex="1" connectable="0" Component="1" CellType="Component" symbol="PWR" pinType=" " Pin="0" PinNumber="0" PinName=""><mxGeometry x="150" y="70" width="24" height="80" as="geometry"/><Object id="46" name="PRI_LO" svg_path="kicad-symbols/symbol_svgs/power/PWR-PRI_LO-1-A.svg" thumbnail_path="kicad-symbols/symbol_svgs/power/PWR-PRI_LO-1-A_thumbnail.svg" symbol_prefix="PWR" component_library="http://localhost/api/libraries/2/" description="Power symbol creates a global label with name &quot;PRI_LO&quot;" data_link="" full_name="PWR-PRI_LO-1-A" keyword="power-flag" as="CompObject"><Array as="alternate_component"/></Object><Object NAME="PRI_LO" as="properties"/></mxCell><mxCell value="1" style="align=right;verticalAlign=bottom;rotation=0" id="3" vertex="1" Pin="1" pinType="Output" PinNumber="1" CellType="This is where you say what the vertex is" Component="0" PinName=""><mxGeometry x="12" y="39" width="0.5" height="0.5" as="geometry"/><mxCell value="PRI_LO" style="shape=image;fontColor=blue;image=../kicad-symbols/symbol_svgs/power/PWR-PRI_LO-1-A.svg;imageVerticalAlign=bottom;verticalAlign=bottom;imageAlign=bottom;align=bottom;spacingLeft=25" id="2" vertex="1" connectable="0" Component="1" CellType="Component" symbol="PWR" pinType=" " Pin="0" PinNumber="0" PinName="" as="ParentComponent"><mxGeometry x="150" y="70" width="24" height="80" as="geometry"/><Object id="46" name="PRI_LO" svg_path="kicad-symbols/symbol_svgs/power/PWR-PRI_LO-1-A.svg" thumbnail_path="kicad-symbols/symbol_svgs/power/PWR-PRI_LO-1-A_thumbnail.svg" symbol_prefix="PWR" component_library="http://localhost/api/libraries/2/" description="Power symbol creates a global label with name &quot;PRI_LO&quot;" data_link="" full_name="PWR-PRI_LO-1-A" keyword="power-flag" as="CompObject"><Array as="alternate_component"/></Object><Object NAME="PRI_LO" as="properties"/></mxCell><Object as="properties"/></mxCell></root></mxGraphModel>'
-       var xmlDoc = mxUtils.parseXml(xml)
-       var node = xmlDoc.documentElement
-       var dec = new mxCodec(node)
-       dec.decode(node, graph.getModel())
-       console.log(dec)*/
-       
-     
+      /* var xml = '<mxGraphModel><root><mxCell id="0" CellType="This is where you say what the vertex is" pinType=" " Component="0" Pin="0" PinNumber="0" PinName=""><Object as="properties"/></mxCell><mxCell id="1" CellType="This is where you say what the vertex is" pinType=" " Component="0" Pin="0" PinNumber="0" PinName=""><Object as="properties"/></mxCell><mxCell value="PRI_LO" style="shape=image;fontColor=blue;image=../kicad-symbols/symbol_svgs/power/PWR-PRI_LO-1-A.svg;imageVerticalAlign=bottom;verticalAlign=bottom;imageAlign=bottom;align=bottom;spacingLeft=25" id="2" vertex="1" connectable="0" Component="1" CellType="Component" symbol="PWR" pinType=" " Pin="0" PinNumber="0" PinName=""><mxGeometry x="150" y="70" width="24" height="80" as="geometry"/><Object id="46" name="PRI_LO" svg_path="kicad-symbols/symbol_svgs/power/PWR-PRI_LO-1-A.svg" thumbnail_path="kicad-symbols/symbol_svgs/power/PWR-PRI_LO-1-A_thumbnail.svg" symbol_prefix="PWR" component_library="http://localhost/api/libraries/2/" description="Power symbol creates a global label with name &quot;PRI_LO&quot;" data_link="" full_name="PWR-PRI_LO-1-A" keyword="power-flag" as="CompObject"><Array as="alternate_component"/></Object><Object NAME="PRI_LO" as="properties"/></mxCell><mxCell value="1" style="align=right;verticalAlign=bottom;rotation=0" id="3" vertex="1" Pin="1" pinType="Output" PinNumber="1" CellType="This is where you say what the vertex is" Component="0" PinName=""><mxGeometry x="12" y="39" width="0.5" height="0.5" as="geometry"/><mxCell value="PRI_LO" style="shape=image;fontColor=blue;image=../kicad-symbols/symbol_svgs/power/PWR-PRI_LO-1-A.svg;imageVerticalAlign=bottom;verticalAlign=bottom;imageAlign=bottom;align=bottom;spacingLeft=25" id="2" vertex="1" connectable="0" Component="1" CellType="Component" symbol="PWR" pinType=" " Pin="0" PinNumber="0" PinName="" as="ParentComponent"><mxGeometry x="150" y="70" width="24" height="80" as="geometry"/><Object id="46" name="PRI_LO" svg_path="kicad-symbols/symbol_svgs/power/PWR-PRI_LO-1-A.svg" thumbnail_path="kicad-symbols/symbol_svgs/power/PWR-PRI_LO-1-A_thumbnail.svg" symbol_prefix="PWR" component_library="http://localhost/api/libraries/2/" description="Power symbol creates a global label with name &quot;PRI_LO&quot;" data_link="" full_name="PWR-PRI_LO-1-A" keyword="power-flag" as="CompObject"><Array as="alternate_component"/></Object><Object NAME="PRI_LO" as="properties"/></mxCell><Object as="properties"/></mxCell></root></mxGraphModel>'
+      var xmlDoc = mxUtils.parseXml(xml)
+      var node = xmlDoc.documentElement
+      var dec = new mxCodec(node)
+      dec.decode(node, graph.getModel())
+      console.log(dec)*/
+
+
     } finally {
-    // Updates the display
+      // Updates the display
       graph.getModel().endUpdate()
     }
 
@@ -394,7 +392,7 @@ export default function LoadGrid (container, sidebar, outline) {
         // Computes edge-to-edge connection point
         if (pt != null) {
           pt = new mxPoint(s * (tr.x + pt.x + orig.x),
-                    s * (tr.y + pt.y + orig.y))
+            s * (tr.y + pt.y + orig.y))
 
           // Finds nearest segment on edge and computes intersection
           if (terminal != null && terminal.absolutePoints != null) {
@@ -439,7 +437,7 @@ export default function LoadGrid (container, sidebar, outline) {
 
     if (this.sourceConstraint != null && this.previous != null) {
       edge.style = mxConstants.STYLE_EXIT_X + '=' + this.sourceConstraint.point.x + ';' +
-					mxConstants.STYLE_EXIT_Y + '=' + this.sourceConstraint.point.y + ';'
+        mxConstants.STYLE_EXIT_Y + '=' + this.sourceConstraint.point.y + ';'
     } else if (this.graph.model.isEdge(me.getCell())) {
       var scale = this.graph.view.scale
       var tr = this.graph.view.translate
@@ -458,28 +456,29 @@ export default function LoadGrid (container, sidebar, outline) {
 
   // Updates target terminal point for edge-to-edge connections.
   try {
-  var mxConnectionHandlerUpdateCurrentState = mxConnectionHandler.prototype.updateCurrentState
-  mxConnectionHandler.prototype.updateCurrentState = function (me) {
-    try { 
-    mxConnectionHandlerUpdateCurrentState.apply(this, arguments)
-    }
-    catch(err) {
-      
-    }
-    if (this.edgeState != null) {
-      this.edgeState.cell.geometry.setTerminalPoint(null, false)
+    var mxConnectionHandlerUpdateCurrentState = mxConnectionHandler.prototype.updateCurrentState
+    mxConnectionHandler.prototype.updateCurrentState = function (me) {
+      try {
+        mxConnectionHandlerUpdateCurrentState.apply(this, arguments)
+      }
+      catch (err) {
 
-      if (this.shape != null && this.currentState != null &&
-					this.currentState.view.graph.model.isEdge(this.currentState.cell)) {
-        var scale = this.graph.view.scale
-        var tr = this.graph.view.translate
-        var pt = new mxPoint(this.graph.snap(me.getGraphX() / scale) - tr.x,
-          this.graph.snap(me.getGraphY() / scale) - tr.y)
-        this.edgeState.cell.geometry.setTerminalPoint(pt, false)
+      }
+      if (this.edgeState != null) {
+        this.edgeState.cell.geometry.setTerminalPoint(null, false)
+
+        if (this.shape != null && this.currentState != null &&
+          this.currentState.view.graph.model.isEdge(this.currentState.cell)) {
+          var scale = this.graph.view.scale
+          var tr = this.graph.view.translate
+          var pt = new mxPoint(this.graph.snap(me.getGraphX() / scale) - tr.x,
+            this.graph.snap(me.getGraphY() / scale) - tr.y)
+          this.edgeState.cell.geometry.setTerminalPoint(pt, false)
+        }
       }
     }
-  } }
-  catch(e){
+  }
+  catch (e) {
     console
   }
 
@@ -620,7 +619,7 @@ export default function LoadGrid (container, sidebar, outline) {
     return style
   }
 
-  function ResistorShape () { };
+  function ResistorShape() { };
   ResistorShape.prototype = new mxCylinder()
   ResistorShape.prototype.constructor = ResistorShape
 
@@ -681,19 +680,19 @@ export default function LoadGrid (container, sidebar, outline) {
     if (hints != null && hints.length > 0) {
       // FIXME: First segment not movable
       /* hint = state.view.transformControlPoint(state, hints[0]);
-			mxLog.show();
-			mxLog.debug(hints.length,'hints0.y='+hint.y, pt.y)
+      mxLog.show();
+      mxLog.debug(hints.length,'hints0.y='+hint.y, pt.y)
 
-			if (horizontal && Math.floor(hint.y) != Math.floor(pt.y))
-			{
-				mxLog.show();
-				mxLog.debug('add waypoint');
+      if (horizontal && Math.floor(hint.y) != Math.floor(pt.y))
+      {
+        mxLog.show();
+        mxLog.debug('add waypoint');
 
-				pt = new mxPoint(pt.x, hint.y);
-				result.push(pt);
-				pt = pt.clone();
-				//horizontal = !horizontal;
-			} */
+        pt = new mxPoint(pt.x, hint.y);
+        result.push(pt);
+        pt = pt.clone();
+        //horizontal = !horizontal;
+      } */
 
       for (var i = 0; i < hints.length; i++) {
         horizontal = !horizontal

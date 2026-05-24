@@ -1,3 +1,5 @@
+
+
 /* eslint-disable no-unused-vars */
 /* eslint-disable camelcase */
 /* eslint-disable new-cap */
@@ -165,6 +167,93 @@ export function DeleteComp() {
 // CLEAR WHOLE GRID
 export function ClearGrid() {
   graph.removeCells(graph.getChildVertices(graph.getDefaultParent()))
+}
+
+// SELECT ALL COMPONENTS
+export function SelectAll() {
+  graph.selectAll()
+}
+
+// Module-level clipboard for copy/paste
+var clipboardCells = null
+var pasteOffset = 0
+
+// COPY SELECTED COMPONENTS
+export function CopyComponents() {
+  console.log('[CopyComponents] called, graph exists:', !!graph)
+  var cells = graph.getSelectionCells()
+  console.log('[CopyComponents] selected cells:', cells ? cells.length : 'null')
+  if (cells != null && cells.length > 0) {
+    // Temporarily break circular references before cloning
+    var savedRefs = []
+    for (var i = 0; i < cells.length; i++) {
+      var cell = cells[i]
+      var cellRefs = []
+      if (cell.children) {
+        for (var j = 0; j < cell.children.length; j++) {
+          var child = cell.children[j]
+          cellRefs.push({
+            child: child,
+            ParentComponent: child.ParentComponent,
+            edges: child.edges
+          })
+          child.ParentComponent = null
+          child.edges = null
+        }
+      }
+      savedRefs.push(cellRefs)
+    }
+
+    try {
+      clipboardCells = graph.cloneCells(cells)
+      pasteOffset = 20
+      console.log('[CopyComponents] copied', clipboardCells.length, 'cells')
+    } catch (e) {
+      console.error('[CopyComponents] clone failed:', e)
+      clipboardCells = null
+    }
+
+    // Restore circular references on originals
+    for (var i = 0; i < cells.length; i++) {
+      var cellRefs = savedRefs[i]
+      for (var j = 0; j < cellRefs.length; j++) {
+        cellRefs[j].child.ParentComponent = cellRefs[j].ParentComponent
+        cellRefs[j].child.edges = cellRefs[j].edges
+      }
+    }
+  }
+}
+
+// PASTE COPIED COMPONENTS
+export function PasteComponents() {
+  console.log('[PasteComponents] called, clipboard:', clipboardCells ? clipboardCells.length : 'null')
+  if (clipboardCells != null && clipboardCells.length > 0) {
+    // Clone again from clipboard (also has no circular refs)
+    var clones = graph.cloneCells(clipboardCells)
+    graph.getModel().beginUpdate()
+    try {
+      var parent = graph.getDefaultParent()
+      for (var i = 0; i < clones.length; i++) {
+        var cell = clones[i]
+        if (cell.geometry != null) {
+          cell.geometry.x += pasteOffset
+          cell.geometry.y += pasteOffset
+        }
+        graph.addCell(cell, parent)
+        // Restore ParentComponent circular ref on pasted children
+        if (cell.children) {
+          for (var j = 0; j < cell.children.length; j++) {
+            cell.children[j].ParentComponent = cell
+          }
+        }
+      }
+    } finally {
+      graph.getModel().endUpdate()
+    }
+    graph.setSelectionCells(clones)
+    pasteOffset += 20
+    console.log('[PasteComponents] pasted', clones.length, 'cells')
+  }
 }
 
 export function rotateCell (cell, rot_ang) {
