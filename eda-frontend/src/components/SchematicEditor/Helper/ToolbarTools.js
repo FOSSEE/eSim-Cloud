@@ -8,6 +8,7 @@ import mxGraphFactory from 'mxgraph'
 import store from '../../../redux/store'
 import * as actions from '../../../redux/actions/actions'
 import ComponentParameters from './ComponentParametersData'
+import { findNearestWire, findNearestVSourcePin } from './SideBar'
 var graph
 var undoManager
 
@@ -449,6 +450,60 @@ export function ErcCheckNets() {
   }
 }
 
+// Function to get all probe nodes and branches from the canvas
+// Returns { voltageProbes: [{edgeId, color}], currentProbes: [{branch, color}] }
+export function GetProbeNodes () {
+  if (!graph) return { voltageProbes: [], currentProbes: [] }
+  var model = graph.getModel()
+  var voltageProbes = []
+  var currentProbes = []
+
+  Object.values(model.cells).forEach(function (cell) {
+    if (!cell || cell.CellType !== 'Probe') return
+
+    if (cell.probeType === 'V') {
+      var nodeLabel = null
+      
+      // Dynamically find the nearest wire to the probe's current position
+      var geo = model.getGeometry(cell)
+      var cx = geo ? geo.x + geo.width / 2 : 0
+      var cy = geo ? geo.y + geo.height / 2 : 0
+      var nearestWire = findNearestWire(cx, cy)
+      
+      if (nearestWire) {
+        var edge = nearestWire
+        if (edge.source && edge.source.ConnectedNode !== undefined && edge.source.ConnectedNode !== null) {
+          nodeLabel = String(edge.source.ConnectedNode)
+        } else if (edge.target && edge.target.ConnectedNode !== undefined && edge.target.ConnectedNode !== null) {
+          nodeLabel = String(edge.target.ConnectedNode)
+        } else if (edge.node !== undefined && edge.node !== null) {
+          nodeLabel = String(edge.node)
+        }
+      }
+      voltageProbes.push({ nodeLabel: nodeLabel, color: cell.probeColor || '#00e676', cellId: cell.id, probeLabel: cell.value })
+    } else if (cell.probeType === 'I') {
+      var branchLabel = null
+      
+      // Dynamically find the nearest V-Source pin
+      var geo = model.getGeometry(cell)
+      var cx = geo ? geo.x + geo.width / 2 : 0
+      var cy = geo ? geo.y + geo.height / 2 : 0
+      var nearestPin = findNearestVSourcePin(cx, cy)
+      
+      if (nearestPin) {
+        var pinParent = nearestPin.ParentComponent || nearestPin.parent
+        branchLabel = pinParent.properties
+          ? (pinParent.properties.PREFIX || pinParent.value || pinParent.symbol)
+          : pinParent.symbol
+      }
+      
+      currentProbes.push({ branch: branchLabel, color: cell.probeColor || '#ff9100', cellId: cell.id, probeLabel: cell.value })
+    }
+  })
+
+  return { voltageProbes, currentProbes }
+}
+
 // Function to generate Netlist
 export function GenerateNetList() {
 
@@ -467,7 +522,16 @@ export function GenerateNetList() {
     alert('ERC check failed')
   } else {
     var list = annotate(graph) // Fetching all the Cells on the GRID
+    var hasProbes = false
+    for (var p in list) {
+      if (list[p] && list[p].CellType === 'Probe') {
+        hasProbes = true
+        break
+      }
+    }
     for (var property in list) {
+      // Skip probe cells — they are not circuit components
+      if (list[property].CellType === 'Probe') continue
       if (list[property].Component === true && list[property].symbol !== 'PWR') {
         var compobj = {
           name: '',
@@ -515,7 +579,7 @@ export function GenerateNetList() {
                       // Souce or Target is Ground 
                     } else if (pin.edges[wire].source.ParentComponent.symbol === 'PWR' || pin.edges[wire].target.ParentComponent.symbol === 'PWR') {
                     //   pin.edges[wire].node = 0
-                      pin.edges[wire].value = 0
+                      pin.edges[wire].value = hasProbes ? '' : 0
                       pin.edges[wire].sourceVertex = pin.edges[wire].source.id
                       pin.edges[wire].targetVertex = pin.edges[wire].target.id
                       // Pin to Pin Connection, Setting the Source to be the Node Value 
@@ -524,9 +588,9 @@ export function GenerateNetList() {
                       // pin.ConnectedNode = pin.edges[wire].source.ParentComponent.properties.PREFIX + '.' + pin.edges[wire].source.value
                       pin.edges[wire].sourceVertex = pin.edges[wire].source.id
                       pin.edges[wire].targetVertex = pin.edges[wire].target.id
-                      pin.edges[wire].value = pin.edges[wire].node
+                      pin.edges[wire].value = hasProbes ? '' : pin.edges[wire].node
                     }
-                    pin.edges[wire].value = pin.edges[wire].node
+                    pin.edges[wire].value = hasProbes ? '' : pin.edges[wire].node
                   }
                 }
                 k = k + ' ' + pin.edges[0].node
@@ -754,6 +818,13 @@ function annotate(graph) {
   } else {
     // DFS _________
     var NODE_SETS = []
+    var hasProbes = false
+    for (var p in list) {
+      if (list[p] && list[p].CellType === 'Probe') {
+        hasProbes = true
+        break
+      }
+    }
     // console.log('dfs init')
     var ptr = 1
     var mp = Array(5000).fill(0)
@@ -889,11 +960,11 @@ function annotate(graph) {
                       if (i === 0) {
                         pin.edges[wire].node = 0
                         pin.ConnectedNode = 0
-                        pin.edges[wire].value = pin.edges[wire].node
+                        pin.edges[wire].value = hasProbes ? '' : pin.edges[wire].node
                       } else {
                         pin.edges[wire].node = "COM." + i.toString()
                         pin.ConnectedNode = 'COM.' + i.toString() 
-                        pin.edges[wire].value = pin.edges[wire].node
+                        pin.edges[wire].value = hasProbes ? '' : pin.edges[wire].node
                       }
                       done = 1
                       // console.log("VALUE SET TO ", pin.edges[wire].ConnectedNode)

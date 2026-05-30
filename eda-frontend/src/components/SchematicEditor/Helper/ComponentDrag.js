@@ -11,7 +11,7 @@ import dot from '../../../static/dot.gif'
 // import NetlistInfoFunct from './NetlistInfo.js'
 import ToolbarTools from './ToolbarTools.js'
 import KeyboardShorcuts from './KeyboardShorcuts.js'
-import { SideBar } from './SideBar.js'
+import { SideBar, magneticSnap } from './SideBar.js'
 import KiCadFileUtils from './KiCadFileUtils'
 
 var graph
@@ -45,7 +45,7 @@ const {
   mxImage
 } = new mxGraphFactory()
 
-export default function LoadGrid(container, sidebar, outline) {
+export default function LoadGrid(container, sidebar, outline, minimap) {
   // Checks if the browser is supported
   if (!mxClient.isBrowserSupported()) {
     // Displays an error message if the browser is not supported.
@@ -81,7 +81,176 @@ export default function LoadGrid(container, sidebar, outline) {
 
     // Enables guides
     mxGraphHandler.prototype.guidesEnabled = true
+    mxGraphHandler.prototype.maxLivePreview = 999
     mxEdgeHandler.prototype.snapToTerminals = true
+
+    // Real-time Magnetic Snap during drag
+    var oldGetDelta = mxGraphHandler.prototype.getDelta
+    mxGraphHandler.prototype.getDelta = function (me) {
+      var delta = oldGetDelta.apply(this, arguments)
+
+      if (this.cells && this.cells.length === 1 && this.cells[0].CellType === 'Component') {
+        var movedCell = this.cells[0]
+        var model = this.graph.getModel()
+
+        // Collect pins of the moved component
+        var movedPins = []
+        var movedChildren = model.getChildCount(movedCell)
+        for (var mi = 0; mi < movedChildren; mi++) {
+          var ch = model.getChildAt(movedCell, mi)
+          if (ch && ch.Pin) movedPins.push(ch)
+        }
+
+        if (movedPins.length > 0) {
+          // Collect static pins
+          var staticPins = []
+          var allCells = model.cells
+          Object.values(allCells).forEach(function (cell) {
+            if (cell && cell.Pin && cell.ParentComponent !== movedCell && cell.parent !== movedCell) {
+              staticPins.push(cell)
+            }
+          })
+
+          var scale = this.graph.view.scale
+          var graphDx = delta.x / scale
+          var graphDy = delta.y / scale
+
+          var SNAP_TOLERANCE = 20
+          var bestDist = SNAP_TOLERANCE
+          var bestDx = delta.x
+          var bestDy = delta.y
+          var snapped = false
+
+          movedPins.forEach(function (mp) {
+            var mpos = {
+              x: movedCell.geometry.x + mp.geometry.x + graphDx,
+              y: movedCell.geometry.y + mp.geometry.y + graphDy
+            }
+
+            staticPins.forEach(function (sp) {
+              var parent = sp.ParentComponent || sp.parent
+              if (!parent) return
+              var spos = {
+                x: parent.geometry.x + sp.geometry.x,
+                y: parent.geometry.y + sp.geometry.y
+              }
+
+              var dx = mpos.x - spos.x
+              var dy = mpos.y - spos.y
+              var dist = Math.sqrt(dx * dx + dy * dy)
+
+              if (dist < bestDist) {
+                bestDist = dist
+                var requiredGraphDx = spos.x - (movedCell.geometry.x + mp.geometry.x)
+                var requiredGraphDy = spos.y - (movedCell.geometry.y + mp.geometry.y)
+                
+                bestDx = requiredGraphDx * scale
+                bestDy = requiredGraphDy * scale
+                snapped = true
+              }
+            })
+          })
+
+          if (snapped) {
+            delta.x = bestDx
+            delta.y = bestDy
+          }
+        }
+      } else if (this.cells && this.cells.length === 1 && this.cells[0].CellType === 'Probe') {
+        var probeCell = this.cells[0]
+        var model = this.graph.getModel()
+        var scale = this.graph.view.scale
+        var graphDx = delta.x / scale
+        var graphDy = delta.y / scale
+        
+        // Probe tip is at the bottom-left of the bounding box
+        var tipX = probeCell.geometry.x + 10 + graphDx
+        var tipY = probeCell.geometry.y + probeCell.geometry.height - 10 + graphDy
+
+        var SNAP_TOLERANCE = 20
+        var bestDist = SNAP_TOLERANCE
+        var bestDx = delta.x
+        var bestDy = delta.y
+        var snapped = false
+
+        if (probeCell.probeType === 'V') {
+          // Snap to wires
+          Object.values(model.cells).forEach(function (cell) {
+            if (!cell || !cell.edge) return
+            var state = this.graph.view.getState(cell)
+            if (!state || !state.absolutePoints || state.absolutePoints.length < 2) return
+            var pts = state.absolutePoints
+            var tr = this.graph.view.translate
+            
+            for (var i = 0; i < pts.length - 1; i++) {
+              var p1 = pts[i]
+              var p2 = pts[i + 1]
+              
+              if (!p1 && i === 0) {
+                var srcState = state.getVisibleTerminalState(true)
+                if (srcState) p1 = { x: srcState.x + srcState.width / 2, y: srcState.y + srcState.height / 2 }
+              }
+              if (!p2 && i + 1 === pts.length - 1) {
+                var trgState = state.getVisibleTerminalState(false)
+                if (trgState) p2 = { x: trgState.x + trgState.width / 2, y: trgState.y + trgState.height / 2 }
+              }
+              
+              if (!p1 || !p2) continue
+
+              var ax = p1.x / scale - tr.x
+              var ay = p1.y / scale - tr.y
+              var bx = p2.x / scale - tr.x
+              var by = p2.y / scale - tr.y
+
+              var dx = bx - ax; var dy = by - ay
+              var lenSq = dx * dx + dy * dy
+              var t = lenSq === 0 ? 0 : Math.max(0, Math.min(1, ((tipX - ax) * dx + (tipY - ay) * dy) / lenSq))
+              var cx = ax + t * dx
+              var cy = ay + t * dy
+              var dist = Math.sqrt((tipX - cx) * (tipX - cx) + (tipY - cy) * (tipY - cy))
+              
+              if (dist < bestDist) {
+                bestDist = dist
+                var requiredGraphDx = cx - (probeCell.geometry.x + 10)
+                var requiredGraphDy = cy - (probeCell.geometry.y + probeCell.geometry.height - 10)
+                bestDx = requiredGraphDx * scale
+                bestDy = requiredGraphDy * scale
+                snapped = true
+              }
+            }
+          }, this)
+        } else if (probeCell.probeType === 'I') {
+          // Snap to V-Source pins
+          Object.values(model.cells).forEach(function (cell) {
+            if (!cell || !cell.Pin) return
+            var parent = cell.ParentComponent || cell.parent
+            if (!parent || (parent.symbol !== 'V' && parent.symbol !== 'v')) return
+            var pGeo = model.getGeometry(parent)
+            var pinGeo = model.getGeometry(cell)
+            if (!pGeo || !pinGeo) return
+            var px = pGeo.x + pinGeo.x
+            var py = pGeo.y + pinGeo.y
+            
+            var dist = Math.sqrt((tipX - px) * (tipX - px) + (tipY - py) * (tipY - py))
+            if (dist < bestDist) {
+              bestDist = dist
+              var requiredGraphDx = px - (probeCell.geometry.x + 10)
+              var requiredGraphDy = py - (probeCell.geometry.y + probeCell.geometry.height - 10)
+              bestDx = requiredGraphDx * scale
+              bestDy = requiredGraphDy * scale
+              snapped = true
+            }
+          })
+        }
+
+        if (snapped) {
+          delta.x = bestDx
+          delta.y = bestDy
+        }
+      }
+
+      return delta
+    }
 
     // Enable cell Rotation
     // mxVertexHandler.prototype.rotationEnabled = true
@@ -92,8 +261,11 @@ export default function LoadGrid(container, sidebar, outline) {
 
     mxConnectionHandler.prototype.movePreviewAway = false
     mxConnectionHandler.prototype.waypointsEnabled = true
+    mxConnectionHandler.prototype.livePreview = true
     mxGraph.prototype.resetEdgesOnConnect = false
     mxConstants.SHADOWCOLOR = '#C0C0C0'
+    mxConstants.VALID_COLOR = '#FF0000'
+    mxConstants.INVALID_COLOR = '#FF0000'
     var joinNodeSize = 7
     var strokeWidth = 2
 
@@ -108,17 +280,113 @@ export default function LoadGrid(container, sidebar, outline) {
       outln.outline.labelsVisible = true
       outln.outline.setHtmlLabels(true)
 
+    if (minimap != null) {
+      // Create an independent mxGraph for the minimap that shares the same model
+      var minimapGraph = new mxGraph(minimap, graph.getModel())
+      minimapGraph.setEnabled(false) // Read-only, no editing
+      minimapGraph.labelsVisible = true
+      minimapGraph.setHtmlLabels(true)
+      minimapGraph.foldingEnabled = false
+      minimapGraph.setTooltips(false)
 
-      graph.view.scale = 1
-      graph.setPanning(true)
-      graph.setConnectable(true)
-      graph.setConnectableEdges(true)
-      graph.setDisconnectOnMove(false)
-      graph.foldingEnabled = false
+      // Copy the main graph's stylesheet so wires render with the same edge routing
+      minimapGraph.setStylesheet(graph.getStylesheet())
 
-      // Panning handler consumed right click so this must be
-      // disabled if right click should stop connection handler.
+      // Function to fit the minimap to show all components edge-to-edge
+      var fitMinimap = function () {
+        // Reset to identity so getGraphBounds returns graph-coordinate bounds
+        minimapGraph.view.scaleAndTranslate(1, 0, 0)
+
+        var bounds = minimapGraph.getGraphBounds()
+        if (bounds.width === 0 && bounds.height === 0) return
+
+        var cw = minimap.clientWidth
+        var ch = minimap.clientHeight
+        if (cw === 0 || ch === 0) return
+
+        var padding = 10
+        var availW = cw - padding * 2
+        var availH = ch - padding * 2
+
+        var scale = Math.min(availW / bounds.width, availH / bounds.height)
+        // Cap scale so a single tiny component doesn't blow up
+        scale = Math.min(scale, 2)
+
+        // Center: pixel = (graphX + tx) * scale
+        // We want bounds.x to map to pixel offsetX
+        var scaledW = bounds.width * scale
+        var scaledH = bounds.height * scale
+        var offsetX = (cw - scaledW) / 2
+        var offsetY = (ch - scaledH) / 2
+
+        var tx = offsetX / scale - bounds.x
+        var ty = offsetY / scale - bounds.y
+
+        minimapGraph.view.scaleAndTranslate(scale, tx, ty)
+      }
+
+      // Update minimap whenever the main graph's model changes
+      graph.getModel().addListener('change', function () {
+        setTimeout(fitMinimap, 50) // Small delay to let the model settle
+      })
+
+      // Also fit on initial load
+      setTimeout(fitMinimap, 200)
+    }
+
+    graph.view.scale = 1
+    graph.setPanning(true)
+    graph.setConnectable(true)
+    graph.setConnectableEdges(true)
+    graph.setDisconnectOnMove(false)
+    graph.foldingEnabled = false
+
+    // Panning handler configuration
+      // Use left mouse button for panning (on empty canvas)
+      graph.panningHandler.useLeftButtonForPanning = true
       graph.panningHandler.isPopupTrigger = function () { return false }
+      graph.panningHandler.isForcePanningEvent = function (me) {
+        var evt = me.getEvent()
+        // Pan if left-click-and-drag on empty canvas
+        var isLeftClickCanvas = mxEvent.isLeftMouseButton(evt) && me.getState() == null
+        return isLeftClickCanvas
+      }
+
+      // Add Mouse Wheel Zooming (cursor-centric)
+      mxEvent.addMouseWheelListener(function (evt, up) {
+        if (mxEvent.isConsumed(evt)) return
+        
+        var rect = graph.container.getBoundingClientRect()
+        var x = evt.clientX - rect.left
+        var y = evt.clientY - rect.top
+        
+        var prevScale = graph.view.scale
+        var prevTranslate = graph.view.translate
+        
+        var zoomFactor = 1.05 // Smoother, slower zoom for scroll wheels
+        
+        var oldCenterZoom = graph.centerZoom
+        graph.centerZoom = false // Prevent mxGraph from centering the zoom
+        
+        if (up) {
+          graph.zoom(zoomFactor)
+        } else {
+          graph.zoom(1 / zoomFactor)
+        }
+        
+        var newScale = graph.view.scale
+        if (newScale !== prevScale) {
+          var newTranslate = new mxPoint(
+            prevTranslate.x - x * (1 / prevScale - 1 / newScale),
+            prevTranslate.y - y * (1 / prevScale - 1 / newScale)
+          )
+          graph.view.setTranslate(newTranslate.x, newTranslate.y)
+        }
+        
+        graph.centerZoom = oldCenterZoom
+        
+        mxEvent.consume(evt)
+      }, graph.container)
 
       // Enables return key to stop editing (use shift-enter for newlines)
       graph.setEnterStopsCellEditing(true)
@@ -248,7 +516,7 @@ export default function LoadGrid(container, sidebar, outline) {
     style.fontColor = fontColor
     style.fontSize = '9'
     style.movable = '0'
-    style.strokeWidth = strokeWidth
+    style.strokeWidth = '1'
     // style['rounded'] = '1';
 
     // Sets join node size
@@ -277,6 +545,17 @@ export default function LoadGrid(container, sidebar, outline) {
     //NetlistInfoFunct(graph)
     ToolbarTools(graph)
     KiCadFileUtils(graph)
+
+    // Magnetic Snap: when an existing component is moved, auto-wire nearby pins
+    graph.addListener(mxEvent.CELLS_MOVED, function (sender, evt) {
+      var cells = evt.getProperty('cells')
+      if (!cells) return
+      cells.forEach(function (cell) {
+        if (cell && cell.CellType === 'Component') {
+          magneticSnap(cell)
+        }
+      })
+    })
 
     store.subscribe(() => {
       var id = store.getState().componentPropertiesReducer.id
@@ -446,7 +725,11 @@ export default function LoadGrid(container, sidebar, outline) {
       edge.geometry.setTerminalPoint(pt, true)
     }
 
-    return this.graph.view.createState(edge)
+    var state = this.graph.view.createState(edge)
+    state.style[mxConstants.STYLE_STROKECOLOR] = '#FF0000'
+    state.style[mxConstants.STYLE_DASHED] = '0'
+    state.style[mxConstants.STYLE_STROKEWIDTH] = '1'
+    return state
   }
 
   // Uses right mouse button to create edges on background (see also: lines 67 ff)
@@ -721,10 +1004,10 @@ export default function LoadGrid(container, sidebar, outline) {
     }
 
     if (horizontal) {
-      if (pt.y !== hint.y && first.x !== pt.x) {
+      if (pt.y !== hint.y && hint.x !== pt.x) {
         result.push(new mxPoint(pt.x, hint.y))
       }
-    } else if (pt.x !== hint.x && first.y !== pt.y) {
+    } else if (pt.x !== hint.x && hint.y !== pt.y) {
       result.push(new mxPoint(hint.x, pt.y))
     }
   }

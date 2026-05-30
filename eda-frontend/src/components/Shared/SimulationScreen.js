@@ -1,12 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import PropTypes from 'prop-types'
 import {
-  Slide,
   Button,
-  Dialog,
-  AppBar,
-  Toolbar,
-  IconButton,
   Typography,
   Grid,
   TextField,
@@ -30,12 +25,9 @@ import api from '../../utils/Api'
 import queryString from 'query-string'
 
 import Graph from './Graph'
+import { GetProbeNodes } from '../SchematicEditor/Helper/ToolbarTools'
 
 const FileSaver = require('file-saver')
-
-const Transition = React.forwardRef(function Transition (props, ref) {
-  return <Slide direction="up" ref={ref} {...props} />
-})
 
 const useStyles = makeStyles((theme) => ({
   appBar: {
@@ -47,13 +39,14 @@ const useStyles = makeStyles((theme) => ({
   },
   header: {
     padding: theme.spacing(5, 0, 6),
-    color: '#fff'
+    color: '#333'
   },
   paper: {
     padding: theme.spacing(2),
     textAlign: 'center',
-    backgroundColor: '#404040',
-    color: '#fff'
+    backgroundColor: '#fff',
+    color: '#333',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
   }
 }))
 // {details:{},title:''} simResults
@@ -75,6 +68,7 @@ export default function SimulationScreen ({ open, close, isResult, taskId, simTy
   const [comparingSim, setComparingSim] = React.useState('')
   const [compare, setCompare] = React.useState(false)
   const [compareNetlist, setCompareNetlist] = React.useState(false)
+  const [isOverlapping, setIsOverlapping] = React.useState(false)
   const precisionArr = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
   const scalesNonGraph = []
   const scalesNonGraphCompare = []
@@ -281,12 +275,95 @@ export default function SimulationScreen ({ open, close, isResult, taskId, simTy
     }
     return ['notDecimal', 0]
   }
+  const [filteredGraph, setFilteredGraph] = React.useState(null)
+
   useEffect(() => {
     if (isResult === true) {
       let g, val, idx
       if (result.graph !== {} && result.isGraph !== 'false') {
         g = 1
         setScales(g, val, idx, null, null, result.graph)
+
+        // --- Probe filtering ---
+        try {
+          const { voltageProbes, currentProbes } = GetProbeNodes()
+          const hasProbes = voltageProbes.length > 0 || currentProbes.length > 0
+
+          if (hasProbes && result.graph && result.graph.labels) {
+            const labels = result.graph.labels
+            const probeColors = {}
+
+            // Build new label and y_point arrays directly
+            const filteredLabels = [labels[0]] // always keep x-axis (index 0 = time/freq label)
+            const filteredYPoints = []
+            let nextIndex = 1
+
+            voltageProbes.forEach(p => {
+              if (!p.nodeLabel) return
+              let found = false
+              labels.forEach((lbl, i) => {
+                if (i === 0) return
+                // ngspice labels look like "v(com.1)" or "v(0)" — match flexibly
+                const normalizedLbl = lbl.toLowerCase().replace(/[().]/g, '')
+                const normalizedNode = String(p.nodeLabel).toLowerCase().replace(/[().]/g, '')
+                if (normalizedLbl.includes(normalizedNode)) {
+                  filteredLabels.push(p.probeLabel || lbl)
+                  filteredYPoints.push(result.graph.y_points[i - 1])
+                  probeColors[nextIndex] = p.color
+                  nextIndex++
+                  found = true
+                }
+              })
+              if (!found) {
+                // If backend didn't return this node (like node 0 / GND), assume it is 0
+                filteredLabels.push(p.probeLabel || `v(${p.nodeLabel})`)
+                filteredYPoints.push(new Array(result.graph.x_points.length).fill(0))
+                probeColors[nextIndex] = p.color || '#00e676'
+                nextIndex++
+              }
+            })
+
+            currentProbes.forEach(p => {
+              if (!p.branch) return
+              let found = false
+              labels.forEach((lbl, i) => {
+                if (i === 0) return
+                const normalizedLbl = lbl.toLowerCase()
+                const normalizedBranch = String(p.branch).toLowerCase()
+                if (normalizedLbl.includes(normalizedBranch) && normalizedLbl.includes('#branch')) {
+                  filteredLabels.push(p.probeLabel || lbl)
+                  filteredYPoints.push(result.graph.y_points[i - 1])
+                  probeColors[nextIndex] = p.color
+                  nextIndex++
+                  found = true
+                }
+              })
+              if (!found) {
+                filteredLabels.push(p.probeLabel || `i(${p.branch})`)
+                filteredYPoints.push(new Array(result.graph.x_points.length).fill(0))
+                probeColors[nextIndex] = p.color || '#ff9100'
+                nextIndex++
+              }
+            })
+
+            if (filteredLabels.length > 1) {
+              
+              setFilteredGraph({
+                labels: filteredLabels,
+                x_points: result.graph.x_points,
+                y_points: filteredYPoints,
+                probeColors
+              })
+            } else {
+              setFilteredGraph(null) // No matched probes — show all
+            }
+          } else {
+            setFilteredGraph(null) // No probes placed — show all
+          }
+        } catch (e) {
+          setFilteredGraph(null)
+        }
+        // --- End probe filtering ---
       } else {
         g = 0
         addScalesNonGraph(g, result.text, exactDecimalArray, scalesNonGraph, setScalesNonGraph, setExactDecimal)
@@ -478,26 +555,7 @@ export default function SimulationScreen ({ open, close, isResult, taskId, simTy
   }
 
   return (
-    <div>
-      <Dialog fullScreen open={open} onClose={close} TransitionComponent={Transition} PaperProps={{
-        style: {
-          backgroundColor: '#4d4d4d',
-          boxShadow: 'none'
-        }
-      }}>
-        <AppBar position="static" elevation={0} className={classes.appBar}>
-          <Toolbar variant="dense" style={{ backgroundColor: '#404040' }} >
-            <IconButton edge="start" color="inherit" onClick={close} aria-label="close">
-              <CloseIcon />
-            </IconButton>
-            <Typography variant="h6" className={classes.title}>
-              Simulation Result
-            </Typography>
-            <Button autoFocus color="inherit" onClick={close}>
-              close
-            </Button>
-          </Toolbar>
-        </AppBar>
+    <div style={{ height: '100%', overflowY: 'auto' }}>
         <Container maxWidth="lg" className={classes.header}>
           <Grid
             container
@@ -506,17 +564,7 @@ export default function SimulationScreen ({ open, close, isResult, taskId, simTy
             justify="center"
             alignItems="center"
           >
-            {/* Card to display simualtion result screen header */}
-            <Grid item xs={12} sm={12}>
-              <Paper className={classes.paper}>
-                <Typography variant="h2" align="center" gutterBottom>
-                  {result.title}
-                </Typography>
-                <Typography variant="h5" align="center" component="p" gutterBottom>
-                  Simulation Result for {stitle}
-                </Typography>
-              </Paper>
-            </Grid>
+            {/* Card to display simualtion result screen header removed */}
 
             {/* Display graph result */}
             {isResult === true
@@ -529,9 +577,9 @@ export default function SimulationScreen ({ open, close, isResult, taskId, simTy
                         <Typography variant="h4" align="center" gutterBottom>
                           GRAPH OUTPUT
                         </Typography>
-                        <div style={{ padding: '15px 10px 10px 10px', margin: '20px 0px', backgroundColor: 'white', borderRadius: '5px' }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', alignItems: 'center', justifyContent: 'center', padding: '15px', margin: '20px 0px', backgroundColor: 'white', borderRadius: '5px' }}>
                           <TextField
-                            style={{ width: '20%' }}
+                            style={{ minWidth: '150px', flex: 1 }}
                             id="xscale"
                             size='small'
                             variant="outlined"
@@ -571,7 +619,7 @@ export default function SimulationScreen ({ open, close, isResult, taskId, simTy
 
                           </TextField>
                           <TextField
-                            style={{ width: '20%', marginLeft: '10px' }}
+                            style={{ minWidth: '150px', flex: 1 }}
                             id="yscale"
                             size='small'
                             variant="outlined"
@@ -612,7 +660,7 @@ export default function SimulationScreen ({ open, close, isResult, taskId, simTy
                           </TextField>
 
                           <TextField
-                            style={{ width: '20%', marginLeft: '10px' }}
+                            style={{ minWidth: '150px', flex: 1 }}
                             id="precision"
                             size='small'
                             variant="outlined"
@@ -635,7 +683,7 @@ export default function SimulationScreen ({ open, close, isResult, taskId, simTy
                             }
 
                           </TextField>
-                          {history && <FormControl variant="outlined" size='small' style={{ marginLeft: '1%' }} className={classes.formControl}>
+                          {history && <FormControl variant="outlined" size='small' style={{ minWidth: '200px', flex: 1 }} className={classes.formControl}>
                             <InputLabel htmlFor="outlined-age-native-simple">Compare simulation</InputLabel>
                             <Select
                               labelId="select-simulation-history"
@@ -654,18 +702,50 @@ export default function SimulationScreen ({ open, close, isResult, taskId, simTy
                               })}
                             </Select>
                           </FormControl>}
-                          {result.isGraph === 'true' && !compare && <Button variant="contained" style={{ marginLeft: '1%' }} color="primary" size="medium" onClick={handleCsvDownload}>
+                          {result.isGraph === 'true' && !compare && <Button variant="outlined" color="primary" size="medium" onClick={() => setIsOverlapping(!isOverlapping)} style={{ minWidth: '150px', marginLeft: '10px' }}>
+                            {isOverlapping ? "Disable Overlap" : "Enable Overlap"}
+                          </Button>}
+                          {result.isGraph === 'true' && !compare && <Button variant="contained" color="primary" size="medium" onClick={handleCsvDownload} style={{ minWidth: '200px', marginLeft: '10px' }}>
                             Download Graph Output
                           </Button>}
                         </div>
-                        {!compare && <Graph
-                          labels={result.graph.labels}
-                          x={result.graph.x_points}
-                          y={result.graph.y_points}
-                          xscale={xscale}
-                          yscale={yscale}
-                          precision={precision}
-                        />}
+                        {!compare && (isOverlapping ? (
+                          <Graph
+                            labels={(filteredGraph || result.graph).labels}
+                            x={(filteredGraph || result.graph).x_points}
+                            y={(filteredGraph || result.graph).y_points}
+                            xscale={xscale}
+                            yscale={yscale}
+                            precision={precision}
+                            probeColors={filteredGraph ? filteredGraph.probeColors : null}
+                          />
+                        ) : (
+                          (filteredGraph || result.graph).y_points && (filteredGraph || result.graph).y_points.map((y_trace, i) => {
+                            const isolatedLabels = [
+                              (filteredGraph || result.graph).labels[0],
+                              (filteredGraph || result.graph).labels[i + 1]
+                            ];
+                            const originalColors = filteredGraph ? filteredGraph.probeColors : null;
+                            const isolatedColors = originalColors && originalColors[i + 1] ? { 1: originalColors[i + 1] } : null;
+                            
+                            return (
+                              <div key={i} style={{ marginBottom: '20px', paddingBottom: '20px', borderBottom: i < (filteredGraph || result.graph).y_points.length - 1 ? '1px solid #eee' : 'none' }}>
+                                <Typography variant="subtitle1" align="center" style={{ fontWeight: 'bold' }}>
+                                  {isolatedLabels[1]}
+                                </Typography>
+                                <Graph
+                                  labels={isolatedLabels}
+                                  x={(filteredGraph || result.graph).x_points}
+                                  y={[y_trace]}
+                                  xscale={xscale}
+                                  yscale={yscale}
+                                  precision={precision}
+                                  probeColors={isolatedColors}
+                                />
+                              </div>
+                            )
+                          })
+                        ))}
                         {compare && comparingSim && <div style={{ display: 'flex' }}>
                           <TableContainer component={Paper} style={{ float: 'left' }}>
                             <Table className={classes.table} aria-label="simple table">
@@ -911,16 +991,18 @@ export default function SimulationScreen ({ open, close, isResult, taskId, simTy
                     : <span></span>
                 }</>
               : <Grid item xs={12} sm={12}>
-                <Paper className={classes.paper}>
-                  <Typography variant="h6" align="center" gutterBottom>
-                    SOMETHING WENT WRONG PLEASE CHECK THE NETLIST.
+                <Paper className={classes.paper} style={{ padding: '40px', marginTop: '20px' }}>
+                  <Typography variant="h5" align="center" gutterBottom style={{ color: '#ccc' }}>
+                    Simulation Results Will Appear Here
+                  </Typography>
+                  <Typography variant="body1" align="center" style={{ color: '#aaa' }}>
+                    Configure your simulation settings on the right panel and click Run.
                   </Typography>
                 </Paper>
               </Grid>
             }
           </Grid>
         </Container>
-      </Dialog>
     </div>
   )
 }

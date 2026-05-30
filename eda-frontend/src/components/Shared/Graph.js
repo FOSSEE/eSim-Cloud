@@ -3,10 +3,8 @@ import React, { Component } from 'react'
 import Chart from 'chart.js'
 
 import 'chartjs-plugin-colorschemes'
-let lineGraph
-
 // Chart Style Options
-Chart.defaults.global.defaultFontColor = '#e6e6e6'
+Chart.defaults.global.defaultFontColor = '#333'
 
 class Graph extends Component {
   chartRef = React.createRef();
@@ -17,6 +15,12 @@ class Graph extends Component {
 
   componentDidUpdate () {
     this.buildChart()
+  }
+
+  componentWillUnmount () {
+    if (this.lineGraph) {
+      this.lineGraph.destroy()
+    }
   }
 
   buildChart = () => {
@@ -33,18 +37,24 @@ class Graph extends Component {
       n: { value: 0.000000001, ticks: 9 },
       p: { value: 0.000000000001, ticks: 11 }
     }
-    if (typeof lineGraph !== 'undefined') lineGraph.destroy()
+    if (this.lineGraph) this.lineGraph.destroy()
 
     const dataset = () => {
       var arr = []
 
       for (var i = 0; i < y.length; i++) {
         if (labels[0] === labels[i + 1]) continue
+        
+        const color = this.props.probeColors && this.props.probeColors[i + 1] ? this.props.probeColors[i + 1] : undefined
+
         arr.push({
           label: labels[i + 1],
           data: y[i].map(e => (e / scales[yscale].value).toFixed(precision)),
-          fill: false
-          // borderColor: getRandomColor()
+          fill: false,
+          borderColor: color,
+          backgroundColor: color,
+          borderWidth: 1,
+          pointRadius: 0
         })
       }
       return arr
@@ -77,7 +87,7 @@ class Graph extends Component {
       }
     }
 
-    lineGraph = new Chart(myChartRef, {
+    this.lineGraph = new Chart(myChartRef, {
       type: 'line',
       data: {
 
@@ -103,7 +113,11 @@ class Graph extends Component {
         tooltips: {
           mode: 'index',
           intersect: false,
-          backgroundColor: '#39604d'
+          backgroundColor: '#f5f5f5',
+          titleFontColor: '#333',
+          bodyFontColor: '#333',
+          borderColor: '#ddd',
+          borderWidth: 1
         },
         hover: {
           mode: 'nearest',
@@ -114,7 +128,7 @@ class Graph extends Component {
             {
               display: true,
               gridLines: {
-                color: '#67737e'
+                color: '#e0e0e0'
               },
               scaleLabel: {
                 display: true,
@@ -134,7 +148,7 @@ class Graph extends Component {
                 labelString: 'Volatge ( V )'
               },
               gridLines: {
-                color: '#67737e'
+                color: '#e0e0e0'
               },
               ticks: {
                 // beginAtZero: true,
@@ -151,7 +165,7 @@ class Graph extends Component {
   render () {
     return (
       <div>
-        <canvas id="myChart" ref={this.chartRef} />
+        <canvas ref={this.chartRef} />
       </div>
     )
   }

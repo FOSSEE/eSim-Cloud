@@ -10,6 +10,7 @@ import IconButton from '@material-ui/core/IconButton'
 
 import './Helper/SchematicEditor.css'
 import { AddComponent } from './Helper/SideBar.js'
+import { prefetchSvg } from './Helper/SvgParser.js'
 
 const useStyles = makeStyles((theme) => ({
   popupInfo: {
@@ -47,6 +48,8 @@ export default function SideComp ({ isFavourite = false, favourite, setFavourite
   const id = open ? 'simple-popover' : undefined
 
   useEffect(() => {
+    // Pre-fetch SVG data so first drag is instant (no network wait)
+    prefetchSvg(component)
     // Function call to make components draggable
     AddComponent(component, imageRef.current)
     // eslint-disable-next-line
@@ -122,8 +125,13 @@ export default function SideComp ({ isFavourite = false, favourite, setFavourite
   return (
     <div>
       <Tooltip title={component.full_name + ' : ' + component.description} arrow>
-        {/* Display Image thumbnail in left side pane */}
-        <img ref={imageRef} className='compImage' src={'../' + component.svg_path} alt="Logo" aria-describedby={id} onClick={handleClick} />
+        {/* Display Image thumbnail in left side pane with label underneath */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+          <img ref={imageRef} className='compImage' src={'../' + component.svg_path} alt="Logo" aria-describedby={id} onClick={handleClick} />
+          <span style={{ fontSize: '11px', textAlign: 'center', marginTop: '4px', color: '#555', wordBreak: 'break-word', lineHeight: '1.2' }}>
+            {component.name}
+          </span>
+        </div>
       </Tooltip>
 
       {/* Popover to display component information on single click */}
