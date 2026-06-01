@@ -256,7 +256,7 @@ export function HelpScreen ({ open, close }) {
                     Rotate Component Clockwise
                   </Typography>
                   <Typography variant="subtitle1" align='left' style={{ color: '#b3b3b3' }} gutterBottom>
-                    Alt + Right Arrow
+                    Alt + Right Arrow / Ctrl + R
                   </Typography>
                   <Divider />
                   <Typography variant="h6" align='left' gutterBottom>
@@ -267,10 +267,38 @@ export function HelpScreen ({ open, close }) {
                   </Typography>
                   <Divider />
                   <Typography variant="h6" align='left' gutterBottom>
+                    Delete Component
+                  </Typography>
+                  <Typography variant="subtitle1" align='left' style={{ color: '#b3b3b3' }} gutterBottom>
+                    Delete
+                  </Typography>
+                  <Divider />
+                  <Typography variant="h6" align='left' gutterBottom>
                     Clear All
                   </Typography>
                   <Typography variant="subtitle1" align='left' style={{ color: '#b3b3b3' }} gutterBottom>
                     Shift + Del
+                  </Typography>
+                  <Divider />
+                  <Typography variant="h6" align='left' gutterBottom>
+                    Select All
+                  </Typography>
+                  <Typography variant="subtitle1" align='left' style={{ color: '#b3b3b3' }} gutterBottom>
+                    Ctrl + A
+                  </Typography>
+                  <Divider />
+                  <Typography variant="h6" align='left' gutterBottom>
+                    Copy Component
+                  </Typography>
+                  <Typography variant="subtitle1" align='left' style={{ color: '#b3b3b3' }} gutterBottom>
+                    Ctrl + C
+                  </Typography>
+                  <Divider />
+                  <Typography variant="h6" align='left' gutterBottom>
+                    Paste Component
+                  </Typography>
+                  <Typography variant="subtitle1" align='left' style={{ color: '#b3b3b3' }} gutterBottom>
+                    Ctrl + V
                   </Typography>
                 </fieldset>
               </Paper>

@@ -9,7 +9,8 @@ import LayoutSidebar from './LayoutSidebar'
 const useStyles = makeStyles((theme) => ({
   appBar: {
     borderBottom: `1px solid ${theme.palette.divider}`,
-    zIndex: theme.zIndex.drawer + 1
+    zIndex: theme.zIndex.drawer + 1,
+    overflow: 'visible'
   },
   menuButton: {
     marginRight: theme.spacing(1),

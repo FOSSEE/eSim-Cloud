@@ -88,7 +88,7 @@ export const deleteProject = (project_id) => (dispatch, getState) => {
       }
     )
     .catch((err) => {
-      console.log(err)
+      console.error(err)
     })
 }
 export const fetchReports = (projectID) => (dispatch, getState) => {
@@ -140,7 +140,6 @@ export const resolveReports = (projectID, stateName) => (dispatch, getState) => 
         dispatch({
           type: actions.RESOLVE_REPORTS
         })
-        console.log(res.data)
       }
     )
     .catch((err) => { console.error(err) })
@@ -165,13 +164,12 @@ export const getStatus = (project_id) => (dispatch, getState) => {
   }
   api.get(`/workflow/state/${project_id}`, config)
     .then((res) => {
-      console.log(res.data)
       dispatch({
         type: actions.GET_STATES,
         payload: res.data
       })
     })
-    .catch(error => console.log(error))
+    .catch(error => console.error(error))
 }
 export const changeStatus = (project_id, status, notes) => (dispatch, getState) => {
   // post the state
@@ -196,7 +194,7 @@ export const changeStatus = (project_id, status, notes) => (dispatch, getState) 
       dispatch(fetchProject())
       dispatch(getStatus())
     })
-    .catch(error => console.log(error))
+    .catch(error => console.error(error))
 }
 export const reportProject = (reportDescription, project_id) => (dispatch, getState) => {
   // Get token from localstorage

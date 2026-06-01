@@ -15,6 +15,30 @@ let width, height, symbolName
 // we need to divide the svg width and height by the same number in order to maintain the aspect ratio.
 const default_scale = 5
 
+// --- SVG Data Cache ---
+// Caches parsed SVG metadata (dimensions, pin data) keyed by svg_path.
+// First drag of a component fetches from network; all subsequent drags are instant.
+const svgCache = {}
+
+/**
+ * Pre-fetch and cache the SVG metadata for a component.
+ * Call this on hover/mount so the data is ready before the user clicks.
+ */
+export function prefetchSvg (component) {
+  if (!component || !component.svg_path) return
+  var path = '../' + component.svg_path
+  if (svgCache[path]) return // already cached
+
+  fetch(path)
+    .then(function (response) { return response.text() })
+    .then(function (text) {
+      const parser = new DOMParser()
+      const xml = parser.parseFromString(text, 'text/xml')
+      svgCache[path] = extractData(xml)
+    })
+    .catch(function () { /* silently ignore prefetch failures */ })
+}
+
 function extractData (xml) {
   // extracting metadata from the svg file.
 
@@ -64,18 +88,23 @@ export function getSvgMetadata (graph, parent, evt, target, x, y, component, rot
 
   var path = '../' + component.svg_path
 
-  return fetch(path)
-    .then(function (response) {
-      return response.text()
-    })
-    .then(function (data) {
-      const parser = new DOMParser()
-      const xml = parser.parseFromString(data, 'text/xml')
-      // console.log(xmlDoc);
-      data = extractData(xml)
-      // console.log(data)
-      return data
-    }).then(function (data) {
+  // Use cached data if available, otherwise fetch and cache
+  var dataPromise
+  if (svgCache[path]) {
+    dataPromise = Promise.resolve(svgCache[path])
+  } else {
+    dataPromise = fetch(path)
+      .then(function (response) { return response.text() })
+      .then(function (text) {
+        const parser = new DOMParser()
+        const xml = parser.parseFromString(text, 'text/xml')
+        var parsed = extractData(xml)
+        svgCache[path] = parsed
+        return parsed
+      })
+  }
+
+  return dataPromise.then(function (data) {
       const pins = []
       width = data.width
       height = data.height

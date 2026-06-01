@@ -16,7 +16,6 @@ export const fetchGallery = () => (dispatch, getState) => {
 
   api.get('save/gallery', config)
     .then((res) => {
-      console.log(res.data)
       const data = res.data
       dispatch({
         type: actions.FETCH_GALLERY,

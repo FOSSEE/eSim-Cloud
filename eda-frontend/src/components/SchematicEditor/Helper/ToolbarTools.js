@@ -1,3 +1,5 @@
+
+
 /* eslint-disable no-unused-vars */
 /* eslint-disable camelcase */
 /* eslint-disable new-cap */
@@ -6,6 +8,7 @@ import mxGraphFactory from 'mxgraph'
 import store from '../../../redux/store'
 import * as actions from '../../../redux/actions/actions'
 import ComponentParameters from './ComponentParametersData'
+import { findNearestWire, findNearestVSourcePin } from './SideBar'
 var graph
 var undoManager
 
@@ -165,6 +168,93 @@ export function DeleteComp() {
 // CLEAR WHOLE GRID
 export function ClearGrid() {
   graph.removeCells(graph.getChildVertices(graph.getDefaultParent()))
+}
+
+// SELECT ALL COMPONENTS
+export function SelectAll() {
+  graph.selectAll()
+}
+
+// Module-level clipboard for copy/paste
+var clipboardCells = null
+var pasteOffset = 0
+
+// COPY SELECTED COMPONENTS
+export function CopyComponents() {
+  console.log('[CopyComponents] called, graph exists:', !!graph)
+  var cells = graph.getSelectionCells()
+  console.log('[CopyComponents] selected cells:', cells ? cells.length : 'null')
+  if (cells != null && cells.length > 0) {
+    // Temporarily break circular references before cloning
+    var savedRefs = []
+    for (var i = 0; i < cells.length; i++) {
+      var cell = cells[i]
+      var cellRefs = []
+      if (cell.children) {
+        for (var j = 0; j < cell.children.length; j++) {
+          var child = cell.children[j]
+          cellRefs.push({
+            child: child,
+            ParentComponent: child.ParentComponent,
+            edges: child.edges
+          })
+          child.ParentComponent = null
+          child.edges = null
+        }
+      }
+      savedRefs.push(cellRefs)
+    }
+
+    try {
+      clipboardCells = graph.cloneCells(cells)
+      pasteOffset = 20
+      console.log('[CopyComponents] copied', clipboardCells.length, 'cells')
+    } catch (e) {
+      console.error('[CopyComponents] clone failed:', e)
+      clipboardCells = null
+    }
+
+    // Restore circular references on originals
+    for (var i = 0; i < cells.length; i++) {
+      var cellRefs = savedRefs[i]
+      for (var j = 0; j < cellRefs.length; j++) {
+        cellRefs[j].child.ParentComponent = cellRefs[j].ParentComponent
+        cellRefs[j].child.edges = cellRefs[j].edges
+      }
+    }
+  }
+}
+
+// PASTE COPIED COMPONENTS
+export function PasteComponents() {
+  console.log('[PasteComponents] called, clipboard:', clipboardCells ? clipboardCells.length : 'null')
+  if (clipboardCells != null && clipboardCells.length > 0) {
+    // Clone again from clipboard (also has no circular refs)
+    var clones = graph.cloneCells(clipboardCells)
+    graph.getModel().beginUpdate()
+    try {
+      var parent = graph.getDefaultParent()
+      for (var i = 0; i < clones.length; i++) {
+        var cell = clones[i]
+        if (cell.geometry != null) {
+          cell.geometry.x += pasteOffset
+          cell.geometry.y += pasteOffset
+        }
+        graph.addCell(cell, parent)
+        // Restore ParentComponent circular ref on pasted children
+        if (cell.children) {
+          for (var j = 0; j < cell.children.length; j++) {
+            cell.children[j].ParentComponent = cell
+          }
+        }
+      }
+    } finally {
+      graph.getModel().endUpdate()
+    }
+    graph.setSelectionCells(clones)
+    pasteOffset += 20
+    console.log('[PasteComponents] pasted', clones.length, 'cells')
+  }
 }
 
 export function rotateCell (cell, rot_ang) {
@@ -360,6 +450,60 @@ export function ErcCheckNets() {
   }
 }
 
+// Function to get all probe nodes and branches from the canvas
+// Returns { voltageProbes: [{edgeId, color}], currentProbes: [{branch, color}] }
+export function GetProbeNodes () {
+  if (!graph) return { voltageProbes: [], currentProbes: [] }
+  var model = graph.getModel()
+  var voltageProbes = []
+  var currentProbes = []
+
+  Object.values(model.cells).forEach(function (cell) {
+    if (!cell || cell.CellType !== 'Probe') return
+
+    if (cell.probeType === 'V') {
+      var nodeLabel = null
+      
+      // Dynamically find the nearest wire to the probe's current position
+      var geo = model.getGeometry(cell)
+      var cx = geo ? geo.x + geo.width / 2 : 0
+      var cy = geo ? geo.y + geo.height / 2 : 0
+      var nearestWire = findNearestWire(cx, cy)
+      
+      if (nearestWire) {
+        var edge = nearestWire
+        if (edge.source && edge.source.ConnectedNode !== undefined && edge.source.ConnectedNode !== null) {
+          nodeLabel = String(edge.source.ConnectedNode)
+        } else if (edge.target && edge.target.ConnectedNode !== undefined && edge.target.ConnectedNode !== null) {
+          nodeLabel = String(edge.target.ConnectedNode)
+        } else if (edge.node !== undefined && edge.node !== null) {
+          nodeLabel = String(edge.node)
+        }
+      }
+      voltageProbes.push({ nodeLabel: nodeLabel, color: cell.probeColor || '#00e676', cellId: cell.id, probeLabel: cell.value })
+    } else if (cell.probeType === 'I') {
+      var branchLabel = null
+      
+      // Dynamically find the nearest V-Source pin
+      var geo = model.getGeometry(cell)
+      var cx = geo ? geo.x + geo.width / 2 : 0
+      var cy = geo ? geo.y + geo.height / 2 : 0
+      var nearestPin = findNearestVSourcePin(cx, cy)
+      
+      if (nearestPin) {
+        var pinParent = nearestPin.ParentComponent || nearestPin.parent
+        branchLabel = pinParent.properties
+          ? (pinParent.properties.PREFIX || pinParent.value || pinParent.symbol)
+          : pinParent.symbol
+      }
+      
+      currentProbes.push({ branch: branchLabel, color: cell.probeColor || '#ff9100', cellId: cell.id, probeLabel: cell.value })
+    }
+  })
+
+  return { voltageProbes, currentProbes }
+}
+
 // Function to generate Netlist
 export function GenerateNetList() {
 
@@ -378,7 +522,16 @@ export function GenerateNetList() {
     alert('ERC check failed')
   } else {
     var list = annotate(graph) // Fetching all the Cells on the GRID
+    var hasProbes = false
+    for (var p in list) {
+      if (list[p] && list[p].CellType === 'Probe') {
+        hasProbes = true
+        break
+      }
+    }
     for (var property in list) {
+      // Skip probe cells — they are not circuit components
+      if (list[property].CellType === 'Probe') continue
       if (list[property].Component === true && list[property].symbol !== 'PWR') {
         var compobj = {
           name: '',
@@ -428,8 +581,7 @@ export function GenerateNetList() {
                       // Souce or Target is Ground 
                     } else if (pin.edges[wire].source.ParentComponent.symbol === 'PWR'  ||  pin.edges[wire].target.ParentComponent.symbol === 'PWR') {
                     //   pin.edges[wire].node = 0
-                   
-                      pin.edges[wire].value = 0
+                      pin.edges[wire].value = hasProbes ? '' : 0
                       pin.edges[wire].sourceVertex = pin.edges[wire].source.id
                       pin.edges[wire].targetVertex = pin.edges[wire].target.id
                       // Pin to Pin Connection, Setting the Source to be the Node Value 
@@ -438,9 +590,9 @@ export function GenerateNetList() {
                       // pin.ConnectedNode = pin.edges[wire].source.ParentComponent.properties.PREFIX + '.' + pin.edges[wire].source.value
                       pin.edges[wire].sourceVertex = pin.edges[wire].source.id
                       pin.edges[wire].targetVertex = pin.edges[wire].target.id
-                      pin.edges[wire].value = pin.edges[wire].node
+                      pin.edges[wire].value = hasProbes ? '' : pin.edges[wire].node
                     }
-                    pin.edges[wire].value = pin.edges[wire].node
+                    pin.edges[wire].value = hasProbes ? '' : pin.edges[wire].node
                   }
                 }
                 k = k + ' ' + pin.edges[0].node
@@ -664,118 +816,103 @@ function annotate(graph) {
     alert('ERC check failed');
   } else {
     // DFS _________
-    var NODE_SETS = [];
-    var ptr = 1;
-    var mp = Array(5000).fill(0);
-    NODE_SETS[0] = new Set(); // Defining ground
-
-    for (var property in list) {
-      if (list[property].Component === true && list[property].symbol !== 'PWR') {
-        mxCell.prototype.ConnectedNode = null;
-        var component = list[property];
-
-        if (component.children !== null) {
-          // pins
-          for (var child in component.children) {
-            var pin = component.children[child];
-
-            if (pin != null && pin.vertex === true && pin.connectable) {
-              if (pin.edges !== null && pin.edges.length !== 0) {
-                if (mp[pin.id] === 1) {
-                  continue;
-                }
-                var stk = new Stack();
-                var cur_node;
-                var cur_set = [];
-                var contains_gnd = 0;
-
-                stk.push(pin);
-                stk.push(pin);
-                stk.push(pin);
-
-                while (!stk.isEmpty()) {
-                  cur_node = stk.peek();
-                  stk.pop();
-                  mp[cur_node.id] = 1;
-                  cur_set.push(cur_node);
-
-                  for (var wire in cur_node.edges) {
-                    if (cur_node.edges[wire].source !== null && cur_node.edges[wire].target !== null) {
-                      if (
-                        (cur_node.edges[wire].target.ParentComponent !== null &&
-                          cur_node.edges[wire].target.ParentComponent.symbol === 'PWR') ||
-                        (cur_node.edges[wire].source.ParentComponent !== null &&
-                          cur_node.edges[wire].source.ParentComponent.symbol === 'PWR')
-                      ) {
-                        contains_gnd = 1;
+    var NODE_SETS = []
+    var hasProbes = false
+    for (var p in list) {
+      if (list[p] && list[p].CellType === 'Probe') {
+        hasProbes = true
+        break
+      }
+    }
+    // console.log('dfs init')
+    var ptr = 1
+    var mp = Array(5000).fill(0)
+    NODE_SETS[0] = new Set() // Defining ground
+    for(var property in list){
+        if(list[property].Component === true && list[property].symbol !== 'PWR'){
+            mxCell.prototype.ConnectedNode = null
+            var component = list[property]
+            if (component.children !== null) {
+              // pins
+              for (var child in component.children) {
+                  var pin = component.children[child];
+                  
+                  if (pin != null &&  pin.vertex === true && pin.connectable) {
+                    if (pin.edges !== null || pin.edges.length !== 0) {
+                      if(mp[(pin.id)] === 1){                                
+                          continue                      
                       }
-
-                      if (cur_node.edges[wire].target.vertex === true) {
-                        if (
-                          cur_node.edges[wire].target.id !== cur_node.id &&
-                          !mp[cur_node.edges[wire].target.id]
-                        ) {
-                          stk.push(cur_node.edges[wire].target);
-                        }
-                      }
-
-                      if (cur_node.edges[wire].source.vertex === true) {
-                        if (
-                          cur_node.edges[wire].source.id !== cur_node.id &&
-                          !mp[cur_node.edges[wire].source.id]
-                        ) {
-                          stk.push(cur_node.edges[wire].source);
-                        }
-                      }
-
-                      // Checking for wires which are connected to another wire(s), Comment out
-                      // the if conditions below if edge connections malfunction
-                      var conn_vertices = [];
-                      if (cur_node.edges[wire].edges && cur_node.edges[wire].edges.length > 0) {
-                        for (const ed in cur_node.edges[wire].edges) {
-                          if (!mp[cur_node.edges[wire].edges[ed].id]) {
-                            conn_vertices = conn_vertices.concat(...traverseWire(cur_node.edges[wire].edges[ed], mp));
+                      var stk = new Stack()
+                      var cur_node
+                      var cur_set = []
+                      var contains_gnd = 0                     
+                      
+                      stk.push(pin)      
+                      // console.log('exploring connected nodes of', pin)                    
+                      while(!stk.isEmpty()){
+                          cur_node = stk.peek()
+                          stk.pop();
+                          mp[cur_node.id] = 1
+                          cur_set.push(cur_node)
+                          stk.print()
+                          for (var wire in cur_node.edges) {
+                            // console.log(cur_node.edges[wire])
+                            if (cur_node.edges[wire].source !== null && cur_node.edges[wire].target !== null) {
+                              if (cur_node.edges[wire].target.ParentComponent !== null) {
+                                if(cur_node.edges[wire].target.ParentComponent.symbol === 'PWR'){
+                                    contains_gnd = 1
+                                }
+                              }
+                              if(cur_node.edges[wire].target.vertex == true){
+                                if (!mp[(cur_node.edges[wire].target.id)] && (cur_node.edges[wire].target.id !== cur_node.id)){
+                                  stk.push(cur_node.edges[wire].target)
+                                }
+                              }
+                              if(cur_node.edges[wire].source.vertex == true){
+                                if(!mp[(cur_node.edges[wire].source.id)] && (cur_node.edges[wire].source.id !== cur_node.id)){
+                                    stk.push(cur_node.edges[wire].source)
+                                }
+                              }
+                              // Checking for wires which are connected to another wire(s), Comment out 
+                              // the if conditions below if edge connections malfunction
+                              var conn_vertices = [];
+                              if (cur_node.edges[wire].edges && cur_node.edges[wire].edges.length > 0) {
+                                for (const ed in cur_node.edges[wire].edges) {
+                                  if (!mp[cur_node.edges[wire].edges[ed].id]) {
+                                    conn_vertices = conn_vertices.concat(...traverseWire(cur_node.edges[wire].edges[ed], mp))
+                                  }
+                                }
+                              }
+                              if (cur_node.edges[wire].source.edge == true) {
+                                if (!mp[(cur_node.edges[wire].source.id)] && (cur_node.edges[wire].source.id !== cur_node.id)) {
+                                  conn_vertices = conn_vertices.concat(...traverseWire(cur_node.edges[wire].source, mp))
+                                }
+                              }
+                              if (cur_node.edges[wire].target.edge == true) {
+                                if (!mp[(cur_node.edges[wire].target.id)] && (cur_node.edges[wire].target.id !== cur_node.id)) {
+                                  conn_vertices = conn_vertices.concat(...traverseWire(cur_node.edges[wire].target, mp))
+                                }
+                              }
+                              // console.log("CONN EDGES", conn_vertices)
+                              conn_vertices.forEach((elem) => {
+                                stk.push(elem)
+                              })
+                            }
                           }
+                        if(contains_gnd === 1){
+                            for(var x in cur_set)
+                                NODE_SETS[0].add(cur_set[x])
                         }
+                          // console.log("Set of nodes at same pot:", cur_set)   
                       }
-
-                      if (cur_node.edges[wire].source.edge === true) {
-                        if (
-                          cur_node.edges[wire].source.id !== cur_node.id &&
-                          !mp[cur_node.edges[wire].source.id]
-                        ) {
-                          conn_vertices = conn_vertices.concat(...traverseWire(cur_node.edges[wire].source, mp));
-                        }
-                      }
-
-                      if (cur_node.edges[wire].target.edge === true) {
-                        if (
-                          cur_node.edges[wire].target.id !== cur_node.id &&
-                          !mp[cur_node.edges[wire].target.id]
-                        ) {
-                          conn_vertices = conn_vertices.concat(...traverseWire(cur_node.edges[wire].target, mp));
-                        }
-                      }
-
-                      conn_vertices.forEach((elem) => {
-                        stk.push(elem);
-                      });
+                    } 
+                    if (!contains_gnd){
+                        NODE_SETS.push(new Set(cur_set))
                     }
                   }
-                }
-
-                if (contains_gnd === 1) {
-                  for (var x in cur_set) {
-                    NODE_SETS[0].add(cur_set[x]);
-                  }
-                } else {
-                  NODE_SETS.push(new Set(cur_set));
-                }
               }
             }
-          }
         }
-      }
     }
 
     for (var property in list) {
@@ -820,13 +957,13 @@ function annotate(graph) {
                   e.forEach((vertex) => {
                     if (vertex.id == pin.id && done === 0) {
                       if (i === 0) {
-                        pin.edges[0].node = 0;
-                        pin.ConnectedNode = 0;
-                        pin.edges[0].value = pin.edges[0].node;
+                        pin.edges[wire].node = 0
+                        pin.ConnectedNode = 0
+                        pin.edges[wire].value = hasProbes ? '' : pin.edges[wire].node
                       } else {
-                        pin.edges[0].node = 'COM.' + i.toString();
-                        pin.ConnectedNode = 'COM.' + i.toString();
-                        pin.edges[0].value = pin.edges[0].node;
+                        pin.edges[wire].node = "COM." + i.toString()
+                        pin.ConnectedNode = 'COM.' + i.toString() 
+                        pin.edges[wire].value = hasProbes ? '' : pin.edges[wire].node
                       }
                       done = 1;
                     }

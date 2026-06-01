@@ -23,7 +23,7 @@ import ExpandMoreIcon from '@material-ui/icons/ExpandMore'
 import MuiAlert from '@material-ui/lab/Alert'
 import { makeStyles } from '@material-ui/core/styles'
 import { useSelector, useDispatch } from 'react-redux'
-import { setControlLine, setControlBlock, setResultTitle, setResultGraph, setResultText, setNetlist } from '../../redux/actions/index'
+import { setControlLine, setControlBlock, setResultTitle, setResultGraph, setResultText, setNetlist, toggleSimulate } from '../../redux/actions/index'
 import { GenerateNetList, GenerateNodeList, GenerateCompList, ErcCheckNets } from './Helper/ToolbarTools'
 import SimulationScreen from '../Shared/SimulationScreen'
 import { Multiselect } from 'multiselect-react-dropdown'
@@ -55,9 +55,16 @@ function Alert (props) {
   return <MuiAlert elevation={6} variant="filled" {...props} />
 }
 export default function SimulationProperties (props) {
+  const {
+    setSimulateOpen,
+    setIsResult,
+    setTaskId,
+    setSimType
+  } = props
+
   const netfile = useSelector(state => state.netlistReducer)
+  const isSimulate = useSelector(state => state.schematicEditorReducer.isSimulate)
   const isSimRes = useSelector(state => state.simulationReducer.isSimRes)
-  const [taskId, setTaskId] = useState(null)
   const dispatch = useDispatch()
   const classes = useStyles()
   const [nodeList, setNodeList] = useState([])
@@ -110,7 +117,6 @@ export default function SimulationProperties (props) {
   })
 
   const [controlBlockParam, setControlBlockParam] = useState('')
-  const [simType, setSimType] = React.useState('')
   let typeSimulation = ''
 
   const handleControlBlockParam = (evt) => {
@@ -192,7 +198,6 @@ export default function SimulationProperties (props) {
     })
   }
 
-  const [simulateOpen, setSimulateOpen] = React.useState(false)
   const handlesimulateOpen = () => {
     setSimulateOpen(true)
   }
@@ -421,8 +426,6 @@ export default function SimulationProperties (props) {
     setSimType(typeSimulation)
     return api.post('simulation/upload', formData, config)
   }
-
-  const [isResult, setIsResult] = useState(false)
 
   // Get the simulation result with task_Id
   function simulationResult (url) {
@@ -730,9 +733,7 @@ export default function SimulationProperties (props) {
             Cannot simulate an incomplete circuit!
           </Alert>
         </Snackbar>
-        <SimulationScreen open={simulateOpen} isResult={isResult} close={handleSimulateClose} taskId={taskId} simType={simType} />
         <Notice status={status} open={err} msg={errMsg} close={handleErrClose} />
-        {/* Simulation modes list */}
         <List>
           {/* DC Solver */}
           <ListItem className={classes.simulationOptions} divider>
@@ -1015,17 +1016,17 @@ export default function SimulationProperties (props) {
                       <span style={{ marginLeft: '10px' }}>S</span>
                     </ListItem>
                     <ListItem>
-                      <TextField id="stop" label="Stop Time" size='small' variant="outlined"
-                        value={transientAnalysisControlLine.stop}
-                        error={!transientAnalysisControlLine.stop}
+                      <TextField id="step" label="Step Time" size='small' variant="outlined"
+                        value={transientAnalysisControlLine.step}
+                        error={!transientAnalysisControlLine.step}
                         onChange={handleTransientAnalysisControlLine}
                       />
                       <span style={{ marginLeft: '10px' }}>S</span>
                     </ListItem>
                     <ListItem>
-                      <TextField id="step" label="Time Step" size='small' variant="outlined"
-                        value={transientAnalysisControlLine.step}
-                        error={!transientAnalysisControlLine.step}
+                      <TextField id="stop" label="Stop Time" size='small' variant="outlined"
+                        value={transientAnalysisControlLine.stop}
+                        error={!transientAnalysisControlLine.stop}
                         onChange={handleTransientAnalysisControlLine}
                       />
                       <span style={{ marginLeft: '10px' }}>S</span>

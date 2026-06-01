@@ -1,6 +1,7 @@
 /* eslint-disable new-cap */
 import MxGraphFactory from 'mxgraph'
-import { Undo, Redo, ZoomIn, ZoomOut, ZoomAct, DeleteComp, ClearGrid, Rotate, RotateACW } from './ToolbarTools'
+import { Undo, Redo, ZoomIn, ZoomOut, ZoomAct, DeleteComp, ClearGrid, Rotate, RotateACW, CopyComponents, PasteComponents } from './ToolbarTools'
+import { PlaceProbeAt } from './SideBar'
 
 const {
   mxKeyHandler,
@@ -9,6 +10,37 @@ const {
 } = new MxGraphFactory()
 
 export default function KeyboardShortcuts (graph) {
+  var globalMouseX = 0
+  var globalMouseY = 0
+  document.addEventListener('mousemove', function (evt) {
+    globalMouseX = evt.clientX
+    globalMouseY = evt.clientY
+  })
+
+  // Global intercept for document-level shortcuts
+  document.addEventListener('keydown', function (evt) {
+    // 1. Block browser refresh on Ctrl+R / Cmd+R
+    if ((evt.ctrlKey || evt.metaKey) && (evt.key === 'r' || evt.key === 'R')) {
+      evt.preventDefault()
+    }
+
+    // 2. Ignore global single-key shortcuts if the user is typing in an input field
+    var activeTag = document.activeElement ? document.activeElement.tagName.toUpperCase() : ''
+    var isTyping = activeTag === 'INPUT' || activeTag === 'TEXTAREA' || (document.activeElement && document.activeElement.isContentEditable)
+    
+    if (!isTyping && graph.isEnabled() && !evt.ctrlKey && !evt.metaKey && !evt.altKey) {
+      
+      // V key — instant spawn Voltage Probe
+      if (evt.key === 'v' || evt.key === 'V') {
+        PlaceProbeAt('V', globalMouseX, globalMouseY)
+      }
+      // I key — instant spawn Current Probe
+      if (evt.key === 'i' || evt.key === 'I') {
+        PlaceProbeAt('I', globalMouseX, globalMouseY)
+      }
+    }
+  })
+
   var keyHandler = new mxKeyHandler(graph)
 
   keyHandler.getFunction = function (evt) {
@@ -87,10 +119,33 @@ export default function KeyboardShortcuts (graph) {
     }
   })
 
-  // Zoom Out - Ctrl + Y
+  // Zoom Act - Ctrl + Y
   keyHandler.bindControlKey(89, function (evt) {
     if (graph.isEnabled()) {
       ZoomAct()
     }
   })
+
+  // Rotate Clockwise - Ctrl + R (preventDefault stops browser page refresh)
+  keyHandler.bindControlKey(82, function (evt) {
+    evt.preventDefault()
+    if (graph.isEnabled()) {
+      Rotate()
+    }
+  })
+
+  // Copy - Ctrl + C
+  keyHandler.bindControlKey(67, function (evt) {
+    if (graph.isEnabled()) {
+      CopyComponents()
+    }
+  })
+
+  // Paste - Ctrl + V
+  keyHandler.bindControlKey(86, function (evt) {
+    if (graph.isEnabled()) {
+      PasteComponents()
+    }
+  })
+  // (V and I keys are handled by the global document listener above to avoid focus issues)
 }

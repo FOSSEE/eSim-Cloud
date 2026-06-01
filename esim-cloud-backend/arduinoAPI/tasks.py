@@ -122,16 +122,29 @@ def CompileInlineAssembly(filenames):
             out_name = settings.MEDIA_ROOT+'/'+str(filename)+'/out.hex'
             logger.info('Compiling')
             logger.info(c_name)
-            createObj = "avr-gcc -Os -DF_CPU=16000000UL -mmcu=atmega328p -c -o " + obj_name + " " + c_name
-            createBin = "avr-gcc -mmcu=atmega328p " + obj_name + " -o " + bin_name
-            createHex = "avr-objcopy -O ihex -R .eeprom " + bin_name + " " + out_name
-            ps = subprocess.Popen(
-                createObj + " && " + createBin + " && " + createHex,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                shell=True
-            )
-            output, err = ps.communicate()
+
+            # Run compilation steps sequentially without shell=True
+            # to prevent command injection via crafted filenames
+            steps = [
+                ['avr-gcc', '-Os', '-DF_CPU=16000000UL', '-mmcu=atmega328p',
+                 '-c', '-o', obj_name, c_name],
+                ['avr-gcc', '-mmcu=atmega328p', obj_name, '-o', bin_name],
+                ['avr-objcopy', '-O', 'ihex', '-R', '.eeprom',
+                 bin_name, out_name],
+            ]
+            output = b''
+            err = b''
+            for step in steps:
+                ps = subprocess.Popen(
+                    step,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+                step_out, step_err = ps.communicate()
+                output += step_out
+                err += step_err
+                if ps.returncode != 0:
+                    break
             # print(ps.returncode)
             # print(output)
             # print(err)
