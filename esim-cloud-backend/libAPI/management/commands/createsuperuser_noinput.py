@@ -29,7 +29,7 @@ class Command(BaseCommand):
                 email='', password=options['password']
             )
             logger.info(
-                f"Creating user {options['user']}"
+                f"Creating user {options['username']}"
                 " with password {options['password']}")
             user.save()
         else:
