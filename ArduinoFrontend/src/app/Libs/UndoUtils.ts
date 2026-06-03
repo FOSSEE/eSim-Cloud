@@ -50,7 +50,14 @@ export abstract class UndoUtils {
             this.loadChange(cng, 'redo');
         }
     }
-
+    /**
+     * Resets the undo and redo stacks
+     */
+    static resetStacks() {
+        UndoUtils.undo = []; // Clear undo stack
+        UndoUtils.redo = []; // Clear redo stack
+        console.log('Undo and redo stacks have been reset.');
+    }
     /**
      * Function to reset redo stack & push into undo stack
      * @param ele event snapshot

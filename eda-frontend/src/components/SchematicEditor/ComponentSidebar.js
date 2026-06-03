@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback, useRef } from 'react'
 import PropTypes from 'prop-types'
 import api from '../../utils/Api'
 import {
@@ -17,11 +17,18 @@ import {
   Grid,
   Typography,
   IconButton,
-  Collapse
+  Collapse,
+  Chip,
+  CircularProgress
 } from '@material-ui/core'
 import Loader from 'react-loader-spinner'
 import SearchIcon from '@material-ui/icons/Search'
 import CloseIcon from '@material-ui/icons/Close'
+import ExpandLess from '@material-ui/icons/ExpandLess'
+import ExpandMore from '@material-ui/icons/ExpandMore'
+import StarIcon from '@material-ui/icons/Star'
+import { makeStyles } from '@material-ui/core/styles'
+
 // Custom EDA Category icons
 import {
   ConnectorIcon,
@@ -38,13 +45,13 @@ import {
   DigitalIcon
 } from './Helper/EdaIcons'
 
-import { makeStyles } from '@material-ui/core/styles'
-
 import './Helper/SchematicEditor.css'
 import { useDispatch, useSelector } from 'react-redux'
-import { fetchLibraries, toggleCollapse, fetchComponents, toggleSimulate } from '../../redux/actions/index'
+import { fetchLibraries, toggleCollapse, fetchComponents, toggleSimulate, fetchComponentsBySearch } from '../../redux/actions/index'
 import SideComp from './SideComp.js'
 import { AddProbe } from './Helper/SideBar.js'
+import ComponentSearchBar from './ComponentSearchBar'
+import SimulationProperties from './SimulationProperties'
 const COMPONENTS_PER_ROW = 3
 
 const useStyles = makeStyles((theme) => ({
@@ -101,6 +108,35 @@ const useStyles = makeStyles((theme) => ({
   gridContainer: {
     margin: 0,
     width: '100%'
+  },
+  head: {
+    marginRight: 'auto'
+  },
+  /* ── Favourites chips bar ── */
+  favBar: {
+    display: 'flex',
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+    overflowX: 'auto',
+    gap: theme.spacing(0.75),
+    padding: theme.spacing(0.5, 1),
+    alignItems: 'center',
+    backgroundColor: '#fafafa',
+    borderBottom: '1px solid #e0e0e0',
+    /* hide scrollbar on non-hover for a cleaner look */
+    '&::-webkit-scrollbar': {
+      height: 4
+    },
+    '&::-webkit-scrollbar-thumb': {
+      backgroundColor: '#bdbdbd',
+      borderRadius: 2
+    }
+  },
+  favChip: {
+    flexShrink: 0,
+    cursor: 'pointer',
+    maxWidth: 120,
+    fontWeight: 500
   }
 }))
 
@@ -124,53 +160,18 @@ const UI_CATEGORIES = [
     )
   },
   {
-    id: 'connectors', name: 'Schematic Connectors', icon: <ConnectorIcon />,
-    matchFn: (comp) => {
-      const n = (comp.full_name || comp.name || '').toLowerCase()
-      const kw = (comp.keyword || '').toLowerCase()
-      const svgPath = (comp.svg_path || '').toLowerCase()
-      const prefix = (comp.symbol_prefix || '').toUpperCase()
-      return prefix === 'GND' ||
-        n === '0' ||
-        n.includes('jumper') ||
-        n.includes('connector') ||
-        n.includes('jack') ||
-        n.includes('plug') ||
-        prefix === 'JP' ||
-        kw.includes('jumper') ||
-        kw.includes('connector')
-    }
-  },
-  {
-    id: 'sources', name: 'Sources', icon: <SourceIcon />,
+    id: 'passive', name: 'Passive', icon: <PassiveIcon />,
     matchFn: (comp) => {
       const n = (comp.full_name || comp.name || '').toLowerCase()
       const kw = (comp.keyword || '').toLowerCase()
       const svgPath = (comp.svg_path || '').toLowerCase()
       const prefix = (comp.symbol_prefix || '').toLowerCase()
-      return svgPath.includes('esim_sources') ||
-        prefix === 'v' ||
-        (n.includes('source') && !n.includes('drag')) ||
-        n === 'dc' || n === 'vsource' || n === 'isource' ||
-        n.includes('cccs') || n.includes('ccvs') || n.includes('vccs') || n.includes('vcvs') ||
-        kw.includes('voltage-source') || kw.includes('current source')
-    }
-  },
-  {
-    id: 'passive', name: 'Passive', icon: <PassiveIcon />,
-    matchFn: (comp) => {
-      const n = (comp.full_name || comp.name || '').toLowerCase()
-      const kw = (comp.keyword || '').toLowerCase()
-      const prefix = (comp.symbol_prefix || '').toUpperCase()
-      return prefix === 'R' || prefix === 'C' || prefix === 'L' || prefix === 'RN' ||
-        prefix === 'RV' || prefix === 'TH' || prefix === 'T' || prefix === 'FB' ||
+      return prefix === 'r' || prefix === 'c' || prefix === 'l' ||
+        svgPath.includes('esim_subcircuits/res') ||
+        svgPath.includes('esim_subcircuits/cap') ||
         n.includes('resistor') || n.includes('capacitor') || n.includes('inductor') ||
-        n.includes('potentiometer') || n.includes('transformer') ||
-        n.includes('thermistor') || n.includes('varistor') ||
-        n.includes('ferrite') || n.includes('fuse') ||
-        n.includes('transmission_line') || n.includes('coupled') ||
-        kw.includes('resistor') || kw.includes('capacitor') || kw.includes('inductor') ||
-        kw.includes('coil') || kw.includes('fuse')
+        n === 'r' || n === 'c' || n === 'l' ||
+        kw.includes('resistor') || kw.includes('capacitor') || kw.includes('inductor')
     }
   },
   {
@@ -179,27 +180,6 @@ const UI_CATEGORIES = [
       const n = (comp.full_name || comp.name || '').toLowerCase()
       const kw = (comp.keyword || '').toLowerCase()
       const svgPath = (comp.svg_path || '').toLowerCase()
-      return svgPath.includes('analog') ||
-        n.includes('opamp') || n.includes('comparator') ||
-        n.includes('amplifier') || n.includes('timer') || n.includes('555') ||
-        n.includes('lm3') || n.includes('ne555') ||
-        kw.includes('opamp') || kw.includes('comparator') ||
-        kw.includes('amplifier') || kw.includes('opto')
-    }
-  },
-  {
-    id: 'diodes', name: 'Diodes', icon: <DiodeIcon />,
-    matchFn: (comp) => {
-      const n = (comp.full_name || comp.name || '').toLowerCase()
-      const kw = (comp.keyword || '').toLowerCase()
-      const svgPath = (comp.svg_path || '').toLowerCase()
-      const prefix = (comp.symbol_prefix || '').toUpperCase()
-      return (svgPath.includes('diode') && !n.includes('led') && !n.includes('photo')) ||
-        (prefix === 'D' && !n.includes('led') && !n.includes('laser') && !n.includes('photo') && !n.includes('bar')) ||
-        n.includes('zener') || n.includes('schottky') ||
-        n.includes('rectifier') || n.includes('varactor') ||
-        kw.includes('diode rectifier') || kw.includes('zener') ||
-        kw.includes('schottky')
     }
   },
   {
@@ -317,6 +297,7 @@ const searchOptions = {
 
 const searchOptionsList = ['NAME', 'KEYWORD', 'DESCRIPTION', 'COMPONENT_LIBRARY', 'PREFIX']
 
+
 export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResult }) {
   const classes = useStyles()
   const libraries = useSelector(state => state.schematicEditorReducer.libraries)
@@ -326,25 +307,19 @@ export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResu
   const auth = useSelector(state => state.authReducer)
 
   const dispatch = useDispatch()
-  const [isSearchedResultsEmpty, setIssearchedResultsEmpty] = useState(false)
-  const [searchText, setSearchText] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [favourite, setFavourite] = useState(null)
+  const [favourite, setFavourite] = useState([])  // R1: [] not null; null causes ambiguity between "not loaded" and "empty"
   const [favOpen, setFavOpen] = useState(false)
-
-  const [searchedComponentList, setSearchedComponents] = useState([])
-  const [searchOption, setSearchOption] = useState('NAME')
   const [uploaded, setuploaded] = useState(false)
   const [def, setdef] = useState(false)
   const [additional, setadditional] = useState(false)
 
-  // Flyout State
-  const [anchorEl, setAnchorEl] = useState(null)
-  const [activeCategory, setActiveCategory] = useState(null)
-  const [showAdvanced, setShowAdvanced] = useState(false)
-  const [fetchedLibs, setFetchedLibs] = useState(new Set())
-
-  const timeoutId = React.useRef()
+  // Search State for Flyout
+  const [isSearchedResultsEmpty, setIssearchedResultsEmpty] = useState(false)
+  const [searchText, setSearchText] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [searchedComponentList, setSearchedComponents] = useState([])
+  const [searchOption, setSearchOption] = useState('NAME')
+  const timeoutId = useRef()
 
   const handleSearchOptionType = (evt) => {
     setSearchedComponents([])
@@ -352,48 +327,17 @@ export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResu
   }
 
   const handleSearchText = (evt) => {
-    // tempSearchTxt = evt.target.value
     if (searchText.length === 0) {
       setSearchedComponents([])
     }
     setSearchText(evt.target.value)
     setSearchedComponents([])
-    // mimic the value so we can access the latest value in our API call.
-
-    // call api from here. and set the result to searchedComponentList.
   }
 
-  React.useEffect(() => {
-    if (auth.isAuthenticated) {
-      const token = localStorage.getItem('esim_token')
-      const config = {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      }
-      if (token) {
-        config.headers.Authorization = `Token ${token}`
-      }
-      api
-        .get('favouritecomponents', config)
-        .then((resp) => {
-          setFavourite(resp.data.component)
-        })
-        .catch((err) => {
-          console.log(err)
-        })
-    }
-  }, [auth])
-
-  React.useEffect(() => {
-    // if the user keeps typing, stop the API call!
+  useEffect(() => {
     clearTimeout(timeoutId.current)
-    // don't make an API call with no data
     if (!searchText.trim()) return
-    // capture the timeoutId so we can
-    // stop the call if the user keeps typing
     timeoutId.current = setTimeout(() => {
-      // call api here
       setLoading(true)
       let config = {}
       const token = localStorage.getItem('esim_token')
@@ -420,9 +364,115 @@ export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResu
     }, 800)
   }, [searchText, searchOption])
 
+  // Flyout State
+  const [anchorEl, setAnchorEl] = useState(null)
+  const [activeCategory, setActiveCategory] = useState(null)
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [fetchedLibs, setFetchedLibs] = useState(new Set())
+
+  // Redux-backed API search state
+  const searchResults = useSelector(state => state.schematicEditorReducer.searchResults)
+  const searchLoading = useSelector(state => state.schematicEditorReducer.searchLoading)
+  const searchError = useSelector(state => state.schematicEditorReducer.searchError)
+  const [activeSearchQuery, setActiveSearchQuery] = useState('')
+
+  const handleSearchChange = useCallback((query, searchOption = 'ALL') => {
+    setActiveSearchQuery(query)
+    dispatch(fetchComponentsBySearch(query, searchOption))
+  }, [dispatch])
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Ref for the ComponentSearchBar — used by keyboard shortcuts below
+  // ─────────────────────────────────────────────────────────────────────────────
+  const searchBarRef = useRef(null)
+
+  React.useEffect(() => {
+    if (!auth.isAuthenticated) return
+
+    // Fix #1: unmount guard prevents state update on unmounted component
+    let cancelled = false
+    const token = localStorage.getItem('esim_token')
+    const config = { headers: { 'Content-Type': 'application/json' } }
+    if (token) config.headers.Authorization = `Token ${token}`
+
+    api
+      .get('favouritecomponents', config)
+      .then((resp) => {
+        if (!cancelled) {
+          // Fix #5: null-safe — backend returns {} (not {component:[]}) when no favourites exist
+          setFavourite(resp?.data?.component ?? [])
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) console.error('[Favourites] fetch failed:', err.message || err) // Fix #6
+      })
+
+    return () => { cancelled = true }  // cleanup: cancel on unmount
+  }, [auth])
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Global keyboard shortcuts for the component search input
+  //
+  //  Ctrl+K / Cmd+K  → focus the search bar from anywhere in the editor
+  //  /               → focus the search bar ONLY when NOT already typing
+  //                    (safe: checked against event.target tag)
+  //  Escape          → clear and blur the search bar when it is focused
+  //
+  // Implementation notes:
+  //  • Uses document-level listeners so shortcuts work from anywhere (including
+  //    when the mxGraph canvas has focus — mxKeyHandler only fires for graph events).
+  //  • Guards against firing inside <input>, <textarea>, or contenteditable
+  //    elements so mxGraph label editing and browser address bar are unaffected.
+  //  • Cleans up on component unmount to prevent duplicate listeners.
+  // ─────────────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const isModifierPressed = (evt) =>
+      // Cmd on Mac, Ctrl on Windows/Linux
+      evt.metaKey || evt.ctrlKey
+
+    const isTypingContext = (evt) => {
+      const tag = evt.target.tagName
+      const isInput = tag === 'INPUT' || tag === 'TEXTAREA'
+      const isEditable = evt.target.isContentEditable
+      return isInput || isEditable
+    }
+
+    const handleKeyDown = (evt) => {
+      // ── Ctrl+K / Cmd+K → focus search ────────────────────────────────────
+      if (isModifierPressed(evt) && evt.key === 'k') {
+        evt.preventDefault() // prevent browser address bar (Chrome)
+        if (searchBarRef.current) {
+          searchBarRef.current.focus()
+        }
+        return
+      }
+
+      // ── / → focus search (only when NOT already typing) ──────────────────
+      if (evt.key === '/' && !isTypingContext(evt)) {
+        evt.preventDefault()
+        if (searchBarRef.current) {
+          searchBarRef.current.focus()
+        }
+        return
+      }
+
+      // ── Escape → clear + blur search (only when search input is focused) ──
+      if (evt.key === 'Escape' && searchBarRef.current &&
+          searchBarRef.current.isFocused()) {
+        evt.preventDefault()
+        // Fix #14: clear() already calls onSearchChange → handleSearchChange → setActiveSearchQuery
+        // Removed the redundant direct call to setActiveSearchQuery('')
+        searchBarRef.current.clear()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, []) // stable: searchBarRef is a ref; keydown handler is self-contained
+
   const handleCollapse = (id) => {
     // Fetches Components for given library if not already fetched
-    if (collapse[id] === false && components[id].length === 0) {
+    if (collapse[id] === false && (!components[id] || components[id].length === 0)) {
       dispatch(fetchComponents(id))
     }
 
@@ -478,9 +528,6 @@ export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResu
     return null
   }
 
-  const handleFavOpen = () => {
-    setFavOpen(!favOpen)
-  }
 
   const handleCategoryClick = (event, category) => {
     setAnchorEl(event.currentTarget)
@@ -567,7 +614,7 @@ export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResu
     <>
       <div className={classes.toolbar} />
       
-      <div>
+      <div style={isSimulate ? { display: 'none' } : {}}>
         <List className={classes.paletteList}>
           {UI_CATEGORIES.map((cat) => (
             <Tooltip key={cat.id} title={cat.name} placement="right">
@@ -583,6 +630,20 @@ export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResu
               </ListItem>
             </Tooltip>
           ))}
+        </List>
+      </div>
+
+      <div style={isSimulate ? {} : { display: 'none' }}>
+        {/* Display simulation modes parameters on left side pane */}
+        <List>
+          <ListItem button divider>
+            <h2 style={{ margin: '5px auto 5px 5px' }}>Simulation Modes</h2>
+            <Tooltip title="close">
+              <IconButton color="inherit" className={classes.tools} size="small" onClick={() => { dispatch(toggleSimulate()) }}>
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </ListItem>
         </List>
 
         <Popper
@@ -755,5 +816,5 @@ ComponentSidebar.propTypes = {
     PropTypes.shape({ current: PropTypes.instanceOf(Element) })
   ]),
   ltiSimResult: PropTypes.string,
-  setLtiSimResult: PropTypes.func
+  setLtiSimResult: PropTypes.func        // R4: was PropTypes.string — it is a state setter function
 }
