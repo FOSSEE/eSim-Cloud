@@ -2,8 +2,11 @@
 // Main Layout for Schemaic Editor page.
 /* eslint-disable react/prop-types */
 import React, { useEffect } from 'react'
-import { CssBaseline } from '@material-ui/core'
+import { CssBaseline, Fab } from '@material-ui/core'
 import { makeStyles } from '@material-ui/core/styles'
+import ChatIcon from '@material-ui/icons/Chat'
+import CloseIcon from '@material-ui/icons/Close'
+import ChatPanel from '../components/AIAssistant/ChatPanel'
 
 import Layout from '../components/Shared/Layout'
 import Header from '../components/SchematicEditor/Header'
@@ -28,6 +31,26 @@ const useStyles = makeStyles((theme) => ({
   },
   toolbar: {
     minHeight: '80px'
+  },
+  chatContainer: {
+    position: 'fixed',
+    bottom: theme.spacing(3),
+    right: theme.spacing(3),
+    zIndex: 1200,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    gap: theme.spacing(1),
+    [theme.breakpoints.up('lg')]: {
+      right: 270
+    }
+  },
+  chatWindow: {
+    width: 320,
+    marginBottom: theme.spacing(1),
+    boxShadow: theme.shadows[10],
+    borderRadius: '12px',
+    overflow: 'hidden'
   }
 }))
 
@@ -45,6 +68,17 @@ export default function SchematiEditor (props) {
   const [isResult, setIsResult] = React.useState(false)
   const [taskId, setTaskId] = React.useState(null)
   const [simType, setSimType] = React.useState('NgSpiceSimulator')
+  const [chatOpen, setChatOpen] = React.useState(false)
+
+  useEffect(() => {
+    const handleOpenChat = () => {
+      setChatOpen(true)
+    }
+    window.addEventListener('esim-open-chat-with-prompt', handleOpenChat)
+    return () => {
+      window.removeEventListener('esim-open-chat-with-prompt', handleOpenChat)
+    }
+  }, [])
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen)
@@ -146,6 +180,23 @@ export default function SchematiEditor (props) {
         )}
       </RightSidebar>
       <ComponentProperties/>
+
+      {/* Floating AI Assistant Chatbot */}
+      <div className={classes.chatContainer}>
+        {chatOpen && (
+          <div className={classes.chatWindow}>
+            <ChatPanel />
+          </div>
+        )}
+        <Fab
+          color="primary"
+          aria-label="chat with ai"
+          onClick={() => setChatOpen(!chatOpen)}
+          id="floating-chat-button"
+        >
+          {chatOpen ? <CloseIcon /> : <ChatIcon />}
+        </Fab>
+      </div>
     </div>
   )
 }
