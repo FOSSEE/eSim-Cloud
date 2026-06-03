@@ -33,4 +33,24 @@ urlpatterns = [
     path('history/lti/<int:lti_id>',
          simulationAPI_views.GetLTISimResults.as_view(),
          name='lti sim history'),
+
+    # -----------------------------------------------------------------
+    # Custom SPICE Model endpoints (Issue #539)
+    # -----------------------------------------------------------------
+    path('models/upload',
+         simulationAPI_views.SpiceModelUploadView.as_view(),
+         name='spice_model_upload'),
+
+    path('models/',
+         simulationAPI_views.SpiceModelListView.as_view(),
+         name='spice_model_list'),
+
+    path('models/<uuid:pk>',
+         simulationAPI_views.SpiceModelDetailView.as_view(),
+         name='spice_model_detail'),
+
+    path('models/<uuid:pk>/validate',
+         simulationAPI_views.SpiceModelValidateView.as_view(),
+         name='spice_model_validate'),
 ]
+

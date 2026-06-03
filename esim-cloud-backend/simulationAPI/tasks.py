@@ -13,7 +13,15 @@ Tasks cleanup after 3 secs and the process is stopped after 5 seconds.
 
 # @shared_task(soft_time_limit=3, time_limit=5)
 @shared_task
-def process_task(task_id):
+def process_task(task_id, model_ids=None):
+    """
+    Celery task to execute a SPICE netlist through ngspice.
+
+    Args:
+        task_id (str): UUID of the Task record containing the netlist file.
+        model_ids (list, optional): List of SpiceModel UUID strings to
+            inject into the netlist before execution (Issue #539).
+    """
     try:
         try:
 
@@ -27,7 +35,8 @@ def process_task(task_id):
                 state='PROGRESS',
                 meta={'current_process': 'Started Processing File'})
 
-            output = ngspice_helper.ExecNetlist(file_path, file_id)
+            output = ngspice_helper.ExecNetlist(
+                file_path, file_id, model_ids=model_ids)
             current_task.update_state(
                 state='PROGRESS',
                 meta={'current_process': 'Processed Netlist, Loading Output'})
@@ -42,3 +51,4 @@ def process_task(task_id):
     except SoftTimeLimitExceeded:
         output = {'fail': "time limit exceeded"}
         return output
+
