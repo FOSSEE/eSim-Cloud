@@ -20,6 +20,7 @@ import {
 import queryString from 'query-string'
 import InfoOutlinedIcon from '@material-ui/icons/InfoOutlined'
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore'
+import HistoryIcon from '@material-ui/icons/History'
 import MuiAlert from '@material-ui/lab/Alert'
 import { makeStyles } from '@material-ui/core/styles'
 import { useSelector, useDispatch } from 'react-redux'
@@ -28,7 +29,11 @@ import { GenerateNetList, GenerateNodeList, GenerateCompList, ErcCheckNets } fro
 import SimulationScreen from '../Shared/SimulationScreen'
 import { Multiselect } from 'multiselect-react-dropdown'
 import Notice from '../Shared/Notice'
+import ErrorExplainerCard from '../Simulator/ErrorExplainerCard'
+import SimulationHistoryDrawer from '../Simulator/SimulationHistoryDrawer'
+import ChatPanel from '../AIAssistant/ChatPanel'
 import api from '../../utils/Api'
+import { saveSimulationRun } from '../../utils/simulationHistory'
 
 const useStyles = makeStyles((theme) => ({
   toolbar: {
@@ -58,13 +63,34 @@ export default function SimulationProperties (props) {
   const {
     setSimulateOpen,
     setIsResult,
-    setTaskId,
+    setTaskId: propSetTaskId,
     setSimType
   } = props
 
   const netfile = useSelector(state => state.netlistReducer)
   const isSimulate = useSelector(state => state.schematicEditorReducer.isSimulate)
   const isSimRes = useSelector(state => state.simulationReducer.isSimRes)
+
+  // saveSchematicReducer.details is populated by SET_SCH_SAVED after a save.
+  // Fields available: save_id, version, branch (from StateSave model & SaveListSerializer).
+  // Fallback to URL query params (window.location.search) is NOT needed here because
+  // SimulationProperties is only rendered inside the editor which already dispatches
+  // fetchSchematic → SET_SCH_SAVED, so details is always populated for saved circuits.
+  const schSave = useSelector(state => state.saveSchematicReducer)
+  // Derive the three history-API identifiers from Redux. These will be null when the
+  // circuit has never been saved (schSave.isSaved is null/false and details is {}).
+  const historySaveId = (schSave.details && schSave.details.save_id) ? String(schSave.details.save_id) : null
+  const historyVersion = (schSave.details && schSave.details.version) ? schSave.details.version : null
+  const historyBranch = (schSave.details && schSave.details.branch) ? schSave.details.branch : null
+
+  const [localTaskId, setLocalTaskId] = useState(null)
+  const setTaskId = (val) => {
+    setLocalTaskId(val)
+    if (propSetTaskId) {
+      propSetTaskId(val)
+    }
+  }
+  const taskId = localTaskId
   const dispatch = useDispatch()
   const classes = useStyles()
   const [nodeList, setNodeList] = useState([])
@@ -76,6 +102,16 @@ export default function SimulationProperties (props) {
   const [needParameters, setNeedParameters] = useState(false)
   const [status, setStatus] = useState('')
   const stats = { loading: 'loading', error: 'error', success: 'success' }
+  // errorHelp holds the structured error_help object from the backend parser,
+  // or null when no structured help is available (backward-compatibility).
+  const [errorHelp, setErrorHelp] = useState(null)
+
+  // ── History drawer state ─────────────────────────────────────────────────
+  const [historyOpen, setHistoryOpen] = useState(false)
+  // historyErrorHelp holds the error_help from a SELECTED HISTORICAL result.
+  // This is separate from errorHelp (live simulation) so that Task 4 can
+  // reuse ErrorExplainerCard without duplicating its logic.
+  const [historyErrorHelp, setHistoryErrorHelp] = useState(null)
   const [dcSweepcontrolLine, setDcSweepControlLine] = useState(props.dcSweepcontrolLine ? props.dcSweepcontrolLine : {
     parameter: '',
     sweepType: 'Linear',
@@ -445,7 +481,22 @@ export default function SimulationProperties (props) {
           console.log(res.data.details)
           msg = res.data.details.fail.replace("b'", '')
           isError = true
-          console.log(err)
+          // Populate structured error help when the backend parser has provided it.
+          // Path: res.data.details.error_help (set by ngspice_helper.py via error_parser.py)
+          if (res.data?.details?.error_help) {
+            setErrorHelp(res.data.details.error_help)
+          } else {
+            setErrorHelp(null)
+          }
+          // Task 2: save failed run to localStorage history (no auth required).
+          saveSimulationRun({
+            timestamp: new Date().toISOString(),
+            success: false,
+            simulationType: typeSimulation,
+            result: res.data?.details,
+            errorHelp: res.data?.details?.error_help || null,
+            netlist: netfile.netlist || ''
+          })
         } else {
           const result = res.data.details
           resPending = false
@@ -520,6 +571,17 @@ export default function SimulationProperties (props) {
           console.log('no error')
           handleStatus(stats.success)
           handlesimulateOpen()
+          // Clear any previous error help on success.
+          setErrorHelp(null)
+          // Task 2: save successful run to localStorage history.
+          saveSimulationRun({
+            timestamp: new Date().toISOString(),
+            success: true,
+            simulationType: typeSimulation,
+            result: null,
+            errorHelp: null,
+            netlist: netfile.netlist || ''
+          })
         } else if (resPending === false) {
           handleStatus(stats.error)
           handleErrMsg(msg)
@@ -700,12 +762,33 @@ export default function SimulationProperties (props) {
     setAnchorEl(null)
   }
 
+  /**
+   * Called when the user clicks a row in SimulationHistoryDrawer.
+   * Restores the historical result into the existing display channels:
+   *   - If the historical result has error_help → show ErrorExplainerCard
+   *     (historyErrorHelp state, Task 4 requirement).
+   *   - The raw result object is available via item.result if needed for
+   *     graph/text display in future iterations (not wired here to avoid
+   *     breaking the current simulate-and-show flow).
+   */
+  const handleSelectHistoryResult = (item) => {
+    // Clear any live-simulation error first to avoid stale cards.
+    setErrorHelp(null)
+    // item.errorHelp is the localStorage-stored errorHelp field (Task 3 entry shape).
+    if (item && item.errorHelp) {
+      setHistoryErrorHelp(item.errorHelp)
+    } else {
+      setHistoryErrorHelp(null)
+    }
+  }
+
   const open = Boolean(anchorEl)
   const id = open ? 'simple-popover' : undefined
 
   return (
     <>
-      <div className={classes.SimulationOptions}>
+      <div className={classes.toolbar} />
+      <div className={classes.simulationOptions}>
         <Snackbar
           open={needParameters}
           autoHideDuration={6000}
@@ -734,6 +817,65 @@ export default function SimulationProperties (props) {
           </Alert>
         </Snackbar>
         <Notice status={status} open={err} msg={errMsg} close={handleErrClose} />
+        {/* ErrorExplainerCard for LIVE simulation errors (morning session, Task 4 source A). */}
+        {errorHelp && (
+          <ErrorExplainerCard
+            summary={errorHelp.summary}
+            hints={errorHelp.hints}
+            codes={errorHelp.codes}
+            onAskAI={() => {
+              const message =
+                'I got this simulation error: ' +
+                errorHelp.summary +
+                (errorHelp.hints && errorHelp.hints.length > 0
+                  ? '. Hints: ' + errorHelp.hints.join(', ')
+                  : '')
+              window.dispatchEvent(
+                new CustomEvent('esim-open-chat-with-prompt', { detail: { message } })
+              )
+            }}
+          />
+        )}
+        {/* ErrorExplainerCard for HISTORICAL simulation errors (Task 4 source B).
+            Reuses the same component — no duplication. Only shown when the user
+            has clicked a failed run inside SimulationHistoryDrawer. */}
+        {historyErrorHelp && (
+          <ErrorExplainerCard
+            summary={historyErrorHelp.summary}
+            hints={historyErrorHelp.hints}
+            codes={historyErrorHelp.codes}
+            onAskAI={() => {
+              const message =
+                'I got this simulation error: ' +
+                historyErrorHelp.summary +
+                (historyErrorHelp.hints && historyErrorHelp.hints.length > 0
+                  ? '. Hints: ' + historyErrorHelp.hints.join(', ')
+                  : '')
+              window.dispatchEvent(
+                new CustomEvent('esim-open-chat-with-prompt', { detail: { message } })
+              )
+            }}
+          />
+        )}
+        {/* History button + drawer — localStorage only, no auth required. */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '4px 8px', marginTop: '20px' }}>
+          <Button
+            id="sim-history-open-btn"
+            variant="outlined"
+            color="default"
+            size="small"
+            startIcon={<HistoryIcon />}
+            onClick={() => setHistoryOpen(true)}
+          >
+            History
+          </Button>
+        </div>
+        <SimulationHistoryDrawer
+          open={historyOpen}
+          onClose={() => setHistoryOpen(false)}
+          onSelectResult={handleSelectHistoryResult}
+        />
+        {/* Simulation modes list */}
         <List>
           {/* DC Solver */}
           <ListItem className={classes.simulationOptions} divider>
@@ -1565,7 +1707,28 @@ export default function SimulationProperties (props) {
               Simulation Result
             </Button>
           </ListItem>
+
         </List>
+
+        {/* SimulationHistoryDrawer — mounted here so it is always available.
+            saveId / version / branch come from Redux saveSchematicReducer.details
+            (populated by SET_SCH_SAVED after any save). They will be null when
+            the circuit has never been saved — the drawer handles that state. */}
+        <SimulationHistoryDrawer
+          open={historyOpen}
+          onClose={() => setHistoryOpen(false)}
+          saveId={historySaveId}
+          version={historyVersion}
+          branch={historyBranch}
+          onSelectResult={handleSelectHistoryResult}
+        />
+
+        {/* AI Chat Panel — embedded inline so it receives the esim-open-chat-with-prompt
+            event fired by the ErrorExplainerCard's "Ask AI About This Error" button.
+            Placed below all simulation controls for natural reading flow. */}
+        <div style={{ padding: '8px 4px 4px' }}>
+          <ChatPanel />
+        </div>
       </div>
     </>
   )

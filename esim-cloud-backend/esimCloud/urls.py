@@ -18,6 +18,7 @@ from drf_yasg import openapi
 from django.conf.urls import url, include
 from arduinoAPI import urls as arduinoURLs
 from ltiAPI import urls as ltiURLS
+from chatbotAPI import urls as chatbotURLs
 
 schema_view = get_schema_view(
     openapi.Info(
@@ -32,6 +33,9 @@ schema_view = get_schema_view(
 
 urlpatterns = [
     path('api/admin/', admin.site.urls),
+
+    # Chatbot API Routes
+    path('api/chat/', include(chatbotURLs)),
 
     # Simulation API Routes
     path('api/simulation/', include(simulationURLs)),

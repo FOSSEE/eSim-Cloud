@@ -12,6 +12,7 @@ import LayoutMain from '../components/Shared/LayoutMain'
 import SchematicToolbar from '../components/SchematicEditor/SchematicToolbar'
 import RightSidebar from '../components/SchematicEditor/RightSidebar'
 import PropertiesSidebar from '../components/SchematicEditor/PropertiesSidebar'
+import NetlistPreviewPanel from '../components/SchematicEditor/NetlistPreviewPanel'
 import LoadGrid from '../components/SchematicEditor/Helper/ComponentDrag.js'
 import ComponentProperties from '../components/SchematicEditor/ComponentProperties'
 import SimulationProperties from '../components/SchematicEditor/SimulationProperties'
@@ -20,7 +21,7 @@ import '../components/SchematicEditor/Helper/SchematicEditor.css'
 import { fetchSchematic, fetchGallerySchematic } from '../redux/actions/index'
 import { useDispatch, useSelector } from 'react-redux'
 
-const useStyles = makeStyles((theme) => ({
+const useStyles = makeStyles(() => ({
   root: {
     display: 'flex',
     minHeight: '100vh'
@@ -127,7 +128,6 @@ export default function SchematiEditor (props) {
         </div>
       </LayoutMain>
 
-      {/* Schematic editor Right side pane */}
       <RightSidebar mobileOpen={mobileOpen} mobileClose={handleDrawerToggle}>
         {isSimulate ? (
           <SimulationProperties 
@@ -139,7 +139,10 @@ export default function SchematiEditor (props) {
             setLtiSimResult={setLtiSimResult} 
           />
         ) : (
-          <PropertiesSidebar gridRef={gridRef} outlineRef={outlineRef} />
+          <>
+            <PropertiesSidebar gridRef={gridRef} outlineRef={outlineRef} />
+            <NetlistPreviewPanel gridRef={gridRef} />
+          </>
         )}
       </RightSidebar>
       <ComponentProperties/>

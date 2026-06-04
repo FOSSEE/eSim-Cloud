@@ -4,9 +4,17 @@ import { makeStyles } from '@material-ui/core/styles'
 import Editor from '../components/Simulator/Editor'
 import textToFile from '../components/Simulator/textToFile'
 import SimulationScreen from '../components/Shared/SimulationScreen'
-import { useDispatch } from 'react-redux'
+import { useDispatch, useSelector } from 'react-redux'
 import { setResultGraph, setResultText, setNetlist } from '../redux/actions/index'
 import Notice from '../components/Shared/Notice'
+import { sanitizeNetlistForExport } from '../components/SchematicEditor/Helper/NetlistExporter'
+import ErrorExplainerCard from '../components/Simulator/ErrorExplainerCard'
+// ChatPanel is mounted unconditionally so its window event listener is always
+// registered. Conditional rendering would unmount it (removing the listener)
+// before the CustomEvent from handleAskAI fires, causing the event to be missed.
+import ChatPanel from '../components/AIAssistant/ChatPanel'
+import SimulationHistoryDrawer from '../components/Simulator/SimulationHistoryDrawer'
+import { saveSimulationRun } from '../utils/simulationHistory'
 
 import api from '../utils/Api'
 
@@ -32,15 +40,39 @@ export default function Simulator () {
   const [err, setErr] = useState(false)
   const [status, setStatus] = useState('')
   const stats = { loading: 'loading', error: 'error', success: 'success' }
+  // errorHelp holds the structured error_help object from the backend parser,
+  // or null when no structured help is available (backward-compatibility).
+  const [errorHelp, setErrorHelp] = useState(null)
+  
+  // History drawer state
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [historyErrorHelp, setHistoryErrorHelp] = useState(null)
+
+  const handleSelectHistoryResult = (item) => {
+    setErrorHelp(null)
+    if (item && item.errorHelp) {
+      setHistoryErrorHelp(item.errorHelp)
+    } else {
+      setHistoryErrorHelp(null)
+    }
+  }
   const [state, setState] = React.useState({
     checkedA: false
 
   })
   const [taskId, setTaskId] = useState(null)
 
+  const reduxNetlist = useSelector(state => state.netlistReducer.netlist)
+
   useEffect(() => {
     document.title = 'Simulator - eSim '
   })
+
+  useEffect(() => {
+    if (reduxNetlist) {
+      setNetlistCode(reduxNetlist)
+    }
+  }, [reduxNetlist])
 
   const handleChange = (event) => {
     setState({ ...state, [event.target.name]: event.target.checked })
@@ -75,32 +107,8 @@ export default function Simulator () {
     setSimulateOpen(false)
   }
 
-  const netlistCodeSanitization = (code) => {
-    const codeArray = code.split('\n')
-    let cleanCode = ''
-    let frontPlot = ''
-    for (let line = 0; line < codeArray.length; line++) {
-      if (codeArray[line].includes('plot') && !codeArray[line].includes('setplot')) {
-        frontPlot += codeArray[line].split('plot ')[1] + ' '
-      }
-    }
-    frontPlot = `print ${frontPlot} > data.txt \n`
-    let flag = 0
-    for (let i = 0; i < codeArray.length; i++) {
-      if (codeArray[i].includes('plot') && !codeArray[i].includes('setplot')) {
-        if (!flag) {
-          cleanCode += frontPlot
-          flag = 1
-        }
-      } else {
-        cleanCode += codeArray[i] + '\n'
-      }
-    }
-    return cleanCode
-  }
-
   function prepareNetlist () {
-    const sanatizedText = netlistCodeSanitization(netlistCode)
+    const sanatizedText = sanitizeNetlistForExport(netlistCode)
     dispatch(setNetlist(sanatizedText))
     const file = textToFile(sanatizedText)
     sendNetlist(file)
@@ -155,7 +163,26 @@ export default function Simulator () {
           console.log(res.data.details)
           msg = res.data.details.fail.replace("b'", '')
           isError = true
-          console.log(err)
+          // BUG 3 fix: use optional chaining (?.) at every level so an old
+          // backend response without error_help does not throw a TypeError.
+          // Confirmed path (from views.py CeleryResultView):
+          //   res.data = { state: '...', details: celery_result.info }
+          //   celery_result.info on failure = { fail: '...', error_help: {...} }
+          // → correct path is res.data?.details?.error_help
+          if (res.data?.details?.error_help) {
+            setErrorHelp(res.data.details.error_help)
+          } else {
+            setErrorHelp(null)
+          }
+          // Task 5: save failed run to localStorage history.
+          saveSimulationRun({
+            timestamp: new Date().toISOString(),
+            success: false,
+            simulationType: 'NgSpiceSimulator',
+            result: res.data.details,
+            errorHelp: res.data?.details?.error_help || null,
+            netlist: netlistCode
+          })
         } else {
           const result = res.data.details
           resPending = false
@@ -227,6 +254,17 @@ export default function Simulator () {
           // console.log('no error')
           handleStatus(stats.success)
           handlesimulateOpen()
+          // Clear any previous error help on success.
+          setErrorHelp(null)
+          // Task 5: save successful run to localStorage history.
+          saveSimulationRun({
+            timestamp: new Date().toISOString(),
+            success: true,
+            simulationType: 'NgSpiceSimulator',
+            result: null,
+            errorHelp: null,
+            netlist: netlistCode
+          })
         } else if (resPending === false) {
           handleStatus(stats.error)
           handleErrMsg(msg)
@@ -242,8 +280,29 @@ export default function Simulator () {
       })
   }
 
+  /**
+   * Builds and dispatches the cross-component event that tells ChatPanel to
+   * pre-fill its input with a description of the current error.
+   * ChatPanel is always mounted below, so its listener is always registered.
+   */
+  const handleAskAI = () => {
+    const message = 'I got this simulation error: ' + errorHelp.summary +
+      (errorHelp.hints && errorHelp.hints.length > 0 ? '. Hints: ' + errorHelp.hints.join(', ') : '')
+    window.dispatchEvent(
+      new CustomEvent('esim-open-chat-with-prompt', { detail: { message } })
+    )
+  }
+
+  const handleHistoryAskAI = () => {
+    const message = 'I got this simulation error: ' + historyErrorHelp.summary +
+      (historyErrorHelp.hints && historyErrorHelp.hints.length > 0 ? '. Hints: ' + historyErrorHelp.hints.join(', ') : '')
+    window.dispatchEvent(
+      new CustomEvent('esim-open-chat-with-prompt', { detail: { message } })
+    )
+  }
+
   return (
-    <Container maxWidth="lg" className={classes.header}>
+    <Container component="main" maxWidth="md" className={classes.header}>
       <SimulationScreen open={simulateOpen} isResult={isResult} close={handleSimulateClose} dark={state} taskId={taskId} />
       <Grid
         container
@@ -252,6 +311,28 @@ export default function Simulator () {
         justify="center"
         alignItems="stretch"
       >
+        {/* ErrorExplainerCard appears above the raw error Notice when
+            the backend has provided structured error_help. */}
+        {errorHelp && (
+          <Grid item xs={12}>
+            <ErrorExplainerCard
+              summary={errorHelp.summary}
+              hints={errorHelp.hints}
+              codes={errorHelp.codes}
+              onAskAI={handleAskAI}
+            />
+          </Grid>
+        )}
+        {historyErrorHelp && (
+          <Grid item xs={12}>
+            <ErrorExplainerCard
+              summary={historyErrorHelp.summary}
+              hints={historyErrorHelp.hints}
+              codes={historyErrorHelp.codes}
+              onAskAI={handleHistoryAskAI}
+            />
+          </Grid>
+        )}
         <Notice status={status} open={err} msg={errMsg} close={handleErrClose}/>
         <Grid item xs={12} >
           <Paper className={classes.paper}>
@@ -283,9 +364,29 @@ export default function Simulator () {
             <Button variant="contained" color="primary" size="large" onClick={handleSimulationButtonClick}>
               Simulate
             </Button>
+            <Button
+              variant="outlined"
+              color="secondary"
+              size="large"
+              onClick={() => setHistoryOpen(true)}
+              style={{ marginLeft: '10px' }}
+            >
+              History
+            </Button>
           </Paper>
         </Grid>
       </Grid>
+
+      <SimulationHistoryDrawer
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        onSelectResult={handleSelectHistoryResult}
+      />
+      {/* ChatPanel is always mounted so its window event listener is always
+          active. It renders as an inline card at the bottom of the page.
+          No z-index conflict: SimulationScreen uses a MUI Dialog (z-index 1300);
+          ChatPanel is a plain Card with no portal/overlay. */}
+      <ChatPanel />
     </Container>
   )
 }

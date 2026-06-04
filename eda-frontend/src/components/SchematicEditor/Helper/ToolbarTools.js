@@ -9,6 +9,7 @@ import store from '../../../redux/store'
 import * as actions from '../../../redux/actions/actions'
 import ComponentParameters from './ComponentParametersData'
 import { findNearestWire, findNearestVSourcePin } from './SideBar'
+import { checkNetlistErc, buildNetlistFromGraph, annotate } from './NetlistExporter'
 var graph
 var undoManager
 
@@ -408,43 +409,18 @@ export function ErcCheck() {
 }
 // ERC Check for Netlist, It also returns a boolean value which is called in the Netlist Generator 
 export function ErcCheckNets() {
-  var list = graph.getModel().cells // mapping the grid
-  var vertexCount = 0
-  var errorCount = 0
-  var PinNC = 0
-  var stypes = 0
-  var ground = 0
-  for (var property in list) {
-    var cell = list[property]
-    if (cell.Component === true) {
-      for (var child in cell.children) {
-        if (child.connectable) {
-          var childVertex = cell.children[child]
-          if (childVertex.Pin === true && childVertex.edges === null) {
-            graph.getSelectionCell(childVertex)
-            ++PinNC
-            ++errorCount
-          }
-        }
-      }
-      ++vertexCount
-    }
-    if (cell.symbol === 'PWR') {
-      ++ground
-    }
-  }
-  if (vertexCount === 0) {
+  const result = checkNetlistErc(graph)
+  if (result.vertexCount === 0) {
     alert('No Component added')
-    ++errorCount
     return false
-  } else if (PinNC !== 0) {
+  } else if (result.pinNC !== 0) {
     alert('Pins not connected')
     return false
-  } else if (ground === 0) {
+  } else if (result.ground === 0) {
     alert('Ground not connected')
     return false
   } else {
-    if (errorCount === 0) {
+    if (result.errorCount === 0) {
       return true
     }
   }
@@ -506,296 +482,40 @@ export function GetProbeNodes () {
 
 // Function to generate Netlist
 export function GenerateNetList() {
-
-  var r = 1
-  var v = 1
-  var c = 1
-  var n = 1
-  var spiceModels = ''
-  var compDetails = {
-    componentlist: [],
-    nodelist: new Set()
-  }
   var erc = ErcCheckNets() // Checking for ERC Failures
-  var k = ''
   if (erc === false) {
     alert('ERC check failed')
   } else {
-    var list = annotate(graph) // Fetching all the Cells on the GRID
-    var hasProbes = false
-    for (var p in list) {
-      if (list[p] && list[p].CellType === 'Probe') {
-        hasProbes = true
-        break
+    const netobj = buildNetlistFromGraph(graph)
+    store.dispatch({
+      type: actions.SET_MODEL,
+      payload: {
+        model: netobj.models
       }
-    }
-    for (var property in list) {
-      // Skip probe cells — they are not circuit components
-      if (list[property].CellType === 'Probe') continue
-      if (list[property].Component === true && list[property].symbol !== 'PWR') {
-        var compobj = {
-          name: '',
-          magnitude: ''
-        }
-        // mxCell.prototype.ConnectedNode = null
-        var component = list[property]
-        if (component.symbol === 'R') {
-
-          k = k + component.symbol + r.toString()
-          component.value = component.symbol + r.toString()
-          component.properties.PREFIX = component.value
-
-          ++r
-        } else if (component.symbol === 'V') {
-          k = k + component.symbol + v.toString()
-          component.value = component.symbol + v.toString()
-          component.properties.PREFIX = component.value
-
-          ++v
-        } else {
-          k = k + component.symbol + c.toString()
-          component.value = component.symbol + c.toString()
-          component.properties.PREFIX = component.value
-          ++c
-        }
-        if (component.children !== null) {
-          for (var child in component.children) {
-            var pin = component.children[child]
-            if (pin.vertex === true && pin.connectable) {
-              if (pin.edges !== null || pin.edges.length !== 0) {
-                for (var wire in pin.edges) {
-                  if (pin.edges[wire].source !== null && pin.edges[wire].target !== null) {
-                    // Wire to Pin Connection 
-                    if (pin.edges[wire].source.edge === true) {
-                    //   pin.edges[wire].node = pin.edges[wire].source.node
-                      pin.edges[wire].sourceVertex = pin.edges[wire].source.id
-                      pin.edges[wire].targetVertex = pin.edges[wire].target.id
-                      // Pin to Wire Connection 
-                    } else if (pin.edges[wire].target.edge === true) {
-
-                    //   pin.edges[wire].node = pin.edges[wire].target.node
-                      pin.edges[wire].sourceVertex = pin.edges[wire].source.id
-                      pin.edges[wire].targetVertex = pin.edges[wire].target.id
-                      pin.edges[wire].tarx = pin.edges[wire].geometry.targetPoint.x
-                      pin.edges[wire].tary = pin.edges[wire].geometry.targetPoint.y
-                      // Souce or Target is Ground 
-                    } else if (pin.edges[wire].source.ParentComponent.symbol === 'PWR'  ||  pin.edges[wire].target.ParentComponent.symbol === 'PWR') {
-                    //   pin.edges[wire].node = 0
-                      pin.edges[wire].value = hasProbes ? '' : 0
-                      pin.edges[wire].sourceVertex = pin.edges[wire].source.id
-                      pin.edges[wire].targetVertex = pin.edges[wire].target.id
-                      // Pin to Pin Connection, Setting the Source to be the Node Value 
-                    } else {
-                    //   pin.edges[wire].node = pin.edges[wire].source.ParentComponent.properties.PREFIX + '.' + pin.edges[wire].source.value
-                      // pin.ConnectedNode = pin.edges[wire].source.ParentComponent.properties.PREFIX + '.' + pin.edges[wire].source.value
-                      pin.edges[wire].sourceVertex = pin.edges[wire].source.id
-                      pin.edges[wire].targetVertex = pin.edges[wire].target.id
-                      pin.edges[wire].value = hasProbes ? '' : pin.edges[wire].node
-                    }
-                    pin.edges[wire].value = hasProbes ? '' : pin.edges[wire].node
-                  }
-                }
-                k = k + ' ' + pin.edges[0].node
-              }
-            }
-          }
-          compobj.name = component.symbol
-          compobj.magnitude = 10
-          var nodeNumber = 0
-          for(var child in component.children){
-              nodeNumber++
-              compobj['node' + nodeNumber.toString()] = component.children[child].edges[0].node
-              compDetails.nodelist.add(component.children[child].edges[0].node)
-          }
-          compDetails.componentlist.push(component.properties.PREFIX)
-        }
-
-        if (component.properties.MODEL && component.properties.MODEL.length > 0) {
-          k = k + ' ' + component.properties.MODEL.split(' ')[1]
-        }
-
-        if (component.properties.PREFIX.charAt(0) === 'V' || component.properties.PREFIX.charAt(0) === 'v' || component.properties.PREFIX.charAt(0) === 'I' || component.properties.PREFIX.charAt(0) === 'i') {
-          const comp = component.properties
-          if (comp.NAME === 'SINE') {
-            k = k + ` SIN(${comp.OFFSET} ${comp.AMPLITUDE} ${comp.FREQUENCY} ${comp.DELAY} ${comp.DAMPING_FACTOR} ${comp.PHASE} )`
-          } else if (comp.NAME === 'EXP') {
-            k = k + ` EXP(${comp.INITIAL_VALUE} ${comp.PULSED_VALUE} ${comp.FREQUENCY} ${comp.RISE_DELAY_TIME} ${comp.RISE_TIME_CONSTANT} ${comp.FALL_DELAY_TIME} ${comp.FALL_TIME_CONSTANT} )`
-          } else if (comp.NAME === 'DC') {
-            if (component.properties.VALUE !== undefined) {
-              k = k + ' DC ' + component.properties.VALUE
-              component.value = component.value + '\n' + component.properties.VALUE
-            }
-          } else if (comp.NAME === 'PULSE') {
-            k = k + ` PULSE(${comp.INITIAL_VALUE} ${comp.PULSED_VALUE} ${comp.DELAY_TIME} ${comp.RISE_TIME} ${comp.FALL_TIME} ${comp.PULSE_WIDTH} ${comp.PERIOD} ${comp.PHASE} )`
-          } else {
-            if (component.properties.VALUE !== undefined) {
-              k = k + ' ' + component.properties.VALUE
-              component.value = component.value + '\n' + component.properties.VALUE
-            }
-          }
-        } else if (component.properties.PREFIX.charAt(0) === 'C' || component.properties.PREFIX.charAt(0) === 'c') {
-          k = k + ' ' + component.properties.VALUE
-          if (component.properties.IC != 0) {
-            k = k + ' IC=' + component.properties.IC
-          }
-          component.value = component.value + '\n' + component.properties.VALUE
-        } else if (component.properties.PREFIX.charAt(0) === 'L' || component.properties.PREFIX.charAt(0) === 'l') {
-          k = k + ' ' + component.properties.VALUE
-          if (component.properties.IC != 0) {
-            k = k + ' IC=' + component.properties.IC
-          }
-          if (component.properties.DTEMP != 27) {
-            k = k + ' dtemp=' + component.properties.DTEMP
-          }
-          component.value = component.value + '\n' + component.properties.VALUE
-        } else if (component.properties.PREFIX.charAt(0) === 'M' || component.properties.PREFIX.charAt(0) === 'm') {
-          // k = k + ' ' + component.properties.VALUE   
-          if (component.properties.MULTIPLICITY_PARAMETER != 1) {
-            k = k + ' m=' + component.properties.MULTIPLICITY_PARAMETER
-          }
-          if (component.properties.DTEMP != 27) {
-            k = k + ' dtemp=' + component.properties.DTEMP
-          }
-          // component.value = component.value + '\n' + component.properties.VALUE
-        } else if (component.properties.PREFIX.charAt(0) === 'Q' || component.properties.PREFIX.charAt(0) === 'q') {
-          // k = k + ' ' + component.properties.VALUE
-          if (component.properties.MULTIPLICITY_PARAMETER != 1) {
-            k = k + ' m=' + component.properties.MULTIPLICITY_PARAMETER
-          }
-          if (component.properties.DTEMP != 27) {
-            k = k + ' dtemp=' + component.properties.DTEMP
-          }
-          // component.value = component.value + '\n' + component.properties.VALUE
-        } else if (component.properties.PREFIX.charAt(0) === 'R' || component.properties.PREFIX.charAt(0) === 'r') {
-          k = k + ' ' + component.properties.VALUE
-          if (component.properties.SHEET_RESISTANCE != 0) {
-            k = k + ' RSH=' + component.properties.SHEET_RESISTANCE
-          }
-          if (component.properties.FIRST_ORDER_TEMPERATURE_COEFF != 0) {
-            k = k + ' tc1=' + component.properties.FIRST_ORDER_TEMPERATURE_COEFF
-          }
-          if (component.properties.SECOND_ORDER_TEMPERATURE_COEFF != 0) {
-            k = k + ' tc2=' + component.properties.SECOND_ORDER_TEMPERATURE_COEFF
-          }
-          if (component.properties.PARAMETER_MEASUREMENT_TEMPERATURE != 27) {
-            k = k + ' TNOM=' + component.properties.PARAMETER_MEASUREMENT_TEMPERATURE
-          }
-          component.value = component.value + '\n' + component.properties.VALUE
-        } else {
-          if (component.properties.VALUE !== undefined) {
-            k = k + ' ' + component.properties.VALUE
-            component.value = component.value + '\n' + component.properties.VALUE
-          }
-        }
-
-        if (component.properties.EXTRA_EXPRESSION && component.properties.EXTRA_EXPRESSION.length > 0) {
-          k = k + ' ' + component.properties.EXTRA_EXPRESSION
-          component.value = component.value + ' ' + component.properties.EXTRA_EXPRESSION
-        }
-
-        if (component.properties.MODEL && component.properties.MODEL.length > 0) {
-          spiceModels += component.properties.MODEL + '\n'
-        }
-
-        k = k + ' \n'
-      }
-    }
-  }
-  store.dispatch({
-    type: actions.SET_MODEL,
-    payload: {
-      model: spiceModels
-    }
-  })
-  store.dispatch({
-    type: actions.SET_NETLIST,
-    payload: {
-      netlist: k
-    }
-  })
-  // Refresh the GRID to view the Node Values 
-  graph.getModel().beginUpdate()
-  try {
-    graph.view.refresh()
-  } finally {
-    // Arguments are number of steps, ease and delay
-    var morph = new mxMorphing(graph, 20, 1.2, 20)
-    morph.addListener(mxEvent.DONE, function () {
-      graph.getModel().endUpdate()
     })
-    morph.startAnimation()
-  }
-  var netobj = {
-    models: spiceModels,
-    main: k
-  }
-  return netobj
-}
-// Function to Annotate, TODO! It needs some polishing 
-class Stack {
-    constructor(){
-        this.data = [];
-        this.top = 0;
-    }
-    push(element) {
-      this.data[this.top] = element;
-      this.top = this.top + 1;
-    }
-   length() {
-      return this.top;
-   }
-   peek() {
-      return this.data[this.top-1];
-   }
-   isEmpty() {
-     return this.top === 0;
-   }
-   pop() {
-    if( this.isEmpty() === false ) {
-       this.top = this.top -1;
-       return this.data.pop(); // removes the last element
-     }
-   }
-   print() {
-      var top = this.top - 1; // because top points to index where new    element to be inserted
-      while(top >= 0) { // print upto 0th index
-           top--;
+    return {
+      models: netobj.models,
+      main: netobj.main
+    })
+    store.dispatch({
+      type: actions.SET_NETLIST,
+      payload: {
+        netlist: netobj.main
       }
-    }
-    reverse() {
-       this._reverse(this.top - 1 );
-    }
-    _reverse(index) {
-       if(index != 0) {
-          this._reverse(index-1);
-       }
-    }
-}
-
-function traverseWire(edge, vis) {
-
-
-  var ans = []
-  vis[edge.id] = 1
-  if (edge.target.vertex == true || edge.source.vertex == true) {
-    //check for edges connected to such an edge 
-    if (edge.target.vertex == true) { ans.push(edge.target) }
-    if (edge.source.vertex == true) { ans.push(edge.source) }
-    return ans;
-  } else {
-    vis[parseInt(edge.id)] = true
-    if (edge.edges && edge.edges.length > 0) {
-      edge.edges.forEach((elem) => {
-        ans = ans.concat(traverseWire(elem, vis))
+    })
+    // Refresh the GRID to view the Node Values 
+    graph.getModel().beginUpdate()
+    try {
+      graph.view.refresh()
+    } finally {
+      // Arguments are number of steps, ease and delay
+      var morph = new mxMorphing(graph, 20, 1.2, 20)
+      morph.addListener(mxEvent.DONE, function () {
+        graph.getModel().endUpdate()
       })
-    } else {
-      if (edge.source.edge == true && !vis[edge.source.id]) {
-        ans = ans.concat(traverseWire(edge.source, vis))
-      }
-      if (edge.target.edge == true && !vis[edge.target.id]) {
-        ans = ans.concat(traverseWire(edge.target, vis))
-      }
+      morph.startAnimation()
     }
+<<<<<<< HEAD
     return ans
   }
 }
@@ -994,12 +714,14 @@ function annotate(graph) {
           }
         }
       }
+=======
+    return {
+      models: netobj.models,
+      main: netobj.main
+>>>>>>> master
     }
   }
-
-  return list;
 }
-
 
 
 

@@ -257,7 +257,7 @@ export default function LoadGrid(container, sidebar, outline, minimap) {
 
     // Creates the graph inside the given container
     graph = new mxGraph(container)
-
+    container.graph = graph // Expose for NetlistPreviewPanel
 
     mxConnectionHandler.prototype.movePreviewAway = false
     mxConnectionHandler.prototype.waypointsEnabled = true
