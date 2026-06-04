@@ -219,28 +219,6 @@ export default function LoadGrid(container, sidebar, outline, minimap) {
               }
             }
           }, this)
-        } else if (probeCell.probeType === 'I') {
-          // Snap to V-Source pins
-          Object.values(model.cells).forEach(function (cell) {
-            if (!cell || !cell.Pin) return
-            var parent = cell.ParentComponent || cell.parent
-            if (!parent || (parent.symbol !== 'V' && parent.symbol !== 'v')) return
-            var pGeo = model.getGeometry(parent)
-            var pinGeo = model.getGeometry(cell)
-            if (!pGeo || !pinGeo) return
-            var px = pGeo.x + pinGeo.x
-            var py = pGeo.y + pinGeo.y
-            
-            var dist = Math.sqrt((tipX - px) * (tipX - px) + (tipY - py) * (tipY - py))
-            if (dist < bestDist) {
-              bestDist = dist
-              var requiredGraphDx = px - (probeCell.geometry.x + 10)
-              var requiredGraphDy = py - (probeCell.geometry.y + probeCell.geometry.height - 10)
-              bestDx = requiredGraphDx * scale
-              bestDy = requiredGraphDy * scale
-              snapped = true
-            }
-          })
         }
 
         if (snapped) {

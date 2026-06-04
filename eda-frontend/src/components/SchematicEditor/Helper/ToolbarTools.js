@@ -457,23 +457,6 @@ export function GetProbeNodes () {
         }
       }
       voltageProbes.push({ nodeLabel: nodeLabel, color: cell.probeColor || '#00e676', cellId: cell.id, probeLabel: cell.value })
-    } else if (cell.probeType === 'I') {
-      var branchLabel = null
-      
-      // Dynamically find the nearest V-Source pin
-      var geo = model.getGeometry(cell)
-      var cx = geo ? geo.x + geo.width / 2 : 0
-      var cy = geo ? geo.y + geo.height / 2 : 0
-      var nearestPin = findNearestVSourcePin(cx, cy)
-      
-      if (nearestPin) {
-        var pinParent = nearestPin.ParentComponent || nearestPin.parent
-        branchLabel = pinParent.properties
-          ? (pinParent.properties.PREFIX || pinParent.value || pinParent.symbol)
-          : pinParent.symbol
-      }
-      
-      currentProbes.push({ branch: branchLabel, color: cell.probeColor || '#ff9100', cellId: cell.id, probeLabel: cell.value })
     }
   })
 

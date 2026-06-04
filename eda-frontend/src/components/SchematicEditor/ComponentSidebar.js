@@ -710,23 +710,15 @@ export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResu
                       {activeCategory?.isProbeCategory ? (
                         <div style={{ padding: '12px 8px', width: '100%' }}>
                           <Typography variant="caption" style={{ color: '#888', display: 'block', marginBottom: '12px' }}>
-                            Drag a probe onto the canvas. Voltage probes snap to wires; current probes snap to Voltage Source pins.
+                            Drag a probe onto the canvas. Voltage probes snap to wires.
                           </Typography>
                           <Grid container spacing={2}>
-                            <Grid item xs={6} style={{ display: 'flex', justifyContent: 'center' }}>
+                            <Grid item xs={12} style={{ display: 'flex', justifyContent: 'center' }}>
                               <ProbeItem
                                 probeType="V"
                                 label="Voltage Probe"
                                 color="#00e676"
                                 description="Drag onto a wire to measure node voltage"
-                              />
-                            </Grid>
-                            <Grid item xs={6} style={{ display: 'flex', justifyContent: 'center' }}>
-                              <ProbeItem
-                                probeType="I"
-                                label="Current Probe"
-                                color="#ff9100"
-                                description="Drag onto a Voltage Source to measure branch current"
                               />
                             </Grid>
                           </Grid>

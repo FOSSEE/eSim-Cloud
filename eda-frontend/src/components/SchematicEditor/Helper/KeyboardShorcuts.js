@@ -34,10 +34,6 @@ export default function KeyboardShortcuts (graph) {
       if (evt.key === 'v' || evt.key === 'V') {
         PlaceProbeAt('V', globalMouseX, globalMouseY)
       }
-      // I key — instant spawn Current Probe
-      if (evt.key === 'i' || evt.key === 'I') {
-        PlaceProbeAt('I', globalMouseX, globalMouseY)
-      }
     }
   })
 
@@ -147,5 +143,5 @@ export default function KeyboardShortcuts (graph) {
       PasteComponents()
     }
   })
-  // (V and I keys are handled by the global document listener above to avoid focus issues)
+  // (V key is handled by the global document listener above to avoid focus issues)
 }

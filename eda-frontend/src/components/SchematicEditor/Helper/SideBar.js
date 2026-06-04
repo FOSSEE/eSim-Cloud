@@ -292,7 +292,7 @@ export function PlaceProbeAt (probeType, clientX, clientY) {
       '<text x="50" y="24" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#666666">i -</text>' +
       '</svg>'
 
-    var encodedSVG = encodeURIComponent(probeType === 'V' ? svgV : svgI)
+    var encodedSVG = encodeURIComponent(svgV)
     var imgSrc = 'data:image/svg+xml,' + encodedSVG
 
     var probeStyle = [
@@ -358,7 +358,7 @@ export function AddProbe (probeType, imgref) {
 
     // Create the fake HTML preview for dragging outside the canvas
     var dragElt = document.createElement('div')
-    dragElt.textContent = probeType === 'V' ? 'V' : 'A'
+    dragElt.textContent = 'V'
     dragElt.style.cssText = [
       'position:fixed',
       'z-index:9999',
@@ -366,7 +366,7 @@ export function AddProbe (probeType, imgref) {
       'pointer-events:none',
       'width:28px',
       'height:28px',
-      'border-radius:' + (probeType === 'V' ? '4px' : '50%'),
+      'border-radius:4px',
       'background:#1a1a2e',
       'border:2.5px solid ' + probeColor,
       'color:' + probeColor,
@@ -430,7 +430,7 @@ export function AddProbe (probeType, imgref) {
         '<text x="50" y="24" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#666666">i -</text>' +
         '</svg>'
 
-      var encodedSVG = encodeURIComponent(probeType === 'V' ? svgV : svgI)
+      var encodedSVG = encodeURIComponent(svgV)
       var imgSrc = 'data:image/svg+xml,' + encodedSVG
 
       var probeStyle = [
