@@ -23,7 +23,6 @@ import {
 } from '@material-ui/core'
 import Loader from 'react-loader-spinner'
 import SearchIcon from '@material-ui/icons/Search'
-import CloseIcon from '@material-ui/icons/Close'
 import ExpandLess from '@material-ui/icons/ExpandLess'
 import ExpandMore from '@material-ui/icons/ExpandMore'
 import StarIcon from '@material-ui/icons/Star'
@@ -47,11 +46,10 @@ import {
 
 import './Helper/SchematicEditor.css'
 import { useDispatch, useSelector } from 'react-redux'
-import { fetchLibraries, toggleCollapse, fetchComponents, toggleSimulate, fetchComponentsBySearch } from '../../redux/actions/index'
+import { fetchLibraries, toggleCollapse, fetchComponents, fetchComponentsBySearch } from '../../redux/actions/index'
 import SideComp from './SideComp.js'
 import { AddProbe } from './Helper/SideBar.js'
 import ComponentSearchBar from './ComponentSearchBar'
-import SimulationProperties from './SimulationProperties'
 const COMPONENTS_PER_ROW = 3
 
 const useStyles = makeStyles((theme) => ({
@@ -613,13 +611,14 @@ export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResu
   return (
     <>
       <div className={classes.toolbar} />
-      
-      <div style={isSimulate ? { display: 'none' } : {}}>
+
+      {/* Component palette — always visible, simulation mode no longer hides it */}
+      <div>
         <List className={classes.paletteList}>
           {UI_CATEGORIES.map((cat) => (
             <Tooltip key={cat.id} title={cat.name} placement="right">
-              <ListItem 
-                button 
+              <ListItem
+                button
                 id={cat.id === 'probes' ? 'probe-category-button' : undefined}
                 className={`${classes.paletteItem} ${activeCategory?.id === cat.id ? classes.activeItem : ''}`}
                 onClick={(e) => handleCategoryClick(e, cat)}
@@ -633,21 +632,9 @@ export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResu
         </List>
       </div>
 
-      <div style={isSimulate ? {} : { display: 'none' }}>
-        {/* Display simulation modes parameters on left side pane */}
-        <List>
-          <ListItem button divider>
-            <h2 style={{ margin: '5px auto 5px 5px' }}>Simulation Modes</h2>
-            <Tooltip title="close">
-              <IconButton color="inherit" className={classes.tools} size="small" onClick={() => { dispatch(toggleSimulate()) }}>
-                <CloseIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </ListItem>
-        </List>
-
-        <Popper
-          open={open}
+      {/* Flyout panel — always rendered so it can open regardless of mode */}
+      <Popper
+        open={open}
           anchorEl={anchorEl}
           placement="right-start"
           transition
@@ -774,7 +761,17 @@ export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResu
                           )}
                         </div>
                       ) : (
-                        activeComponents.length === 0 ? (
+                        loading ? (
+                          <div style={{ display: 'flex', justifyContent: 'center', width: '100%', padding: '16px' }}>
+                            <Loader
+                              type="TailSpin"
+                              color="#F44336"
+                              height={50}
+                              width={50}
+                              visible={true}
+                            />
+                          </div>
+                        ) : activeComponents.length === 0 ? (
                           <div style={{ padding: '16px', color: '#888', fontStyle: 'italic', width: '100%', textAlign: 'center' }}>
                             <Typography variant="body2">No components loaded in this category.</Typography>
                           </div>
@@ -805,7 +802,6 @@ export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResu
             </Fade>
           )}
         </Popper>
-      </div>
     </>
   )
 }

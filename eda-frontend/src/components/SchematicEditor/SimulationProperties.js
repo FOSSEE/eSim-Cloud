@@ -31,6 +31,7 @@ import { Multiselect } from 'multiselect-react-dropdown'
 import Notice from '../Shared/Notice'
 import ErrorExplainerCard from '../Simulator/ErrorExplainerCard'
 import SimulationHistoryDrawer from '../Simulator/SimulationHistoryDrawer'
+import ChatPanel from '../AIAssistant/ChatPanel'
 import api from '../../utils/Api'
 import { saveSimulationRun } from '../../utils/simulationHistory'
 
@@ -786,7 +787,8 @@ export default function SimulationProperties (props) {
 
   return (
     <>
-      <div className={classes.SimulationOptions}>
+      <div className={classes.toolbar} />
+      <div className={classes.simulationOptions}>
         <Snackbar
           open={needParameters}
           autoHideDuration={6000}
@@ -856,7 +858,7 @@ export default function SimulationProperties (props) {
           />
         )}
         {/* History button + drawer — localStorage only, no auth required. */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '4px 8px' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '4px 8px', marginTop: '20px' }}>
           <Button
             id="sim-history-open-btn"
             variant="outlined"
@@ -1706,22 +1708,6 @@ export default function SimulationProperties (props) {
             </Button>
           </ListItem>
 
-          {/* History button — placed after Simulation Result to stay out of the
-              way of the normal simulate flow. Does NOT affect the Simulate
-              button or any existing simulation logic. */}
-          <ListItem>
-            <Button
-              id="sim-history-open-btn"
-              size="small"
-              variant="outlined"
-              color="default"
-              startIcon={<HistoryIcon />}
-              style={{ margin: '4px auto' }}
-              onClick={() => setHistoryOpen(true)}
-            >
-              History
-            </Button>
-          </ListItem>
         </List>
 
         {/* SimulationHistoryDrawer — mounted here so it is always available.
@@ -1736,6 +1722,13 @@ export default function SimulationProperties (props) {
           branch={historyBranch}
           onSelectResult={handleSelectHistoryResult}
         />
+
+        {/* AI Chat Panel — embedded inline so it receives the esim-open-chat-with-prompt
+            event fired by the ErrorExplainerCard's "Ask AI About This Error" button.
+            Placed below all simulation controls for natural reading flow. */}
+        <div style={{ padding: '8px 4px 4px' }}>
+          <ChatPanel />
+        </div>
       </div>
     </>
   )

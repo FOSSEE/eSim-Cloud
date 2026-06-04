@@ -237,7 +237,7 @@ export default function ChatPanel () {
             id="chat-panel-input"
             className={classes.textField}
             inputRef={inputRef}
-            label="Type a message…"
+            placeholder="Type a message…"
             variant="outlined"
             size="small"
             multiline
