@@ -202,11 +202,16 @@ class StateFetchUpdateView(APIView):
                             status=status.HTTP_400_BAD_REQUEST)
 
     @swagger_auto_schema(responses={200: StateSaveSerializer})
-    def post(self, request, save_id):
+    def post(self, request, save_id, version=None, branch=None):
         if isinstance(save_id, uuid.UUID):
             # Check for permissions and sharing settings here
             try:
-                saved_state = StateSave.objects.get(save_id=save_id)
+                if version and branch:
+                    saved_state = StateSave.objects.get(save_id=save_id, version=version, branch=branch)
+                else:
+                    saved_state = StateSave.objects.filter(save_id=save_id).first()
+                    if not saved_state:
+                        raise StateSave.DoesNotExist
             except StateSave.DoesNotExist:
                 return Response({'error': 'Does not Exist'},
                                 status=status.HTTP_404_NOT_FOUND)
@@ -216,7 +221,7 @@ class StateFetchUpdateView(APIView):
                 return Response({'error': 'not the owner and not shared'},
                                 status=status.HTTP_401_UNAUTHORIZED)
 
-            if not request.data['data_dump'] and not request.data['shared']:
+            if not any(k in request.data for k in ['data_dump', 'shared', 'name', 'description', 'pinned', 'base64_image', 'esim_libraries']):
                 return Response({'error': 'not a valid PUT request'},
                                 status=status.HTTP_406_NOT_ACCEPTABLE)
 
@@ -230,6 +235,8 @@ class StateFetchUpdateView(APIView):
                     saved_state.name = request.data['name']
                 if 'description' in request.data:
                     saved_state.description = request.data['description']
+                if 'pinned' in request.data:
+                    saved_state.pinned = bool(request.data['pinned'])
                 # if thumbnail needs to be updated
                 if 'base64_image' in request.data:
                     img = Base64ImageField(max_length=None, use_url=True)
@@ -334,9 +341,17 @@ class UserSavesView(APIView):
 
     @swagger_auto_schema(responses={200: StateSaveSerializer})
     def get(self, request):
-        saved_state = StateSave.objects.filter(
+        # Step 1: deduplicate by save_id (PostgreSQL DISTINCT ON requires
+        # save_id to be the leading ORDER BY column for the distinct clause).
+        # Pick the most recent row per save_id first.
+        deduplicated_ids = StateSave.objects.filter(
             owner=self.request.user, is_arduino=False).order_by(
-            "save_id", "-save_time").distinct("save_id")
+            "save_id", "-save_time").distinct("save_id").values_list(
+            'id', flat=True)
+        # Step 2: re-fetch those rows and apply the dashboard sort:
+        # pinned=True first, then most-recently-saved.
+        saved_state = StateSave.objects.filter(
+            id__in=deduplicated_ids).order_by("-pinned", "-save_time")
         # Uncomment this if submissions are not required at the dashboard
         # submissions = Submission.objects.filter(student=self.request.user)
         # for submission in submissions:

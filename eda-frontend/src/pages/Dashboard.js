@@ -43,7 +43,10 @@ export default function Dashboard () {
     api.get('lti/exists', config)
       .then(res => {
         setLtiDetails(res.data)
-      }).catch(err => console.log(err))
+      }).catch(err => {
+        console.log(err)
+        setLtiDetails(false)
+      })
   }, [])
 
   return (

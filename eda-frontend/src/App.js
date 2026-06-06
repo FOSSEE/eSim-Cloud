@@ -87,7 +87,7 @@ function App () {
         <PublicRoute exact path="/simulator/ngspice" restricted={false} nav={true} component={Simulator} />
         <PublicRoute exact path="/gallery" restricted={false} nav={true} component={Gallery} />
         <PublicRoute exact path="/projects" restricted={false} nav={true} component={PublicProjects} />
-        <PrivateRoute path="/dashboard" component={Dashboard} />
+        <PublicRoute path="/dashboard" restricted={false} nav={false} component={Dashboard} /> // TODO: restore PrivateRoute when login is fixed
         <PrivateRoute path="/submission" component={Submissions} />
         <PrivateRoute path="/lti" component = {LTISetup} />
         <PrivateRoute path="/account/change_password" component={ChangePassword} />

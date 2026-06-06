@@ -15,7 +15,7 @@ export const fetchSchematics = () => (dispatch, getState) => {
     config.headers.Authorization = `Token ${token}`
   }
 
-  api.get('save/list', config)
+  return api.get('save/list', config)
     .then(
       (res) => {
         console.log(res.data)
@@ -26,7 +26,10 @@ export const fetchSchematics = () => (dispatch, getState) => {
         })
       }
     )
-    .catch((err) => { console.error(err) })
+    .catch((err) => { 
+      console.error(err) 
+      throw err
+    })
 }
 // Api call for listing users projects to display on dashboard
 export const fetchMyProjects = () => (dispatch, getState) => {
@@ -119,7 +122,7 @@ export const deleteSchematic = (saveId) => (dispatch, getState) => {
     config.headers.Authorization = `Token ${token}`
   }
 
-  api.delete('save/' + saveId, config)
+  return api.delete('save/' + saveId, config)
     .then(
       (res) => {
         if (res.status === 200 || res.status === 204) {
@@ -128,5 +131,32 @@ export const deleteSchematic = (saveId) => (dispatch, getState) => {
         }
       }
     )
-    .catch((err) => { console.error(err) })
+    .catch((err) => { console.error(err); throw err; })
+}
+
+// Api call for toggling the pinned state of a saved schematic.
+// PATCHes save/<save_id>/<version>/<branch> with { pinned: <bool> } and re-fetches on success.
+export const togglePinSave = (saveId, version, branch, pinned) => (dispatch, getState) => {
+  const token = getState().authReducer.token
+
+  const config = {
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  }
+
+  if (token) {
+    config.headers.Authorization = `Token ${token}`
+  }
+
+  return api.post(`save/${saveId}/${version}/${branch}`, { pinned: pinned }, config)
+    .then(
+      (res) => {
+        if (res.status === 200) {
+          console.log('[togglePinSave] success, pinned =', pinned)
+          dispatch(fetchSchematics())
+        }
+      }
+    )
+    .catch((err) => { console.error('[togglePinSave] error:', err); throw err; })
 }

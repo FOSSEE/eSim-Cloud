@@ -28,7 +28,7 @@ import { useSelector, useDispatch } from 'react-redux'
 import { useHistory } from 'react-router-dom'
 import { setNetlist } from '../../redux/actions/index'
 
-import { sanitizeNetlistForExport } from './Helper/NetlistExporter'
+import { sanitizeNetlistForExport, buildNetlistFromGraph } from './Helper/NetlistExporter'
 import { GenerateNetList } from './Helper/ToolbarTools'
 
 const useStyles = makeStyles((theme) => ({
@@ -103,7 +103,7 @@ export default function NetlistPreviewPanel ({ gridRef }) {
         setNetlistText('// Error: Graph not loaded yet.')
       } else {
         try {
-          const compNetlist = GenerateNetList()
+          const compNetlist = buildNetlistFromGraph(gridRef.current.graph)
           if (!compNetlist) {
             setNetlistText('// Error: ERC check failed. Netlist not generated.')
           } else {
