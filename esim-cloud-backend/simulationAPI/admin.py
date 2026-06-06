@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import runtimeStat, Limit, simulation
+from .models import runtimeStat, Limit, simulation, SpiceModel
 import json
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db.models import Max
@@ -79,6 +79,41 @@ class runtimStatAdmin(admin.ModelAdmin):
         return response
 
 
+class SpiceModelAdmin(admin.ModelAdmin):
+    """
+    Admin interface for reviewing and approving user-uploaded SPICE models.
+    is_approved gates public gallery publishing only.
+    """
+    list_display = [
+        'name', 'owner', 'model_type', 'subckt_name',
+        'pin_count', 'is_approved', 'created_at',
+    ]
+    list_filter = ['model_type', 'is_approved', 'created_at']
+    search_fields = ['name', 'subckt_name', 'owner__username', 'description']
+    readonly_fields = [
+        'id', 'raw_content', 'sanitized_content', 'subckt_name',
+        'pin_count', 'created_at', 'updated_at',
+    ]
+    actions = ['approve_for_gallery', 'revoke_gallery_approval']
+
+    def approve_for_gallery(self, request, queryset):
+        updated = queryset.update(is_approved=True)
+        self.message_user(
+            request,
+            '{} model(s) approved for public gallery.'.format(updated))
+    approve_for_gallery.short_description = (
+        'Approve selected models for public gallery')
+
+    def revoke_gallery_approval(self, request, queryset):
+        updated = queryset.update(is_approved=False)
+        self.message_user(
+            request,
+            'Gallery approval revoked for {} model(s).'.format(updated))
+    revoke_gallery_approval.short_description = (
+        'Revoke gallery approval for selected models')
+
+
 admin.site.register(runtimeStat, runtimStatAdmin)
 admin.site.register(simulation, outputAdmin)
+admin.site.register(SpiceModel, SpiceModelAdmin)
 # admin.site.register(Limit)
