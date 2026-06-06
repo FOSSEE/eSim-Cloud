@@ -5,7 +5,7 @@
     "description": "Attenuates high-frequency signals while passing low-frequency signals through a resistor-capacitor network.",
     "category": "Filter",
     "gallery_save_id": null,
-    "fallback_netlist": "RC Low-Pass Filter\nR1 vin vout 1k\nC1 vout 0 1u\nV1 vin 0 AC 1 SIN(0 1 1000)\n.ac dec 100 1 100k\n.end"
+    "fallback_netlist": "RC Low-Pass Filter\nR1 vin vout 1k\nC1 vout 0 1u\nV1 vin 0 AC 1 SIN(0 1 1000)\n.ac dec 100 1 100k\n.control\nrun\nplot v(vout) v(vin)\n.endc\n.end"
   },
   {
     "id": "voltage-divider",
@@ -13,7 +13,7 @@
     "description": "Produces a fraction of its input voltage using two resistors in series.",
     "category": "Basic",
     "gallery_save_id": null,
-    "fallback_netlist": "Voltage Divider\nV1 vin 0 DC 10\nR1 vin vout 10k\nR2 vout 0 10k\n.op\n.end"
+    "fallback_netlist": "Voltage Divider\nV1 vin 0 DC 5\nR1 vin vout 10k\nR2 vout 0 10k\n.dc V1 0 5 0.1\n.control\nrun\nplot v(vout)\n.endc\n.end"
   },
   {
     "id": "common-emitter-amplifier",
@@ -21,7 +21,7 @@
     "description": "NPN BJT amplifier configuration that provides voltage gain with 180-degree phase inversion.",
     "category": "Amplifier",
     "gallery_save_id": null,
-    "fallback_netlist": "Common Emitter Amplifier\nVCC vcc 0 DC 12\nR1 vcc b 100k\nR2 b 0 22k\nRC vcc c 4.7k\nRE e 0 1k\nC1 vin b 10u\nC2 c vout 10u\nCE e 0 100u\nQ1 c b e NPN_BJT\n.model NPN_BJT NPN(Is=1e-14 Bf=200)\n.op\n.end"
+    "fallback_netlist": "Common Emitter Amplifier\nVCC vcc 0 DC 12\nR1 vcc b 100k\nR2 b 0 22k\nRC vcc c 4.7k\nRE e 0 1k\nQ1 c b e BC547\nV1 vin 0 AC 1 SIN(0 0.01 1000)\nC1 vin b 10u\nC2 c vout 10u\nCE e 0 100u\nRL vout 0 10k\n.model BC547 NPN (IS=1e-14 BF=200 VAF=100)\n.ac dec 100 100 1Meg\n.control\nrun\nplot v(vout) v(vin)\n.endc\n.end"
   },
   {
     "id": "half-wave-rectifier",
@@ -29,7 +29,7 @@
     "description": "Converts AC voltage to pulsating DC by allowing only one half-cycle of the input to pass.",
     "category": "Power",
     "gallery_save_id": null,
-    "fallback_netlist": "Half-Wave Rectifier\nV1 vin 0 SIN(0 5 50)\nD1 vin vout D1N4007\nRL vout 0 1k\n.model D1N4007 D(Is=9.36e-8 Rs=0.0579 N=1.96)\n.tran 0.1m 40m\n.end"
+    "fallback_netlist": "Half-Wave Rectifier\nV1 vin 0 SIN(0 10 50)\nD1 vin vout D1N4007\nRL vout 0 1k\n.model D1N4007 D (IS=1e-9 N=1.5 RS=0.01)\n.tran 0.1m 40m 0\n.control\nrun\nplot v(vin) v(vout)\n.endc\n.end"
   },
   {
     "id": "led-current-limiting",
@@ -37,7 +37,7 @@
     "description": "Protects an LED from overcurrent damage by placing a series resistor to limit forward current.",
     "category": "Basic",
     "gallery_save_id": null,
-    "fallback_netlist": "LED with Current Limiting Resistor\nV1 vcc 0 DC 5\nR1 vcc anode 220\nD1 anode 0 LED\n.model LED D(Is=1e-20 N=1.5 Vj=2.0)\n.op\n.end"
+    "fallback_netlist": "LED with Current Limiting Resistor\nV1 vcc 0 DC 5\nR1 vcc anode 330\nD1 anode 0 LED\n.model LED D (IS=1e-20 N=1.8 RS=5)\n.dc V1 0 5 0.05\n.control\nrun\nplot v(anode)\n.endc\n.end"
   },
   {
     "id": "rl-circuit",
@@ -45,6 +45,6 @@
     "description": "Resistor-inductor series circuit that exhibits frequency-dependent impedance and phase shift.",
     "category": "Filter",
     "gallery_save_id": null,
-    "fallback_netlist": "RL Circuit\nV1 vin 0 AC 1 SIN(0 1 1000)\nR1 vin vmid 1k\nL1 vmid 0 100m\n.ac dec 100 1 100k\n.end"
+    "fallback_netlist": "RL Circuit\nV1 vin 0 SIN(0 5 1000)\nR1 vin mid 100\nL1 mid 0 10m\n.tran 0.01m 5m 0\n.control\nrun\nplot v(vin) v(mid)\n.endc\n.end"
   }
 ]

@@ -24,7 +24,7 @@ import { fetchLibraries, toggleCollapse, fetchComponents, toggleSimulate, fetchC
 import SideComp from './SideComp.js'
 import ComponentSearchBar from './ComponentSearchBar'
 import SimulationProperties from './SimulationProperties'
-import { getFavourites, addFavourite, removeFavourite } from '../../utils/favouritesStorage'
+import { getFavourites, removeFavourite } from '../../utils/favouritesStorage'
 import { AddComponent } from './Helper/SideBar.js'
 
 const COMPONENTS_PER_ROW = 3

@@ -30,6 +30,7 @@ import SaveOutlinedIcon from '@material-ui/icons/SaveOutlined'
 import OpenInBrowserIcon from '@material-ui/icons/OpenInBrowser'
 import ClearAllIcon from '@material-ui/icons/ClearAll'
 import CreateNewFolderOutlinedIcon from '@material-ui/icons/CreateNewFolderOutlined'
+import LayersIcon from '@material-ui/icons/Layers'
 import ImageOutlinedIcon from '@material-ui/icons/ImageOutlined'
 import SystemUpdateAltOutlinedIcon from '@material-ui/icons/SystemUpdateAltOutlined'
 import LibraryAddRoundedIcon from '@material-ui/icons/LibraryAddRounded'
@@ -144,7 +145,8 @@ export default function SchematicToolbar ({
   mobileClose,
   gridRef,
   ltiSimResult,
-  setLtiSimResult
+  setLtiSimResult,
+  onNewFromTemplate
 }) {
   const classes = useStyles()
   const netfile = useSelector((state) => state.netlistReducer)
@@ -728,6 +730,34 @@ export default function SchematicToolbar ({
           to="/editor"
         >
           <CreateNewFolderOutlinedIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>}
+      {(!ltiId || !ltiNonce) && <Tooltip title="New from Template">
+        <IconButton
+          color="inherit"
+          className={classes.tools}
+          size="small"
+          onClick={() => {
+            try {
+              const graph = gridRef && gridRef.current && gridRef.current.graph
+              const count = graph
+                ? graph.getModel().getChildCount(graph.getDefaultParent())
+                : 0
+              console.log('[NewFromTemplate] canvas child count:', graph ? count : 'NO GRAPH')
+              if (count > 2) {
+                if (window.confirm('You have unsaved changes. Starting a new template will clear the canvas. Continue?')) {
+                  if (onNewFromTemplate) onNewFromTemplate()
+                }
+              } else {
+                if (onNewFromTemplate) onNewFromTemplate()
+              }
+            } catch (err) {
+              console.warn('[NewFromTemplate] graph access error, proceeding without confirm:', err)
+              if (onNewFromTemplate) onNewFromTemplate()
+            }
+          }}
+        >
+          <LayersIcon fontSize="small" />
         </IconButton>
       </Tooltip>}
       {(!ltiId || !ltiNonce) && <Tooltip title="Open (Ctrl + O)">

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import {
   List,
@@ -13,6 +13,7 @@ import {
   Switch,
   FormControlLabel
 } from '@material-ui/core'
+import MuiAlert from '@material-ui/lab/Alert'
 import { makeStyles } from '@material-ui/core/styles'
 import ExpandLess from '@material-ui/icons/ExpandLess'
 import ExpandMore from '@material-ui/icons/ExpandMore'
@@ -57,12 +58,31 @@ export default function NetlistPreviewPanel ({ gridRef }) {
   const [isLoading, setIsLoading] = useState(false)
   const [showSpinner, setShowSpinner] = useState(false)
   const [themeState, setThemeState] = useState({ checkedA: false })
+  const [templateLoadedSnack, setTemplateLoadedSnack] = useState(false)
 
   const schSave = useSelector(state => state.saveSchematicReducer)
   const netfile = useSelector(state => state.netlistReducer)
   const projectName = schSave.title || 'Untitled_Schematic'
   const history = useHistory()
   const dispatch = useDispatch()
+
+  const templateNetlist = useSelector(state => state.netlistReducer.netlist)
+
+  useEffect(() => {
+    if (templateNetlist) {
+      console.log('[NetlistPreviewPanel] templateNetlist changed to:', templateNetlist?.substring(0, 50))
+      setNetlistText(templateNetlist)
+      // Step 1 — Expand the panel
+      setOpen(true)
+      // Step 2 — Show success Snackbar
+      setTemplateLoadedSnack(true)
+      // Step 3 — Scroll into view after expansion animation
+      setTimeout(() => {
+        const panel = document.getElementById('netlist-preview-panel') || document.querySelector('[data-testid="netlist-preview-panel"]')
+        if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 200)
+    }
+  }, [templateNetlist])
 
   const handleThemeChange = (event) => {
     setThemeState({ ...themeState, [event.target.name]: event.target.checked })
@@ -184,7 +204,7 @@ export default function NetlistPreviewPanel ({ gridRef }) {
 
   return (
     <>
-      <List>
+      <List id="netlist-preview-panel" data-testid="netlist-preview-panel">
         <ListItem button onClick={handleToggle} divider>
           <h2 className={classes.header}>Netlist Preview</h2>
           <Box flexGrow={1} />
@@ -274,6 +294,23 @@ export default function NetlistPreviewPanel ({ gridRef }) {
           </IconButton>
         }
       />
+
+      {/* Template-loaded success snackbar with MUI Alert */}
+      <Snackbar
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        open={templateLoadedSnack}
+        autoHideDuration={5000}
+        onClose={() => setTemplateLoadedSnack(false)}
+      >
+        <MuiAlert
+          elevation={6}
+          variant="filled"
+          severity="success"
+          onClose={() => setTemplateLoadedSnack(false)}
+        >
+          Template netlist loaded! Review it below, then click SEND TO SIMULATOR.
+        </MuiAlert>
+      </Snackbar>
     </>
   )
 }

@@ -1,6 +1,6 @@
 // Main Layout for Schemaic Editor page.
 /* eslint-disable react/prop-types */
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { CssBaseline } from '@material-ui/core'
 import { makeStyles } from '@material-ui/core/styles'
 
@@ -12,8 +12,10 @@ import SchematicToolbar from '../components/SchematicEditor/SchematicToolbar'
 import RightSidebar from '../components/SchematicEditor/RightSidebar'
 import PropertiesSidebar from '../components/SchematicEditor/PropertiesSidebar'
 import NetlistPreviewPanel from '../components/SchematicEditor/NetlistPreviewPanel'
+import { ClearGrid } from '../components/SchematicEditor/Helper/ToolbarTools'
 import LoadGrid from '../components/SchematicEditor/Helper/ComponentDrag.js'
 import ComponentProperties from '../components/SchematicEditor/ComponentProperties'
+import TemplateWizard from '../components/SchematicEditor/TemplateWizard'
 import '../components/SchematicEditor/Helper/SchematicEditor.css'
 import { fetchSchematic, fetchGallerySchematic } from '../redux/actions/index'
 import { useDispatch } from 'react-redux'
@@ -36,10 +38,42 @@ export default function SchematiEditor (props) {
   const dispatch = useDispatch()
   const [mobileOpen, setMobileOpen] = React.useState(false)
   const [ltiSimResult, setLtiSimResult] = React.useState(false)
+  const [wizardOpen, setWizardOpen] = useState(false)
+  const [clearCanvasFirst, setClearCanvasFirst] = useState(false)
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen)
   }
+
+  const handleWizardClose = () => {
+    setWizardOpen(false)
+    localStorage.setItem('esim_template_seen', 'true')
+  }
+
+  const handleTemplateSelect = (template) => {
+    console.log('[TemplateWizard] Template selected:', template.title)
+    if (clearCanvasFirst) {
+      ClearGrid()
+    }
+    handleWizardClose()
+  }
+
+  const handleNewFromTemplate = () => {
+    setClearCanvasFirst(true)
+    setWizardOpen(true)
+  }
+
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search)
+    const hasId = query.has('id')
+    const hasVersion = query.has('version')
+    const hasBranch = query.has('branch')
+
+    if (!hasId && !hasVersion && !hasBranch && localStorage.getItem('esim_template_seen') !== 'true') {
+      setClearCanvasFirst(false)
+      setWizardOpen(true)
+    }
+  }, [])
 
   useEffect(() => {
     document.title = 'Schematic Editor - eSim '
@@ -79,6 +113,7 @@ export default function SchematiEditor (props) {
             ltiSimResult={ltiSimResult}
             setLtiSimResult={setLtiSimResult}
             mobileClose={handleDrawerToggle}
+            onNewFromTemplate={handleNewFromTemplate}
           />
         }
         sidebar={<ComponentSidebar compRef={compRef} ltiSimResult={ltiSimResult}
@@ -99,6 +134,14 @@ export default function SchematiEditor (props) {
         <NetlistPreviewPanel gridRef={gridRef} />
       </RightSidebar>
       <ComponentProperties/>
+      {wizardOpen && (
+        <TemplateWizard
+          open={wizardOpen}
+          onClose={handleWizardClose}
+          onTemplateSelect={handleTemplateSelect}
+          clearCanvasFirst={clearCanvasFirst}
+        />
+      )}
     </div>
   )
 }

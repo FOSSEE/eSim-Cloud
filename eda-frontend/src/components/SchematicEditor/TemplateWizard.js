@@ -21,7 +21,7 @@
  * for fallback templates. The Netlist Preview panel IS populated (Path B step 1).
  */
 
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { useDispatch } from 'react-redux'
 import Slide from '@material-ui/core/Slide'
 
@@ -53,7 +53,8 @@ import DeviceHubIcon from '@material-ui/icons/DeviceHub'
 import ErrorIcon from '@material-ui/icons/Error'
 
 // ── Redux actions ──────────────────────────────────────────────────────────────
-import { fetchGallerySchematic, setNetlist } from '../../redux/actions/index'
+import { fetchGallerySchematic } from '../../redux/actions/index'
+import { setNetlist } from '../../redux/actions/netlistActions'
 
 // ── Template config ────────────────────────────────────────────────────────────
 import templates from '../../config/templates.json'
@@ -222,6 +223,17 @@ export default function TemplateWizard ({ open, onClose, onTemplateSelect }) {
   /** Controls the error snackbar visibility. */
   const [snackOpen, setSnackOpen] = useState(false)
 
+  // ── Mounted guard — prevents setState on unmounted component ─────────────────
+  // The 350ms spinner delay in PATH B means onClose() unmounts this component
+  // before the finally block runs. Without this guard React warns:
+  // "Can't perform a React state update on an unmounted component".
+  const isMountedRef = useRef(true)
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
+
   // ── Internal helpers ─────────────────────────────────────────────────────────
 
   /**
@@ -239,8 +251,10 @@ export default function TemplateWizard ({ open, onClose, onTemplateSelect }) {
    * @param {string} netlist - Raw ngspice netlist string from templates.json.
    */
   function loadFallbackNetlist (netlist) {
+    console.log('[TemplateWizard] loadFallbackNetlist called with netlist:', netlist?.substring(0, 50))
     // PRIMARY: populate the Netlist Preview panel immediately via Redux
     dispatch(setNetlist(netlist))
+    console.log('[TemplateWizard] dispatch(setNetlist) completed')
 
     // SECONDARY: bridge for future netlist-to-canvas importer
     localStorage.setItem('esim_pending_netlist', netlist)
@@ -257,6 +271,7 @@ export default function TemplateWizard ({ open, onClose, onTemplateSelect }) {
    * @param {object} template - A single template object from templates.json.
    */
   async function handleTemplateClick (template) {
+    console.log('[TemplateWizard] handleTemplateClick called for:', template.title)
     setLoadingId(template.id)
 
     try {
@@ -302,12 +317,14 @@ export default function TemplateWizard ({ open, onClose, onTemplateSelect }) {
       onTemplateSelect(template)
       onClose()
     } catch (err) {
-      console.error('[TemplateWizard] Unexpected error loading template:', err)
-      setSnackOpen(true)
+      console.error('[TemplateWizard] ERROR in handleTemplateClick:', err)
+      if (isMountedRef.current) { setSnackOpen(true) }
       onClose()
     } finally {
       // Always clears the spinner — runs after both success and error paths.
-      setLoadingId(null)
+      // Guard required: onClose() above unmounts the component before finally runs
+      // (PATH B has a 350ms delay, so the component is already gone by this point).
+      if (isMountedRef.current) { setLoadingId(null) }
     }
   }
 
@@ -340,6 +357,8 @@ export default function TemplateWizard ({ open, onClose, onTemplateSelect }) {
         fullWidth
         TransitionComponent={Transition}
         keepMounted={false}
+        disableScrollLock
+        disableEnforceFocus
         aria-labelledby='template-wizard-title'
       >
         {/* ── Dialog header ─────────────────────────────────────────────────── */}
