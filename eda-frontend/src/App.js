@@ -10,6 +10,8 @@ import NotFound from './pages/NotFound'
 import PageNotFound from './pages/PageNotFound'
 import SchematicEditor from './pages/SchematiEditor'
 import ModelBuilder from './components/ModelBuilder/ModelBuilder'
+import SubcircuitBuilder from './components/ModelBuilder/SubcircuitBuilder'
+import CustomComponentLauncher from './components/ModelBuilder/CustomComponentLauncher'
 
 import Simulator from './pages/Simulator'
 import Gallery from './pages/Gallery'
@@ -95,6 +97,8 @@ function App () {
         <PrivateRoute path="/account/change_password" component={ChangePassword} />
         {/* Catch-all route for unmatched URLs - should be last */}
         <PublicRoute exact path="/model-builder" restricted={false} nav={true} component={ModelBuilder} />
+        <PublicRoute exact path="/subcircuit-builder" restricted={false} nav={true} component={SubcircuitBuilder} />
+        <PublicRoute exact path="/custom-components" restricted={false} nav={true} component={CustomComponentLauncher} />
         <Route path="*" component={PageNotFound} />
       </Switch>
     </HashRouter>
