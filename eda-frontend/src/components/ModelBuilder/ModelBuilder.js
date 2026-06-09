@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react'
-import { Grid, Paper, Typography, TextField, MenuItem } from '@material-ui/core'
+import { Grid, Paper, Typography, TextField, MenuItem, Button } from '@material-ui/core'
 import { makeStyles } from '@material-ui/core/styles'
 import { generateModelCard } from '../../utils/spiceEmitter'
 import { DEVICE_TYPES, DEVICE_PARAMS } from './deviceParams'
+import { saveCustomModel } from './saveModel'
 
 const useStyles = makeStyles((theme) => ({
   root: { padding: theme.spacing(3), maxWidth: 720, margin: '24px auto' },
@@ -26,6 +27,8 @@ export default function ModelBuilder () {
   const [name, setName] = useState('')
   const [deviceType, setDeviceType] = useState('D')
   const [params, setParams] = useState({})
+  const [saving, setSaving] = useState(false)
+  const [status, setStatus] = useState(null) // { ok: bool, msg: string }
 
   const paramDefs = DEVICE_PARAMS[deviceType] || []
 
@@ -43,6 +46,21 @@ export default function ModelBuilder () {
     () => generateModelCard({ name, deviceType, params }),
     [name, deviceType, params]
   )
+
+  const handleSave = async () => {
+    setSaving(true)
+    setStatus(null)
+    try {
+      const saved = await saveCustomModel({ name, modelType: 'model', spiceText: preview })
+      setStatus({ ok: true, msg: `Saved "${saved.name}".` })
+    } catch (err) {
+      const data = err.response && err.response.data
+      const msg = (data && (data.name || data.detail || JSON.stringify(data))) || err.message
+      setStatus({ ok: false, msg: String(msg) })
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <div className={classes.root}>
@@ -92,6 +110,24 @@ export default function ModelBuilder () {
           Live preview
         </Typography>
         <div className={classes.preview}>{preview}</div>
+
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={handleSave}
+          disabled={saving || !name.trim()}
+          style={{ marginTop: 16 }}
+        >
+          {saving ? 'Saving…' : 'Save model'}
+        </Button>
+        {status && (
+          <Typography
+            variant="body2"
+            style={{ marginTop: 8, color: status.ok ? 'green' : '#c62828' }}
+          >
+            {status.msg}
+          </Typography>
+        )}
       </Paper>
     </div>
   )

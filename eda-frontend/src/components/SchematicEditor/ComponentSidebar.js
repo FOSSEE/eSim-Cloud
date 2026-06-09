@@ -23,6 +23,7 @@ import ExpandMore from '@material-ui/icons/ExpandMore'
 import CloseIcon from '@material-ui/icons/Close'
 import AddIcon from '@material-ui/icons/Add'
 import CustomComponentDrawer from '../ModelBuilder/CustomComponentDrawer'
+import MyComponents from '../ModelBuilder/MyComponents'
 
 import './Helper/SchematicEditor.css'
 import { useDispatch, useSelector } from 'react-redux'
@@ -69,8 +70,9 @@ export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResu
   const [searchText, setSearchText] = useState('')
   const [loading, setLoading] = useState(false)
   const [favourite, setFavourite] = useState(null)
- const [favOpen, setFavOpen] = useState(false)
+  const [favOpen, setFavOpen] = useState(false)
   const [customOpen, setCustomOpen] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   const [searchedComponentList, setSearchedComponents] = useState([])
   const [searchOption, setSearchOption] = useState('NAME')
@@ -229,7 +231,7 @@ export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResu
       </Hidden>
 
       <div style={isSimulate ? { display: 'none' } : {}}>
-        <CustomComponentDrawer open={customOpen} onClose={() => setCustomOpen(false)} />
+        <CustomComponentDrawer open={customOpen} onClose={() => { setCustomOpen(false); setRefreshKey((k) => k + 1) }} />
         {/* Display List of categorized components */}
         <List>
           <ListItem button>
@@ -239,6 +241,7 @@ export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResu
             <ListItemIcon><AddIcon /></ListItemIcon>
             <span className={classes.head}>Add Custom Component</span>
           </ListItem>
+          <MyComponents refreshKey={refreshKey} />
           <ListItem>
 
             <TextField
