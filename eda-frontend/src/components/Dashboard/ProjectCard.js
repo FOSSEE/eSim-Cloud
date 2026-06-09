@@ -24,6 +24,9 @@ const useStyles = makeStyles((theme) => ({
   no: {
     color: 'red',
     marginLeft: '10px'
+  },
+  description: {
+    color: theme.palette.text.secondary
   }
 }))
 
@@ -43,7 +46,7 @@ export default function ProjectCard ({ pub, is_review }) {
               className={classes.media}
               image={pub.active_save.base64_image} />
             <CardContent>
-              <Typography variant="body2" component="p" noWrap={true}>
+              <Typography variant="body2" component="p" noWrap={true} className={classes.description}>
                 {pub.description}
               </Typography>
               <br/>

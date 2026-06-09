@@ -34,6 +34,7 @@ import logo from '../../static/logo.png'
 import { setTitle, logout, setSchTitle, setSchShared, loadMinUser, setSchDescription } from '../../redux/actions/index'
 import { HomeDialog } from './ToolbarExtension'
 import queryString from 'query-string'
+import DarkModeToggle from '../Shared/DarkModeToggle'
 
 const useStyles = makeStyles((theme) => ({
   toolbarTitle: {
@@ -42,7 +43,7 @@ const useStyles = makeStyles((theme) => ({
   input: {
     marginLeft: theme.spacing(1),
     width: '200px',
-    color: '#595959'
+    color: theme.palette.text.primary
   },
   rightBlock: {
     marginLeft: 'auto',
@@ -58,7 +59,10 @@ const useStyles = makeStyles((theme) => ({
   tools: {
     padding: theme.spacing(1),
     margin: theme.spacing(0, 0.8),
-    color: '#262626'
+    color: theme.palette.text.primary,
+    '& .MuiSvgIcon-root': {
+      color: theme.palette.text.primary
+    }
   },
   purple: {
     width: theme.spacing(3.75),
@@ -69,6 +73,11 @@ const useStyles = makeStyles((theme) => ({
   },
   backDrop: {
     backdropFilter: 'blur(10px)'
+  },
+  shareStatus: {
+    margin: '0px 15px 0px auto',
+    paddingTop: '5px',
+    color: theme.palette.text.secondary
   }
 }))
 
@@ -380,7 +389,7 @@ function Header ({ gridRef }) {
             {(schSave.isSaved === true && schSave.details.save_time !== undefined)
               ? <Typography
                 variant="body2"
-                style={{ margin: '0px 15px 0px auto', paddingTop: '5px', color: '#8c8c8c' }}
+                className={classes.shareStatus}
               >
                 Last Saved : {getDate(schSave.details.save_time)} {/* Display last saved status for saved schematics */}
               </Typography>
@@ -493,6 +502,7 @@ function Header ({ gridRef }) {
               >
                 Simulator
               </Link>
+              <DarkModeToggle />
               <Button
                 size="small"
                 component={RouterLink}
@@ -566,6 +576,7 @@ function Header ({ gridRef }) {
                 Dashboard
               </Link>
 
+              <DarkModeToggle />
               <IconButton
                 edge="start"
                 color="primary"

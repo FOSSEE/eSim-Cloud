@@ -19,10 +19,12 @@ import { deepPurple } from '@material-ui/core/colors'
 import logo from '../../static/logo.png'
 import store from '../../redux/store'
 import { authDefault, loadUser, logout } from '../../redux/actions/index'
+import DarkModeToggle from './DarkModeToggle'
 
 const useStyles = makeStyles((theme) => ({
   appBar: {
-    borderBottom: `1px solid ${theme.palette.divider}`
+    borderBottom: `1px solid ${theme.palette.divider}`,
+    color: theme.palette.text.primary
   },
   root: {
     width: 500
@@ -227,6 +229,7 @@ export function Header () {
       </nav>
 
       {/* Display login option or user menu as per authenticated status */}
+      <DarkModeToggle />
       {
         (!auth.isAuthenticated ? (<Button
           size="small"

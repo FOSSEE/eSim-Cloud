@@ -6,7 +6,7 @@ const useStyles = makeStyles((theme) => ({
   content: {
     flexGrow: 1,
     padding: theme.spacing(5, 3),
-    backgroundColor: '#f4f6f8',
+    backgroundColor: theme.palette.background.default,
     height: '100vh',
     overflow: 'auto'
   }

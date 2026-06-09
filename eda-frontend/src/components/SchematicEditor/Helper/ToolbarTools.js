@@ -6,6 +6,7 @@ import mxGraphFactory from 'mxgraph'
 import store from '../../../redux/store'
 import * as actions from '../../../redux/actions/actions'
 import ComponentParameters from './ComponentParametersData'
+import { isSchematicDarkMode, updateComponentLabelColors, updatePinLabelColors, getPinLabelColor } from './schematicTheme.js'
 var graph
 var undoManager
 
@@ -902,7 +903,7 @@ export function parseXmlToGraph(xmlDoc, graph) {
   style[mxConstants.STYLE_IMAGE_VERTICAL_ALIGN] = 'bottom' // indicator v-alignment
   style[mxConstants.STYLE_IMAGE_ALIGN] = 'bottom'
   style[mxConstants.STYLE_INDICATOR_COLOR] = 'green'
-  style[mxConstants.STYLE_FONTCOLOR] = 'red'
+  style[mxConstants.STYLE_FONTCOLOR] = getPinLabelColor(isSchematicDarkMode())
   style[mxConstants.STYLE_FONTSIZE] = '10'
   delete style[mxConstants.STYLE_STROKECOLOR] // transparent
   for (let i = 0; i < cells.length; i++) {
@@ -1010,6 +1011,8 @@ export function parseXmlToGraph(xmlDoc, graph) {
       }
     }
   }
+  updateComponentLabelColors(graph, isSchematicDarkMode())
+  updatePinLabelColors(graph, isSchematicDarkMode())
   console.log("finish loading")
 }
 

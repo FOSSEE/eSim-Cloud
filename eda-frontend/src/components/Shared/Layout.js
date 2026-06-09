@@ -9,6 +9,7 @@ import LayoutSidebar from './LayoutSidebar'
 const useStyles = makeStyles((theme) => ({
   appBar: {
     borderBottom: `1px solid ${theme.palette.divider}`,
+    color: theme.palette.text.primary,
     zIndex: theme.zIndex.drawer + 1
   },
   menuButton: {

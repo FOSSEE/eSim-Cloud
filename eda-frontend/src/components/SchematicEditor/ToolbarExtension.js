@@ -112,13 +112,19 @@ const useStyles = makeStyles((theme) => ({
   },
   header: {
     padding: theme.spacing(5, 0, 6),
-    color: '#fff'
+    color: theme.palette.text.primary
   },
   paper: {
     padding: theme.spacing(2),
     textAlign: 'center',
-    backgroundColor: '#404040',
-    color: '#fff'
+    backgroundColor: theme.palette.type === 'dark' ? theme.palette.grey[800] : '#404040',
+    color: theme.palette.text.primary
+  },
+  helpDialog: {
+    backgroundColor: theme.palette.background.default
+  },
+  helpToolbar: {
+    backgroundColor: theme.palette.type === 'dark' ? theme.palette.grey[900] : '#404040'
   },
   avatar: {
     width: theme.spacing(4),
@@ -147,13 +153,10 @@ export function HelpScreen ({ open, close }) {
   return (
     <div>
       <Dialog fullScreen open={open} onClose={close} TransitionComponent={Transition} PaperProps={{
-        style: {
-          backgroundColor: '#4d4d4d',
-          boxShadow: 'none'
-        }
+        className: classes.helpDialog
       }} >
         <AppBar position="static" elevation={0} className={classes.appBar}>
-          <Toolbar variant="dense" style={{ backgroundColor: '#404040' }} >
+          <Toolbar variant="dense" className={classes.helpToolbar} >
             <IconButton edge="start" color="inherit" onClick={close} aria-label="close">
               <CloseIcon />
             </IconButton>

@@ -13,8 +13,14 @@ import ToolbarTools from './ToolbarTools.js'
 import KeyboardShorcuts from './KeyboardShorcuts.js'
 import { SideBar } from './SideBar.js'
 import KiCadFileUtils from './KiCadFileUtils'
+import {
+  isSchematicDarkMode,
+  getSchematicColors,
+  applyGraphStyles
+} from './schematicTheme.js'
 
 var graph
+var gridContainer = null
 
 const {
   mxGraph,
@@ -44,6 +50,15 @@ const {
   mxConstraintHandler,
   mxImage
 } = new mxGraphFactory()
+
+export function applySchematicEditorTheme (darkMode) {
+  const colors = getSchematicColors(darkMode)
+  if (gridContainer) {
+    gridContainer.style.backgroundColor = colors.canvasBackground
+    gridContainer.classList.toggle('schematic-dark', darkMode)
+  }
+  applyGraphStyles(graph, colors)
+}
 
 export default function LoadGrid (container, sidebar, outline) {
   // Checks if the browser is supported
@@ -217,11 +232,13 @@ export default function LoadGrid (container, sidebar, outline) {
     // Creates the outline (navigator, overview) for moving
     // around the graph in the top, right corner of the window.
     
-    // Switch for black background and bright styles
-    var invert = false
+    // Switch for black background and bright styles (synced with app dark mode)
+    gridContainer = container
+    var invert = isSchematicDarkMode()
 
     if (invert) {
-      container.style.backgroundColor = 'black'
+      container.style.backgroundColor = '#1a1a1a'
+      container.classList.add('schematic-dark')
 
       // White in-place editor text color
       var mxCellEditorStartEditing = mxCellEditor.prototype.startEditing
@@ -236,9 +253,10 @@ export default function LoadGrid (container, sidebar, outline) {
       mxGraphHandler.prototype.previewColor = 'white'
     }
 
-    var labelBackground = (invert) ? '#000000' : '#FFFFFF'
-    var fontColor = (invert) ? '#FFFFFF' : '#000000'
-    var strokeColor = (invert) ? '#C0C0C0' : '#000000'
+    var colors = getSchematicColors(invert)
+    var labelBackground = colors.labelBackground
+    var fontColor = colors.fontColor
+    var strokeColor = colors.strokeColor
     // var fillColor = (invert) ? 'none' : '#FFFFFF'
 
     var style = graph.getStylesheet().getDefaultEdgeStyle()
