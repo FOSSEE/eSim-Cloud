@@ -4,6 +4,7 @@
 import mxGraphFactory from 'mxgraph'
 import ComponentParameters from './ComponentParametersData'
 import { rotateCell } from './ToolbarTools'
+import { getComponentVertexStyle, getPinLabelColor, isSchematicDarkMode } from './schematicTheme.js'
 const {
   mxConstants
 } = new mxGraphFactory()
@@ -97,7 +98,7 @@ export function getSvgMetadata (graph, parent, evt, target, x, y, component, rot
       style[mxConstants.STYLE_IMAGE_VERTICAL_ALIGN] = 'bottom' // indicator v-alignment
       style[mxConstants.STYLE_IMAGE_ALIGN] = 'bottom'
       style[mxConstants.STYLE_INDICATOR_COLOR] = 'green'
-      style[mxConstants.STYLE_FONTCOLOR] = 'red'
+      style[mxConstants.STYLE_FONTCOLOR] = getPinLabelColor(isSchematicDarkMode())
       style[mxConstants.STYLE_FONTSIZE] = '10'
       delete style[mxConstants.STYLE_STROKECOLOR] // transparent
       // delete style[mxConstants.STYLE_FILLCOLOR] // transparent
@@ -124,7 +125,7 @@ export function getSvgMetadata (graph, parent, evt, target, x, y, component, rot
         y,
         width,
         height,
-        'shape=image;fontColor=blue;image=' + path + ';imageVerticalAlign=bottom;verticalAlign=bottom;imageAlign=bottom;align=bottom;spacingLeft=25;'
+        getComponentVertexStyle(path)
       )
       v1.Component = true
       /* var newsource = path

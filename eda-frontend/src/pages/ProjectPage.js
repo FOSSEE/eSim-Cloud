@@ -41,8 +41,7 @@ const useStyles = makeStyles((theme) => ({
     display: 'flex',
     overflowX: 'visible',
     overflowY: 'hidden',
-    backgroundColor: '#f4f6f8'
-
+    backgroundColor: theme.palette.background.default
   },
   toolbar: {
     minHeight: '20px'

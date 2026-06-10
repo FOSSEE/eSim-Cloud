@@ -7,3 +7,9 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* Dark mode: gallery schematic preview thumbnails (black lines on white) */
+[data-theme="dark"] .schematic-thumbnail {
+  filter: invert(1) hue-rotate(180deg) brightness(1.05);
+  background-color: rgba(255, 255, 255, 0.92);
+}

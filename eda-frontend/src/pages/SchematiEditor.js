@@ -11,11 +11,12 @@ import LayoutMain from '../components/Shared/LayoutMain'
 import SchematicToolbar from '../components/SchematicEditor/SchematicToolbar'
 import RightSidebar from '../components/SchematicEditor/RightSidebar'
 import PropertiesSidebar from '../components/SchematicEditor/PropertiesSidebar'
-import LoadGrid from '../components/SchematicEditor/Helper/ComponentDrag.js'
+import LoadGrid, { applySchematicEditorTheme } from '../components/SchematicEditor/Helper/ComponentDrag.js'
 import ComponentProperties from '../components/SchematicEditor/ComponentProperties'
 import '../components/SchematicEditor/Helper/SchematicEditor.css'
 import { fetchSchematic, fetchGallerySchematic } from '../redux/actions/index'
 import { useDispatch } from 'react-redux'
+import { useThemeMode } from '../context/ThemeContext'
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -33,6 +34,7 @@ export default function SchematiEditor (props) {
   const gridRef = React.createRef()
   const outlineRef = React.createRef()
   const dispatch = useDispatch()
+  const { darkMode } = useThemeMode()
   const [mobileOpen, setMobileOpen] = React.useState(false)
   const [ltiSimResult, setLtiSimResult] = React.useState(false)
 
@@ -64,6 +66,10 @@ export default function SchematiEditor (props) {
     }
   // eslint-disable-next-line
   }, [props.location])
+
+  useEffect(() => {
+    applySchematicEditorTheme(darkMode)
+  }, [darkMode])
 
   return (
     <div className={classes.root}>

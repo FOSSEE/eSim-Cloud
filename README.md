@@ -4,7 +4,7 @@ eSim and Arduino on Cloud
 <h6 align="center"> 
 
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-13-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-14-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 [![Documentation Status](https://readthedocs.org/projects/esim-cloud/badge/?version=latest)](https://esim-cloud.readthedocs.io/en/latest/?badge=latest)
@@ -167,6 +167,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <td align="center"><a href="https://akshat-sharma.me"><img src="https://avatars.githubusercontent.com/u/35724794?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Akshat Sharma</b></sub></a><br /><a href="https://github.com/frg-fossee/eSim-Cloud/commits?author=akshat2602" title="Code">💻</a> <a href="https://github.com/frg-fossee/eSim-Cloud/commits?author=akshat2602" title="Documentation">📖</a> <a href="#design-akshat2602" title="Design">🎨</a></td>
     <td align="center"><a href="http://rugvedsomwanshi.me"><img src="https://avatars.githubusercontent.com/u/16833604?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Rugved Somwanshi</b></sub></a><br /><a href="https://github.com/frg-fossee/eSim-Cloud/commits?author=Rugz007" title="Code">💻</a> <a href="https://github.com/frg-fossee/eSim-Cloud/commits?author=Rugz007" title="Documentation">📖</a> <a href="#design-Rugz007" title="Design">🎨</a></td>
     <td align="center"><a href="https://rajatmaheshwari.me/"><img src="https://avatars.githubusercontent.com/u/54249328?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Rajat Maheshwari</b></sub></a><br /><a href="https://github.com/frg-fossee/eSim-Cloud/commits?author=rajatmaheshwari2512" title="Code">💻</a> <a href="https://github.com/frg-fossee/eSim-Cloud/commits?author=rajatmaheshwari2512" title="Documentation">📖</a> <a href="#design-rajatmaheshwari2512" title="Design">🎨</a></td>
+    <td align="center"><a href="https://github.com/Aditya-Sarna"><img src="https://avatars.githubusercontent.com/u/107273722?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Aditya Sarna</b></sub></a><br /><a href="https://github.com/frg-fossee/eSim-Cloud/commits?author=Aditya-Sarna" title="Code">💻</a> <a href="`#design-Aditya-Sarna`" title="Design">🎨</a></td>
   </tr>
 </table>
 

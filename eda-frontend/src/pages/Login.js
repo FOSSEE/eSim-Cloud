@@ -25,6 +25,7 @@ import { Link as RouterLink } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
 import { login, authDefault, googleLogin } from '../redux/actions/index'
 import google from '../static/google.png'
+import DarkModeToggle from '../components/Shared/DarkModeToggle'
 
 const useStyles = makeStyles((theme) => ({
   paper: {
@@ -123,6 +124,7 @@ export default function SignIn (props) {
 
   return (
     <Container component="main" maxWidth="xs">
+      <DarkModeToggle floating />
       <Card className={classes.paper}>
         <Avatar className={classes.avatar}>
           <LockOutlinedIcon />
@@ -164,6 +166,7 @@ export default function SignIn (props) {
                   <Tooltip title={'Show Password'} aria-label={'Show Password'} arrow>
                     <IconButton
                       size="small"
+                      color="primary"
                       aria-label="toggle password visibility"
                       onClick={handleClickShowPassword}
                       onMouseDown={handleMouseDownPassword}

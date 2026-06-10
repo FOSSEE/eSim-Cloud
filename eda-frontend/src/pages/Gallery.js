@@ -25,8 +25,8 @@ import SimpleSnackbar from '../components/Shared/Snackbar'
 const useStyles = makeStyles((theme) => ({
   mainHead: {
     width: '100%',
-    backgroundColor: '#404040',
-    color: '#fff'
+    backgroundColor: theme.palette.type === 'dark' ? theme.palette.grey[800] : '#404040',
+    color: theme.palette.common.white
   },
   title: {
     fontSize: 18,
@@ -38,11 +38,14 @@ const useStyles = makeStyles((theme) => ({
   root: {
     display: 'flex',
     minHeight: '100vh',
-    backgroundColor: '#f4f6f8'
+    backgroundColor: theme.palette.background.default
   },
   media: {
     marginTop: theme.spacing(3),
     height: 170
+  },
+  description: {
+    color: theme.palette.text.secondary
   }
 }))
 
@@ -77,7 +80,7 @@ function SchematicCard ({ sch }) {
         >
           <CardActionArea>
             <CardMedia
-              className={classes.media}
+              className={`${classes.media} schematic-thumbnail`}
               image={sch.media}
               title={sch.name}
             />
@@ -85,7 +88,7 @@ function SchematicCard ({ sch }) {
               <Typography gutterBottom variant="h5" component="h2">
                 {sch.name}
               </Typography>
-              <Typography variant="body2" component="p">
+              <Typography variant="body2" component="p" className={classes.description}>
                 {sch.description}
               </Typography>
             </CardContent>
