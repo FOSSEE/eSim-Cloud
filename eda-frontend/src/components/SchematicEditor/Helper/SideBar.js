@@ -67,7 +67,9 @@ export function AddComponent (component, imgref) {
 
   // Creates the element that is being for the actual preview.
   var dragElt = document.createElement('div')
-  dragElt.style.border = 'dashed black 1px'
+  dragElt.style.border = document.documentElement.getAttribute('data-theme') === 'dark'
+    ? 'dashed #c0c0c0 1px'
+    : 'dashed black 1px'
   dragElt.style.width = '120px'
   dragElt.style.height = '40px'
 

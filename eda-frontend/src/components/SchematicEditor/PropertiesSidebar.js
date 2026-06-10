@@ -23,6 +23,16 @@ const useStyles = makeStyles((theme) => ({
   },
   pages: {
     margin: theme.spacing(0, 0.7)
+  },
+  descriptionField: {
+    width: '100%',
+    minWidth: '234px',
+    maxHeight: '250px',
+    color: theme.palette.text.primary,
+    backgroundColor: theme.palette.background.paper,
+    border: `1px solid ${theme.palette.divider}`,
+    borderRadius: theme.shape.borderRadius,
+    padding: theme.spacing(1)
   }
 }))
 
@@ -380,7 +390,7 @@ export default function PropertiesSidebar ({ gridRef, outlineRef }) {
             <ListItemText primary="Schematic Description" />
           </ListItem>
           <ListItem style={{ padding: '0px 7px 7px 7px' }} divider>
-            <TextareaAutosize id='Description' label='Description' value={ schSave.description === '' ? description || '' : schSave.description } onChange={getInputValues} rowsMin={6} aria-label='Description' placeholder={'Add Schematic Description'} style={{ width: '100%', minWidth: '234px', maxHeight: '250px' }} />
+            <TextareaAutosize id='Description' label='Description' value={ schSave.description === '' ? description || '' : schSave.description } onChange={getInputValues} rowsMin={6} aria-label='Description' placeholder={'Add Schematic Description'} className={classes.descriptionField} />
           </ListItem>
         </div>
       </List>

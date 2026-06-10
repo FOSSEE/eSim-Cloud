@@ -95,11 +95,14 @@ const useStyles = makeStyles((theme) => ({
   tools: {
     padding: theme.spacing(1),
     margin: theme.spacing(0, 0.5),
-    color: '#262626'
+    color: theme.palette.text.primary,
+    '& .MuiSvgIcon-root': {
+      color: theme.palette.text.primary
+    }
   },
   pipe: {
     fontSize: '1.45rem',
-    color: '#d6c4c2',
+    color: theme.palette.text.disabled,
     margin: theme.spacing(0, 1.5)
   }
 }))

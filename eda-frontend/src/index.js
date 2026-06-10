@@ -2,21 +2,21 @@
 import React from 'react'
 import ReactDOM from 'react-dom'
 import * as serviceWorker from './serviceWorker'
-import CssBaseline from '@material-ui/core/CssBaseline'
-import { ThemeProvider } from '@material-ui/core/styles'
-import theme from './theme'
 import './index.css'
 import App from './App'
 import { Provider } from 'react-redux'
 import store from './redux/store'
+import { ThemeContextProvider } from './context/ThemeContext'
+import { applyDocumentTheme, getInitialDarkMode } from './themeStorage'
+
+applyDocumentTheme(getInitialDarkMode())
+
 ReactDOM.render(
-  <ThemeProvider theme={theme}>
-    {/* CssBaseline kickstart an elegant, consistent, and simple baseline to build upon. */}
-    <CssBaseline />
+  <ThemeContextProvider>
     <Provider store={store}>
       <App />
     </Provider>
-  </ThemeProvider>,
+  </ThemeContextProvider>,
   document.getElementById('root')
 )
 

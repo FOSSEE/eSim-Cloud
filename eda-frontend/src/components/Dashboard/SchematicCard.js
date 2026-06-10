@@ -56,6 +56,9 @@ const useStyles = makeStyles((theme) => ({
   formControl: {
     margin: theme.spacing(1),
     maxWidth: 150
+  },
+  description: {
+    color: theme.palette.text.secondary
   }
 }))
 
@@ -155,7 +158,7 @@ export default function SchematicCard ({ sch }) {
               title={sch.name}
             />
             <CardContent>
-              <Typography variant="body2" component="p">
+              <Typography variant="body2" component="p" className={classes.description}>
                 {sch.description}
               </Typography>
               {/* Display updated status */}

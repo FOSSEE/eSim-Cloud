@@ -15,8 +15,13 @@ const useStyles = makeStyles((theme) => ({
   popupInfo: {
     margin: theme.spacing(1.5),
     padding: theme.spacing(1.5),
-    border: '1px solid blue',
-    borderRadius: '5px'
+    border: `1px solid ${theme.palette.primary.main}`,
+    borderRadius: '5px',
+    backgroundColor: theme.palette.background.paper,
+    color: theme.palette.text.primary
+  },
+  descriptionText: {
+    color: theme.palette.text.secondary
   }
 }))
 
@@ -148,9 +153,9 @@ export default function SideComp ({ isFavourite = false, favourite, setFavourite
           </ListItemText>
 
           {component.description !== '' &&
-            <ListItemText>
-              <b>Description:</b> {component.description}
-            </ListItemText>
+            <ListItemText
+              primary={<span><b>Description:</b> <span className={classes.descriptionText}>{component.description}</span></span>}
+            />
           }
           {
             component.keyword !== '' &&

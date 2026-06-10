@@ -11,7 +11,7 @@
   border-radius: 5px;
   transform: scale(1.5);
   padding: 3px;
-  box-shadow: 0px 0px 41px 17px rgba(207,218,225,0.68);
+  box-shadow: 0px 0px 41px 17px rgba(207, 218, 225, 0.68);
 }
 
 /* Schematic Editer Grid */
@@ -22,6 +22,7 @@
   -webkit-box-shadow: -8px -2px 24px 9px rgba(208, 218, 225, 1);
   -moz-box-shadow: -8px -2px 24px 9px rgba(208, 218, 225, 1);
   box-shadow: -8px -2px 24px 9px rgba(208, 218, 225, 1);
+  background-color: #ffffff;
   background-image: url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAwIDEwIEwgNDAgMTAgTSAxMCAwIEwgMTAgNDAgTSAwIDIwIEwgNDAgMjAgTSAyMCAwIEwgMjAgNDAgTSAwIDMwIEwgNDAgMzAgTSAzMCAwIEwgMzAgNDAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2UwZTBlMCIgb3BhY2l0eT0iMC4yIiBzdHJva2Utd2lkdGg9IjEiLz48cGF0aCBkPSJNIDQwIDAgTCAwIDAgMCA0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZTBlMGUwIiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz48L3N2Zz4=");
   cursor: default;
   border: 2px solid #d0dae1;
@@ -81,8 +82,9 @@
 .outline-container {
   width:250px;
   height:120px;
+  background-color: #ffffff;
   background-image: url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAwIDEwIEwgNDAgMTAgTSAxMCAwIEwgMTAgNDAgTSAwIDIwIEwgNDAgMjAgTSAyMCAwIEwgMjAgNDAgTSAwIDMwIEwgNDAgMzAgTSAzMCAwIEwgMzAgNDAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2UwZTBlMCIgb3BhY2l0eT0iMC4yIiBzdHJva2Utd2lkdGg9IjEiLz48cGF0aCBkPSJNIDQwIDAgTCAwIDAgMCA0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZTBlMGUwIiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz48L3N2Zz4=");
-  border: 1px solid #fff;
+  border: 1px solid #d0dae1;
 }
 
 html {
@@ -90,14 +92,56 @@ html {
   overflow-x: hidden;
 }
 ::-webkit-scrollbar {
-  width: 0px; /* Remove scrollbar space */
-  background: transparent; /* Optional: just make scrollbar invisible */
+  width: 0px;
+  background: transparent;
 }
-/* Optional: show position indicator in red */
 ::-webkit-scrollbar-thumb {
   background: grey;
 }
 
 .modal-library-detail *::-webkit-scrollbar {
   width: auto;
+}
+
+/* Dark mode: sidebar component thumbnails (KiCad SVGs are black on transparent) */
+[data-theme="dark"] .compImage {
+  filter: invert(1) hue-rotate(180deg) brightness(1.05);
+  background-color: rgba(255, 255, 255, 0.06);
+  border-radius: 5px;
+}
+
+[data-theme="dark"] .compImage:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0px 0px 24px 8px rgba(0, 0, 0, 0.45);
+}
+
+/* Dark mode: schematic canvas grid */
+[data-theme="dark"] .grid-container {
+  background-color: #1a1a1a;
+  border-color: #4a4a4a;
+  box-shadow: -8px -2px 24px 9px rgba(0, 0, 0, 0.45);
+  background-image: url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAwIDEwIEwgNDAgMTAgTSAxMCAwIEwgMTAgNDAgTSAwIDIwIEwgNDAgMjAgTSAyMCAwIEwgMjAgNDAgTSAwIDMwIEwgNDAgMzAgTSAzMCAwIEwgMzAgNDAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzUwNTA1MCIgb3BhY2l0eT0iMC40IiBzdHJva2Utd2lkdGg9IjEiLz48cGF0aCBkPSJNIDQwIDAgTCAwIDAgMCA0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNTA1MDUwIiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz48L3N2Zz4=");
+}
+
+/* Invert placed component symbols on the canvas */
+[data-theme="dark"] .grid-container svg image {
+  filter: invert(1) hue-rotate(180deg) brightness(1.05);
+}
+
+[data-theme="dark"] .outline-container {
+  background-color: #1a1a1a;
+  border-color: #4a4a4a;
+}
+
+[data-theme="dark"] .outline-container svg image {
+  filter: invert(1) hue-rotate(180deg) brightness(1.05);
+}
+
+[data-theme="dark"] .schematic-section-label {
+  background-color: #2a2a2a !important;
+  color: #e0e0e0;
+}
+
+[data-theme="dark"] .schematic-sidebar-title {
+  color: #e0e0e0;
 }
