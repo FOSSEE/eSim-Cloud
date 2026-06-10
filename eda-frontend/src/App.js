@@ -7,7 +7,11 @@ import Navbar from './components/Shared/Navbar'
 import Home from './pages/Home'
 import Login from './pages/Login'
 import NotFound from './pages/NotFound'
+import PageNotFound from './pages/PageNotFound'
 import SchematicEditor from './pages/SchematiEditor'
+import ModelBuilder from './components/ModelBuilder/ModelBuilder'
+import SubcircuitBuilder from './components/ModelBuilder/SubcircuitBuilder'
+import CustomComponentLauncher from './components/ModelBuilder/CustomComponentLauncher'
 
 import Simulator from './pages/Simulator'
 import Gallery from './pages/Gallery'
@@ -91,7 +95,11 @@ function App () {
         <PrivateRoute path="/submission" component={Submissions} />
         <PrivateRoute path="/lti" component = {LTISetup} />
         <PrivateRoute path="/account/change_password" component={ChangePassword} />
-        <PublicRoute restricted={false} nav={true} component={NotFound} />
+        {/* Catch-all route for unmatched URLs - should be last */}
+        <PublicRoute exact path="/model-builder" restricted={false} nav={true} component={ModelBuilder} />
+        <PublicRoute exact path="/subcircuit-builder" restricted={false} nav={true} component={SubcircuitBuilder} />
+        <PublicRoute exact path="/custom-components" restricted={false} nav={true} component={CustomComponentLauncher} />
+        <Route path="*" component={PageNotFound} />
       </Switch>
     </HashRouter>
   )
