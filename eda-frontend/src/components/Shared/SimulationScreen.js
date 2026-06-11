@@ -19,7 +19,6 @@ import {
   InputLabel
 } from '@material-ui/core'
 import { makeStyles } from '@material-ui/core/styles'
-import CloseIcon from '@material-ui/icons/Close'
 import { useSelector } from 'react-redux'
 import api from '../../utils/Api'
 import queryString from 'query-string'
@@ -28,6 +27,18 @@ import Graph from './Graph'
 import { GetProbeNodes } from '../SchematicEditor/Helper/ToolbarTools'
 
 const FileSaver = require('file-saver')
+
+const defaultColors = [
+  '#e41a1c', // red
+  '#377eb8', // blue
+  '#4daf4a', // green
+  '#984ea3', // purple
+  '#ff7f00', // orange
+  '#a65628', // brown
+  '#f781bf', // pink
+  '#999999', // grey
+  '#4be3e3' // cyan
+]
 
 const useStyles = makeStyles((theme) => ({
   appBar: {
@@ -53,7 +64,6 @@ const useStyles = makeStyles((theme) => ({
 export default function SimulationScreen ({ open, close, isResult, taskId, simType = 'NgSpiceSimulator' }) {
   const classes = useStyles()
   const result = useSelector((state) => state.simulationReducer)
-  const stitle = useSelector((state) => state.saveSchematicReducer.title)
   const netlist = useSelector((state) => state.netlistReducer.netlist)
   const [xscale, setXScale] = React.useState('si')
   const [yscale, setYScale] = React.useState('si')
@@ -69,6 +79,9 @@ export default function SimulationScreen ({ open, close, isResult, taskId, simTy
   const [compare, setCompare] = React.useState(false)
   const [compareNetlist, setCompareNetlist] = React.useState(false)
   const [isOverlapping, setIsOverlapping] = React.useState(false)
+  const [visibleSignals, setVisibleSignals] = React.useState({})
+  const [showSignalsBar, setShowSignalsBar] = React.useState(true)
+  const [showPeaks, setShowPeaks] = React.useState(false)
   const precisionArr = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
   const scalesNonGraph = []
   const scalesNonGraphCompare = []
@@ -371,6 +384,73 @@ export default function SimulationScreen ({ open, close, isResult, taskId, simTy
     // eslint-disable-next-line
   }, [isResult])
 
+  const getSignalsList = () => {
+    const graphData = filteredGraph || result.graph
+    if (!graphData || !graphData.labels) return []
+
+    const list = []
+    for (let i = 1; i < graphData.labels.length; i++) {
+      const name = graphData.labels[i]
+      const color = graphData.probeColors && graphData.probeColors[i]
+        ? graphData.probeColors[i]
+        : defaultColors[(i - 1) % defaultColors.length]
+      list.push({
+        name,
+        color,
+        index: i
+      })
+    }
+    return list
+  }
+
+  const toggleSignal = (name) => {
+    setVisibleSignals((prev) => ({
+      ...prev,
+      [name]: prev[name] === false
+    }))
+  }
+
+  const getFilteredGraphData = () => {
+    const graphData = filteredGraph || result.graph
+    if (!graphData || !graphData.labels) return null
+
+    const labels = [graphData.labels[0]]
+    const yPoints = []
+    const probeColors = {}
+    let nextIndex = 1
+
+    for (let i = 1; i < graphData.labels.length; i++) {
+      const name = graphData.labels[i]
+      if (visibleSignals[name] !== false) {
+        labels.push(name)
+        yPoints.push(graphData.y_points[i - 1])
+        const color = graphData.probeColors && graphData.probeColors[i]
+          ? graphData.probeColors[i]
+          : defaultColors[(i - 1) % defaultColors.length]
+        probeColors[nextIndex] = color
+        nextIndex++
+      }
+    }
+
+    return {
+      labels,
+      x_points: graphData.x_points,
+      y_points: yPoints,
+      probeColors
+    }
+  }
+
+  React.useEffect(() => {
+    const graphData = filteredGraph || result.graph
+    if (graphData && graphData.labels && graphData.labels.length > 1) {
+      const initialVisible = {}
+      for (let i = 1; i < graphData.labels.length; i++) {
+        initialVisible[graphData.labels[i]] = true
+      }
+      setVisibleSignals(initialVisible)
+    }
+  }, [filteredGraph, result.graph])
+
   // DO NOT CHANGE
   const addScalesNonGraph = (g, data, arr, scale, setScaleFunc, setStateFunc) => {
     data.forEach((line, index) => {
@@ -513,13 +593,7 @@ export default function SimulationScreen ({ open, close, isResult, taskId, simTy
       }
     }
   }
-  const handleXScale = (evt) => {
-    setXScale(evt.target.value)
-  }
 
-  const handleYScale = (evt) => {
-    setYScale(evt.target.value)
-  }
   const handlePrecision = (evt) => {
     setPrecision(evt.target.value)
   }
@@ -555,7 +629,7 @@ export default function SimulationScreen ({ open, close, isResult, taskId, simTy
 
   return (
     <div style={{ height: '100%', overflowY: 'auto' }}>
-      <Container maxWidth="lg" className={classes.header}>
+      <Container maxWidth={false} className={classes.header} style={{ paddingLeft: '10px', paddingRight: '10px' }}>
         <Grid
           container
           spacing={3}
@@ -573,116 +647,125 @@ export default function SimulationScreen ({ open, close, isResult, taskId, simTy
                 (result.graph !== {} && result.isGraph === 'true')
                   ? <Grid item xs={12} sm={12}>
                     <Paper className={classes.paper}>
-                      <Typography variant="h4" align="center" gutterBottom>
-                          GRAPH OUTPUT
-                      </Typography>
+                      {result.isGraph === 'true' && !compare && (
+                        <div style={{ marginBottom: '15px' }}>
+                          {!showSignalsBar ? (
+                            <div
+                              onClick={() => setShowSignalsBar(true)}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                backgroundColor: '#f0f2f5',
+                                padding: '10px 16px',
+                                borderRadius: '4px',
+                                border: '1px solid #dcdcdc',
+                                cursor: 'pointer',
+                                userSelect: 'none',
+                                transition: 'background-color 0.2s'
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#e4e6eb' }}
+                              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#f0f2f5' }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', color: '#4b5563', fontSize: '13px' }}>
+                                <span style={{ fontSize: '10px', transform: 'scale(0.85)', display: 'inline-block' }}>▶</span>
+                                <span>Toggle Signals</span>
+                              </div>
+                              <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: '500' }}>
+                                {getSignalsList().filter(sig => visibleSignals[sig.name] === false).length} hidden
+                              </div>
+                            </div>
+                          ) : (
+                            <div style={{
+                              backgroundColor: '#f0f2f5',
+                              padding: '12px 16px',
+                              borderRadius: '4px',
+                              border: '1px solid #dcdcdc',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '12px'
+                            }}>
+                              <div style={{
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                gap: '12px'
+                              }}>
+                                <div
+                                  onClick={() => setShowSignalsBar(false)}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    fontWeight: 'bold',
+                                    color: '#4b5563',
+                                    fontSize: '13px',
+                                    cursor: 'pointer',
+                                    userSelect: 'none',
+                                    marginTop: '5px',
+                                    whiteSpace: 'nowrap'
+                                  }}
+                                  onMouseEnter={(e) => { e.currentTarget.style.color = '#111827' }}
+                                  onMouseLeave={(e) => { e.currentTarget.style.color = '#4b5563' }}
+                                >
+                                  <span style={{ fontSize: '10px', transform: 'scale(0.85)', display: 'inline-block' }}>▼</span>
+                                  <span>Toggle Signals:</span>
+                                </div>
+
+                                <div style={{
+                                  display: 'flex',
+                                  flexWrap: 'wrap',
+                                  gap: '8px 12px',
+                                  flex: 1
+                                }}>
+                                  {getSignalsList().map((sig) => {
+                                    const isChecked = visibleSignals[sig.name] !== false
+                                    const color = sig.color
+                                    return (
+                                      <label
+                                        key={sig.name}
+                                        style={{
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '6px',
+                                          padding: '3px 8px',
+                                          borderRadius: '4px',
+                                          backgroundColor: '#e4e6eb',
+                                          cursor: 'pointer',
+                                          userSelect: 'none',
+                                          fontSize: '11px',
+                                          fontWeight: 'bold',
+                                          color: color,
+                                          border: '1px solid #cbd5e1',
+                                          transition: 'background-color 0.2s',
+                                          boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                        }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#d8dadf' }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#e4e6eb' }}
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={isChecked}
+                                          onChange={() => toggleSignal(sig.name)}
+                                          style={{
+                                            cursor: 'pointer',
+                                            accentColor: color,
+                                            width: '13px',
+                                            height: '13px',
+                                            margin: 0
+                                          }}
+                                        />
+                                        <span>{sig.name}</span>
+                                      </label>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', alignItems: 'center', justifyContent: 'center', padding: '15px', margin: '20px 0px', backgroundColor: 'white', borderRadius: '5px' }}>
-                        <TextField
-                          style={{ minWidth: '150px', flex: 1 }}
-                          id="xscale"
-                          size='small'
-                          variant="outlined"
-                          select
-                          label="Select X Axis Scale"
-                          value={xscale}
-                          onChange={handleXScale}
-                          SelectProps={{
-                            native: true
-                          }}
-                        >
-                          <option value='G'>
-                              Giga (G)
-                          </option>
-                          <option value='M'>
-                              Mega (MEG)
-                          </option>
-                          <option value='K'>
-                              Kilo (K)
-                          </option>
-                          <option value='si'>
-                              SI UNIT
-                          </option>
-
-                          <option value='m'>
-                              Milli (m)
-                          </option>
-                          <option value='u'>
-                              Micro (u)
-                          </option>
-                          <option value='n'>
-                              Nano (n)
-                          </option>
-                          <option value='p'>
-                              Pico (p)
-                          </option>
-
-                        </TextField>
-                        <TextField
-                          style={{ minWidth: '150px', flex: 1 }}
-                          id="yscale"
-                          size='small'
-                          variant="outlined"
-                          select
-                          label="Select Y Axis Scale"
-                          value={yscale}
-                          onChange={handleYScale}
-                          SelectProps={{
-                            native: true
-                          }}
-                        >
-                          <option value='G'>
-                              Giga (G)
-                          </option>
-                          <option value='M'>
-                              Mega (MEG)
-                          </option>
-                          <option value='K'>
-                              Kilo (K)
-                          </option>
-                          <option value='si'>
-                              SI UNIT
-                          </option>
-
-                          <option value='m'>
-                              Milli (m)
-                          </option>
-                          <option value='u'>
-                              Micro (u)
-                          </option>
-                          <option value='n'>
-                              Nano (n)
-                          </option>
-                          <option value='p'>
-                              Pico (p)
-                          </option>
-
-                        </TextField>
-
-                        <TextField
-                          style={{ minWidth: '150px', flex: 1 }}
-                          id="precision"
-                          size='small'
-                          variant="outlined"
-                          select
-                          label="Select Precision"
-                          value={precision}
-                          onChange={handlePrecision}
-                          SelectProps={{
-                            native: true
-                          }}
-                        >
-                          {
-                            precisionArr.map((d, i) => {
-                              return (
-                                <option key={i} value={d}>
-                                  {d}
-                                </option>
-                              )
-                            })
-                          }
-
-                        </TextField>
-                        {history && <FormControl variant="outlined" size='small' style={{ minWidth: '200px', flex: 1 }} className={classes.formControl}>
+                        {history && <FormControl variant="outlined" size='small' style={{ minWidth: '200px' }} className={classes.formControl}>
                           <InputLabel htmlFor="outlined-age-native-simple">Compare simulation</InputLabel>
                           <Select
                             labelId="select-simulation-history"
@@ -701,50 +784,44 @@ export default function SimulationScreen ({ open, close, isResult, taskId, simTy
                             })}
                           </Select>
                         </FormControl>}
-                        {result.isGraph === 'true' && !compare && <Button variant="outlined" color="primary" size="medium" onClick={() => setIsOverlapping(!isOverlapping)} style={{ minWidth: '150px', marginLeft: '10px' }}>
-                          {isOverlapping ? 'Disable Overlap' : 'Enable Overlap'}
-                        </Button>}
+                        {result.isGraph === 'true' && !compare && (
+                          <Button variant="outlined" color="primary" size="medium" onClick={() => setIsOverlapping(!isOverlapping)} style={{ minWidth: '150px', marginLeft: '10px' }}>
+                            {isOverlapping ? 'Show Stacked' : 'Overlap Graphs'}
+                          </Button>
+                        )}
+                        {result.isGraph === 'true' && !compare && (
+                          <Button variant="outlined" color="primary" size="medium" onClick={() => setShowPeaks(!showPeaks)} style={{ minWidth: '150px', marginLeft: '10px' }}>
+                            {showPeaks ? 'Hide Peak Markers' : 'Show Peak Markers'}
+                          </Button>
+                        )}
                         {result.isGraph === 'true' && !compare && <Button variant="contained" color="primary" size="medium" onClick={handleCsvDownload} style={{ minWidth: '200px', marginLeft: '10px' }}>
                             Download Graph Output
                         </Button>}
                       </div>
-                      {!compare && (isOverlapping ? (
-                        <Graph
-                          labels={(filteredGraph || result.graph).labels}
-                          x={(filteredGraph || result.graph).x_points}
-                          y={(filteredGraph || result.graph).y_points}
-                          xscale={xscale}
-                          yscale={yscale}
-                          precision={precision}
-                          probeColors={filteredGraph ? filteredGraph.probeColors : null}
-                        />
-                      ) : (
-                        (filteredGraph || result.graph).y_points && (filteredGraph || result.graph).y_points.map((y_trace, i) => {
-                          const isolatedLabels = [
-                            (filteredGraph || result.graph).labels[0],
-                            (filteredGraph || result.graph).labels[i + 1]
-                          ]
-                          const originalColors = filteredGraph ? filteredGraph.probeColors : null
-                          const isolatedColors = originalColors && originalColors[i + 1] ? { 1: originalColors[i + 1] } : null
-
+                      {!compare && (() => {
+                        const filteredData = getFilteredGraphData()
+                        if (!filteredData || filteredData.y_points.length === 0) {
                           return (
-                            <div key={i} style={{ marginBottom: '20px', paddingBottom: '20px', borderBottom: i < (filteredGraph || result.graph).y_points.length - 1 ? '1px solid #eee' : 'none' }}>
-                              <Typography variant="subtitle1" align="center" style={{ fontWeight: 'bold' }}>
-                                {isolatedLabels[1]}
-                              </Typography>
-                              <Graph
-                                labels={isolatedLabels}
-                                x={(filteredGraph || result.graph).x_points}
-                                y={[y_trace]}
-                                xscale={xscale}
-                                yscale={yscale}
-                                precision={precision}
-                                probeColors={isolatedColors}
-                              />
+                            <div style={{ padding: '40px', backgroundColor: '#fafafa', border: '1px solid #e0e0e0', borderRadius: '4px', textAlign: 'center', color: '#999' }}>
+                              No signals selected. Please select at least one signal to display.
                             </div>
                           )
-                        })
-                      ))}
+                        }
+                        return (
+                          <Graph
+                            labels={filteredData.labels}
+                            x={filteredData.x_points}
+                            y={filteredData.y_points}
+                            xscale={xscale}
+                            yscale={yscale}
+                            precision={precision}
+                            probeColors={filteredData.probeColors}
+                            stacked={!isOverlapping}
+                            showLegend={false}
+                            showPeaks={showPeaks}
+                          />
+                        )
+                      })()}
                       {compare && comparingSim && <div style={{ display: 'flex' }}>
                         <TableContainer component={Paper} style={{ float: 'left' }}>
                           <Table className={classes.table} aria-label="simple table">

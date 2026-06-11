@@ -24,8 +24,8 @@ export const fetchSchematics = () => (dispatch, getState) => {
         })
       }
     )
-    .catch((err) => { 
-      console.error(err) 
+    .catch((err) => {
+      console.error(err)
       throw err
     })
 }
@@ -126,7 +126,7 @@ export const deleteSchematic = (saveId) => (dispatch, getState) => {
         }
       }
     )
-    .catch((err) => { console.error(err); throw err; })
+    .catch((err) => { console.error(err); throw err })
 }
 
 // Api call for toggling the pinned state of a saved schematic.
@@ -153,5 +153,5 @@ export const togglePinSave = (saveId, version, branch, pinned) => (dispatch, get
         }
       }
     )
-    .catch((err) => { console.error('[togglePinSave] error:', err); throw err; })
+    .catch((err) => { console.error('[togglePinSave] error:', err); throw err })
 }

@@ -339,78 +339,78 @@ export default function SchematicsList ({ ltiDetails = null }) {
               </Grid>
             )}
 
-        {/* ── Loading state ─────────────────────────────────────────────────── */}
-        {isLoading
-          ? (
-          <Grid item xs={12}>
-            <Box className={classes.centeredSpinner}>
-              <CircularProgress />
-            </Box>
-          </Grid>
-            )
-          : (
-          <>
-            {/* ── PINNED section ─────────────────────────────────────────────── */}
-            <Grid item xs={12}>
-              <div className={classes.sectionHeader}>
-                <Typography className={classes.sectionTitle} variant='h6'>
+            {/* ── Loading state ─────────────────────────────────────────────────── */}
+            {isLoading
+              ? (
+                <Grid item xs={12}>
+                  <Box className={classes.centeredSpinner}>
+                    <CircularProgress />
+                  </Box>
+                </Grid>
+              )
+              : (
+                <>
+                  {/* ── PINNED section ─────────────────────────────────────────────── */}
+                  <Grid item xs={12}>
+                    <div className={classes.sectionHeader}>
+                      <Typography className={classes.sectionTitle} variant='h6'>
                   ★ Pinned
-                </Typography>
-                <Typography variant='body2' color='textSecondary'>
+                      </Typography>
+                      <Typography variant='body2' color='textSecondary'>
                   ({pinnedCircuits.length})
-                </Typography>
-              </div>
+                      </Typography>
+                    </div>
 
-              {pinnedCircuits.length === 0
-                ? (
-                <Typography className={classes.emptyText}>
+                    {pinnedCircuits.length === 0
+                      ? (
+                        <Typography className={classes.emptyText}>
                   No pinned circuits yet. Click <strong>Pin</strong> on any circuit card to pin it here.
-                </Typography>
-                  )
-                : (
-                <Grid container spacing={2}>
-                  {pinnedCircuits.map((sch) => (
-                    <Grid item xs={12} sm={6} md={4} key={sch.save_id}>
-                      <CircuitCard sch={sch} onRefresh={doFetch} />
-                    </Grid>
-                  ))}
-                </Grid>
-                  )}
-            </Grid>
+                        </Typography>
+                      )
+                      : (
+                        <Grid container spacing={2}>
+                          {pinnedCircuits.map((sch) => (
+                            <Grid item xs={12} sm={6} md={4} key={sch.save_id}>
+                              <CircuitCard sch={sch} onRefresh={doFetch} />
+                            </Grid>
+                          ))}
+                        </Grid>
+                      )}
+                  </Grid>
 
-            <Grid item xs={12}>
-              <Divider className={classes.sectionDivider} />
-            </Grid>
+                  <Grid item xs={12}>
+                    <Divider className={classes.sectionDivider} />
+                  </Grid>
 
-            {/* ── RECENT section ─────────────────────────────────────────────── */}
-            <Grid item xs={12}>
-              <div className={classes.sectionHeader}>
-                <Typography className={classes.sectionTitle} variant='h6'>
+                  {/* ── RECENT section ─────────────────────────────────────────────── */}
+                  <Grid item xs={12}>
+                    <div className={classes.sectionHeader}>
+                      <Typography className={classes.sectionTitle} variant='h6'>
                   🕒 Recent
-                </Typography>
-                <Typography variant='body2' color='textSecondary'>
+                      </Typography>
+                      <Typography variant='body2' color='textSecondary'>
                   ({recentCircuits.length} total)
-                </Typography>
-              </div>
+                      </Typography>
+                    </div>
 
-              {recentCircuits.length === 0
-                ? (
-                <Typography className={classes.emptyText}>
+                    {recentCircuits.length === 0
+                      ? (
+                        <Typography className={classes.emptyText}>
                   No saved circuits yet. Create your first circuit above!
-                </Typography>
-                  )
-                : (
-                <Grid container spacing={2}>
-                  {recentCircuits.map((sch) => (
-                    <Grid item xs={12} sm={6} md={4} key={sch.save_id}>
-                      <CircuitCard sch={sch} onRefresh={doFetch} />
-                    </Grid>
-                  ))}
-                </Grid>
-                  )}
-            </Grid>
-          </>
-            )}
+                        </Typography>
+                      )
+                      : (
+                        <Grid container spacing={2}>
+                          {recentCircuits.map((sch) => (
+                            <Grid item xs={12} sm={6} md={4} key={sch.save_id}>
+                              <CircuitCard sch={sch} onRefresh={doFetch} />
+                            </Grid>
+                          ))}
+                        </Grid>
+                      )}
+                  </Grid>
+                </>
+              )}
           </>
         )}
 
