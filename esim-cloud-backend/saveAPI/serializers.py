@@ -68,6 +68,11 @@ class StateSaveSerializer(serializers.ModelSerializer):
             return None
 
 
+class PublicStateSaveSerializer(StateSaveSerializer):
+    class Meta(StateSaveSerializer.Meta):
+        fields = tuple(x for x in StateSaveSerializer.Meta.fields if x != 'owner')
+
+
 class SaveListSerializer(serializers.ModelSerializer):
     base64_image = Base64ImageField(max_length=None, use_url=True)
     esim_libraries = LibrarySerializer(many=True, required=False)

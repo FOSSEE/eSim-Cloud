@@ -404,6 +404,8 @@ function Header ({ gridRef }) {
         <Dialog
           open={openShare}
           onClose={handleShareClose}
+          fullWidth
+          maxWidth="sm"
           aria-labelledby="share-dialog-title"
           aria-describedby="share-dialog-description"
         >
@@ -419,7 +421,8 @@ function Header ({ gridRef }) {
               {shared === true
                 ? <input
                   ref={textAreaRef}
-                  value={`${window.location.protocol}\\\\${window.location.host}/eda/#/editor?id=${schSave.details.save_id}`}
+                  style={{ width: '100%', padding: '10px', boxSizing: 'border-box', fontSize: '1rem', marginTop: '10px' }}
+                  value={`${window.location.protocol}//${window.location.host}/eda/#/view/${schSave.details.save_id}/${schSave.details.version || '1'}/${schSave.details.branch || 'main'}`}
                   readOnly
                 />
                 : <> Turn On sharing </>

@@ -305,7 +305,6 @@ export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResu
     )
   }
 
-
   return (
     <>
       <Hidden smDown>

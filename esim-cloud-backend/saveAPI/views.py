@@ -7,7 +7,7 @@ import django_filters
 from django_filters import rest_framework as filters
 from .serializers import ArduinoModelSimulationDataSerializer,\
     StateSaveSerializer, SaveListSerializer, \
-    GallerySerializer
+    GallerySerializer, PublicStateSaveSerializer
 from .serializers import Base64ImageField
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.parsers import FormParser, JSONParser
@@ -671,3 +671,54 @@ class ArduinoModelSimulationDataView(APIView):
             print(e)
             return Response({"error": "No simulation data found"},
                             status=status.HTTP_404_NOT_FOUND)
+
+class SharedCircuitView(APIView):
+    permission_classes = (AllowAny,)
+    methods = ['GET']
+
+    @swagger_auto_schema(responses={200: StateSaveSerializer})
+    def get(self, request, save_id, version, branch):
+        from uuid import UUID
+        try:
+            UUID(save_id)
+        except (ValueError, AttributeError):
+            return Response({'error': 'Circuit not found.'}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            saved_state = StateSave.objects.get(
+                save_id=save_id, version=version, branch=branch)
+        except StateSave.DoesNotExist:
+            return Response({'error': 'Circuit not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not saved_state.shared:
+            return Response({'error': 'This circuit is not shared.'}, status=status.HTTP_403_FORBIDDEN)
+        
+        serialized = PublicStateSaveSerializer(saved_state, context={'request': request})
+        return Response(serialized.data)
+
+
+class SetCircuitSharedView(APIView):
+    permission_classes = (IsAuthenticated,)
+    methods = ['PATCH']
+
+    @swagger_auto_schema(responses={200: StateSaveSerializer})
+    def patch(self, request, save_id, version, branch):
+        from uuid import UUID
+        try:
+            UUID(save_id)
+        except (ValueError, AttributeError):
+            return Response({'error': 'Circuit not found.'}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            saved_state = StateSave.objects.get(
+                save_id=save_id, version=version, branch=branch)
+        except StateSave.DoesNotExist:
+            return Response({'error': 'Circuit not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if request.user != saved_state.owner:
+            return Response({'error': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+
+        if 'shared' in request.data:
+            saved_state.shared = bool(request.data['shared'])
+            saved_state.save()
+            
+        serialized = StateSaveSerializer(saved_state, context={'request': request})
+        return Response(serialized.data)
