@@ -29,7 +29,6 @@ import { useHistory } from 'react-router-dom'
 import { setNetlist } from '../../redux/actions/index'
 
 import { sanitizeNetlistForExport, buildNetlistFromGraph } from './Helper/NetlistExporter'
-import { GenerateNetList } from './Helper/ToolbarTools'
 
 const useStyles = makeStyles((theme) => ({
   actions: {

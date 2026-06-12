@@ -9,7 +9,12 @@ import {
   Snackbar,
   Select,
   FormControl,
-  InputLabel
+  InputLabel,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField
 } from '@material-ui/core'
 import AddBoxOutlinedIcon from '@material-ui/icons/AddBoxOutlined'
 import PlayCircleOutlineIcon from '@material-ui/icons/PlayCircleOutline'
@@ -42,6 +47,8 @@ import { Link as RouterLink } from 'react-router-dom'
 import queryString from 'query-string'
 import { RotateLeft } from '@material-ui/icons'
 import AddPhotoAlternateIcon from '@material-ui/icons/AddPhotoAlternate'
+import ShareIcon from '@material-ui/icons/Share'
+import Alert from '@material-ui/lab/Alert'
 import { fetchRole } from '../../redux/actions/authActions'
 
 import {
@@ -215,6 +222,50 @@ export default function SchematicToolbar ({
       return
     }
     setshortCircuit(false)
+  }
+
+  const [shareDialogOpen, setShareDialogOpen] = React.useState(false)
+
+  const hashSplit = window.location.hash.split('?')
+  let urlParams = new URLSearchParams('')
+  if (hashSplit.length > 1) {
+    urlParams = new URLSearchParams(hashSplit[1])
+  }
+  const currentSaveId = urlParams.get('id')
+  const currentVersion = urlParams.get('version') || '1'
+  const currentBranch = urlParams.get('branch') || 'main'
+
+  const shareUrl = `${window.location.origin}/eda/#/view/${currentSaveId}/${currentVersion}/${currentBranch}`
+
+  const handleShareClick = () => {
+    setShareDialogOpen(true)
+  }
+
+  const handleShareClose = () => {
+    setShareDialogOpen(false)
+  }
+
+  const handleCopyLink = () => {
+    try {
+      navigator.clipboard.writeText(shareUrl)
+      setMessage('Link copied!')
+      setSnacOpen(true)
+    } catch (err) {
+      setMessage('Failed to copy link.')
+      setSnacOpen(true)
+    }
+  }
+
+  const handleMakePublic = () => {
+    api.patch(`save/share/${currentSaveId}/${currentVersion}/${currentBranch}/`, { shared: true })
+      .then(() => {
+        setMessage('Circuit is now public!')
+        setSnacOpen(true)
+      })
+      .catch((err) => {
+        setMessage('Login required to share circuits.')
+        setSnacOpen(true)
+      })
   }
 
   const handleSave = (version, newSave, save_id) => {
@@ -430,7 +481,13 @@ export default function SchematicToolbar ({
 
   // Image Export of Schematic Diagram
   async function exportImage (type) {
-    const svg = document.querySelector('#divGrid > svg').cloneNode(true)
+    // Fix A: null guard — if the mxGraph container SVG or gridRef is not ready, bail out gracefully
+    const rawSvg = document.querySelector('#divGrid > svg')
+    if (!rawSvg || !gridRef || !gridRef.current) {
+      console.warn('[exportImage] Grid container or SVG not available — skipping thumbnail export.')
+      return null
+    }
+    const svg = rawSvg.cloneNode(true)
     svg.removeAttribute('style')
     svg.setAttribute('width', gridRef.current.scrollWidth)
     svg.setAttribute('height', gridRef.current.scrollHeight)
@@ -554,13 +611,26 @@ export default function SchematicToolbar ({
       dispatch(setSchXmlData(xml))
       const title = schSave.title
       const description = schSave.description
-      exportImage('PNG').then((res) => {
-        dispatch(
-          saveSchematic(title, description, xml, res, false, null, handleSave)
-        )
-      })
-      setMessage('Saved Successfully')
-      handleSnacClick()
+      // Fix B: wrap exportImage in try-catch so a thumbnail failure never blocks the save
+      // Fix C: no backdrop/dialog was opened before, so no overlay to clean up here
+      exportImage('PNG')
+        .then((res) => {
+          // res may be null if the grid wasn't ready — that is fine, save proceeds
+          dispatch(
+            saveSchematic(title, description, xml, res, false, null, handleSave)
+          )
+          setMessage('Saved Successfully')
+          handleSnacClick()
+        })
+        .catch((err) => {
+          console.warn('[handleSchSave] Thumbnail export failed, saving without image:', err)
+          // Fix B: save the circuit data even when thumbnail export throws
+          dispatch(
+            saveSchematic(title, description, xml, null, false, null, handleSave)
+          )
+          setMessage('Saved (thumbnail skipped)')
+          handleSnacClick()
+        })
     }
   }
 
@@ -802,11 +872,55 @@ export default function SchematicToolbar ({
           <SaveOutlinedIcon fontSize="small" />
         </IconButton>
       </Tooltip>}
-      <SimpleSnackbar
-        open={snacOpen}
-        close={handleSnacClose}
-        message={message}
-      />
+      {(!ltiId || !ltiNonce) && <Tooltip title="Share Circuit">
+        <IconButton
+          color="inherit"
+          className={classes.tools}
+          size="small"
+          onClick={handleShareClick}
+        >
+          <ShareIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>}
+      {shareDialogOpen && (
+        <Dialog open={shareDialogOpen} onClose={handleShareClose} aria-labelledby="share-dialog-title">
+          <DialogTitle id="share-dialog-title">Share Circuit</DialogTitle>
+          <DialogContent>
+            {!currentSaveId ? (
+              <Alert severity="info">Save your circuit first before sharing.</Alert>
+            ) : (
+              <>
+                <Alert severity="warning" style={{ marginBottom: '16px' }}>
+                  This link will only work if you have saved and shared this circuit.
+                </Alert>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <TextField 
+                    readOnly 
+                    fullWidth 
+                    value={shareUrl} 
+                    variant="outlined" 
+                    size="small" 
+                  />
+                  <Button variant="contained" color="primary" onClick={handleCopyLink} style={{ whiteSpace: 'nowrap' }}>
+                    Copy Link
+                  </Button>
+                </div>
+              </>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleMakePublic} disabled={!currentSaveId} color="primary">Make Public</Button>
+            <Button onClick={handleShareClose} color="default">Close</Button>
+          </DialogActions>
+        </Dialog>
+      )}
+      {message && (
+        <SimpleSnackbar
+          open={snacOpen}
+          close={handleSnacClose}
+          message={message}
+        />
+      )}
       {ltiId && ltiUserId && ltiNonce && ltiSimHistory && (
         <div>
           <FormControl

@@ -58,7 +58,13 @@ urlpatterns = [
 
     path("save/arduinodata/<uuid:save_id>/<str:version>/<str:branch>",
          saveAPI_views.ArduinoModelSimulationDataView.as_view(),
-         name="uploadSimulationData")
+         name="uploadSimulationData"),
+
+    path('save/shared/<str:save_id>/<str:version>/<str:branch>/',
+         saveAPI_views.SharedCircuitView.as_view(), name='sharedCircuit'),
+
+    path('save/share/<str:save_id>/<str:version>/<str:branch>/',
+         saveAPI_views.SetCircuitSharedView.as_view(), name='setCircuitShared')
 
 ]
 
