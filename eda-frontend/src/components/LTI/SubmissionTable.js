@@ -61,7 +61,7 @@ export default function SubmissionTable () {
 
   useEffect(() => {
     var url = queryString.parse(window.location.href.split('submission')[1])
-    const token = localStorage.getItem('esim_token')
+    const token = localStorage.getItem('esim_auth_token')
     const config = {
       headers: {
         'Content-Type': 'application/json'

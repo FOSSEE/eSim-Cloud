@@ -188,7 +188,7 @@ export default function SchematicsList ({ ltiDetails = null }) {
 
   // ── Fetch helper — also used as onRefresh callback for CircuitCard ─────────
   const doFetch = useCallback(() => {
-    const hasToken = auth.token || localStorage.getItem('esim_token')
+    const hasToken = auth.token || localStorage.getItem('esim_auth_token')
     if (!hasToken) {
       return
     }
@@ -198,7 +198,7 @@ export default function SchematicsList ({ ltiDetails = null }) {
     Promise.resolve(dispatch(fetchSchematics()))
       .catch((err) => {
         if (err.response && err.response.status === 401) {
-          localStorage.removeItem('esim_token')
+          localStorage.removeItem('esim_auth_token')
           if (auth.token) {
             dispatch({ type: 'AUTH_ERROR' })
           }
@@ -326,7 +326,7 @@ export default function SchematicsList ({ ltiDetails = null }) {
           </Paper>
         </Grid>
 
-        {!(auth.token || localStorage.getItem('esim_token')) ? (
+        {!(auth.token || localStorage.getItem('esim_auth_token')) ? (
           <Grid item xs={12}>
             <Alert severity="info">Login to view your saved circuits.</Alert>
           </Grid>

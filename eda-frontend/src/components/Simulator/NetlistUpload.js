@@ -63,7 +63,7 @@ class NetlistUpload extends Component {
 
   // Upload the nelist
   netlistUpload (file) {
-    const token = localStorage.getItem('esim_token')
+    const token = localStorage.getItem('esim_auth_token')
     const formData = new FormData()
     formData.append('file', file)
     const config = {

@@ -4,7 +4,7 @@ import api from '../../utils/Api'
 
 export const createProject = (save_id, details) => (dispatch, getState) => {
   // Get token from localstorage
-  const token = localStorage.getItem('esim_token')
+  const token = localStorage.getItem('esim_auth_token')
 
   // add headers
   const config = {
@@ -173,7 +173,7 @@ export const getStatus = (project_id) => (dispatch, getState) => {
 }
 export const changeStatus = (project_id, status, notes) => (dispatch, getState) => {
   // post the state
-  const token = localStorage.getItem('esim_token')
+  const token = localStorage.getItem('esim_auth_token')
   // add headers
   const config = {
     headers: {

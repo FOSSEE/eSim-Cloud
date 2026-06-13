@@ -8,6 +8,7 @@ import Home from './pages/Home'
 import Login from './pages/Login'
 import NotFound from './pages/NotFound'
 import SchematicEditor from './pages/SchematiEditor'
+import CircuitViewer from './pages/CircuitViewer'
 
 import Simulator from './pages/Simulator'
 import Gallery from './pages/Gallery'
@@ -69,31 +70,63 @@ function PublicRoute ({ component: Component, restricted, nav, ...rest }) {
   }} />
 }
 
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null, info: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, info) {
+    console.error("ErrorBoundary caught an error", error, info);
+    this.setState({ info });
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 20, background: '#f8d7da', color: '#721c24', minHeight: '100vh', width: '100vw' }}>
+          <h2>Something went wrong in the React App.</h2>
+          <pre style={{ whiteSpace: 'pre-wrap' }}>{this.state.error && this.state.error.toString()}</pre>
+          <pre style={{ whiteSpace: 'pre-wrap', fontSize: '12px' }}>{this.state.info && this.state.info.componentStack}</pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function App () {
   return (
     // Handles Routing for an application
-    <HashRouter>
-      <Switch>
-        <PublicRoute exact path="/login" restricted={true} nav={false} component={Login} />
-        <PublicRoute exact path="/signup" restricted={true} nav={false} component={SignUp} />
-        <PublicRoute exact path="/reset-password" restricted={true} nav={false} component={ResetPassword} />
-        <PublicRoute exact path="/password/reset/confirm/:id/:token" restricted={true} nav={false} component={ResetPasswordConfirm} />
-        <PublicRoute exact path="/" restricted={false} nav={true} component={Home} />
-        {localStorage.getItem('esim_token') !== null
-          ? <PublicRoute exact path="/editor" restricted={false} nav={false} component={SchematicEditor} />
-          : <Route path="/editor" component={SchematicEditor} />
-        }
-        <PublicRoute exact path="/project" restricted={false} nav={true} component={ProjectPage} />
-        <PublicRoute exact path="/simulator/ngspice" restricted={false} nav={true} component={Simulator} />
-        <PublicRoute exact path="/gallery" restricted={false} nav={true} component={Gallery} />
-        <PublicRoute exact path="/projects" restricted={false} nav={true} component={PublicProjects} />
-        <PublicRoute path="/dashboard" restricted={false} nav={false} component={Dashboard} /> // TODO: restore PrivateRoute when login is fixed
-        <PrivateRoute path="/submission" component={Submissions} />
-        <PrivateRoute path="/lti" component = {LTISetup} />
-        <PrivateRoute path="/account/change_password" component={ChangePassword} />
-        <PublicRoute restricted={false} nav={true} component={NotFound} />
-      </Switch>
-    </HashRouter>
+    <ErrorBoundary>
+      <HashRouter>
+        <Switch>
+          <PublicRoute exact path="/login" restricted={true} nav={false} component={Login} />
+          <PublicRoute exact path="/signup" restricted={true} nav={false} component={SignUp} />
+          <PublicRoute exact path="/reset-password" restricted={true} nav={false} component={ResetPassword} />
+          <PublicRoute exact path="/password/reset/confirm/:id/:token" restricted={true} nav={false} component={ResetPasswordConfirm} />
+          <PublicRoute exact path="/" restricted={false} nav={true} component={Home} />
+          {localStorage.getItem('esim_auth_token') !== null
+            ? <PublicRoute exact path="/editor" restricted={false} nav={false} component={SchematicEditor} />
+            : <Route path="/editor" component={SchematicEditor} />
+          }
+          <PublicRoute exact path="/view/:saveId/:version/:branch" restricted={false} nav={false} component={CircuitViewer} />
+          <PublicRoute exact path="/project" restricted={false} nav={true} component={ProjectPage} />
+          <PublicRoute exact path="/simulator/ngspice" restricted={false} nav={true} component={Simulator} />
+          <PublicRoute exact path="/gallery" restricted={false} nav={true} component={Gallery} />
+          <PublicRoute exact path="/projects" restricted={false} nav={true} component={PublicProjects} />
+          <PrivateRoute path="/dashboard" component={Dashboard} />
+          <PrivateRoute path="/submission" component={Submissions} />
+          <PrivateRoute path="/lti" component = {LTISetup} />
+          <PrivateRoute path="/account/change_password" component={ChangePassword} />
+          <PublicRoute restricted={false} nav={true} component={NotFound} />
+        </Switch>
+      </HashRouter>
+    </ErrorBoundary>
   )
 }
 

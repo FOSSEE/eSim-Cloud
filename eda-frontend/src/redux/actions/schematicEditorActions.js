@@ -257,7 +257,7 @@ export const fetchComponentsBySearch = (query, searchOption = 'ALL') => (dispatc
 
   dispatch({ type: actions.SEARCH_COMPONENTS_LOADING })
 
-  const token = store.getState().authReducer.token || localStorage.getItem('esim_token')
+  const token = store.getState().authReducer.token || localStorage.getItem('esim_auth_token')
   const config = {
     headers: {
       'Content-Type': 'application/json'

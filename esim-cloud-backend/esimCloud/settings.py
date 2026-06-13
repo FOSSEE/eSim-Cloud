@@ -197,6 +197,12 @@ USE_TZ = True
 
 # Allow CORS for Public API
 CORS_ORIGIN_ALLOW_ALL = True
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:3000',
+    'http://localhost',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1'
+]
 
 # Static files for django admin and DRF
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')

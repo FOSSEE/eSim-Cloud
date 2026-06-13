@@ -102,7 +102,7 @@ export default function LTIConfig () {
 
   useEffect(() => {
     var url = queryString.parse(window.location.href.split('lti?')[1])
-    const token = localStorage.getItem('esim_token')
+    const token = localStorage.getItem('esim_auth_token')
     const config = {
       headers: {
         'Content-Type': 'application/json'
@@ -134,7 +134,7 @@ export default function LTIConfig () {
 
   useEffect(() => {
     var url = queryString.parse(window.location.href.split('lti?')[1])
-    const token = localStorage.getItem('esim_token')
+    const token = localStorage.getItem('esim_auth_token')
     const config = {
       headers: {
         'Content-Type': 'application/json'
@@ -179,7 +179,7 @@ export default function LTIConfig () {
   // to get test cases for LTI
   useEffect(() => {
     var url = queryString.parse(window.location.href.split('lti?')[1])
-    const token = localStorage.getItem('esim_token')
+    const token = localStorage.getItem('esim_auth_token')
     const config = {
       headers: {
         'Content-Type': 'application/json'

@@ -109,7 +109,7 @@ export default function SimulationScreen ({ open, close, isResult, taskId, simTy
     if (open) {
       const url = queryString.parse(window.location.href.split('editor?')[1])
       let getUrl = ''
-      const token = localStorage.getItem('esim_token')
+      const token = localStorage.getItem('esim_auth_token')
       const config = {
         headers: {
           'Content-Type': 'application/json'
