@@ -5,8 +5,6 @@ import {
   ListItem,
   ListItemIcon,
   Tooltip,
-  TextField,
-  InputAdornment,
   Popper,
   Fade,
   Paper,
@@ -36,6 +34,7 @@ import './Helper/SchematicEditor.css'
 import { useDispatch, useSelector } from 'react-redux'
 import { fetchLibraries, fetchComponents } from '../../redux/actions/index'
 import SideComp from './SideComp.js'
+import ComponentSearchBar from './ComponentSearchBar.js'
 import { AddProbe } from './Helper/SideBar.js'
 import { getFavourites } from '../../utils/favouritesStorage'
 import api from '../../utils/Api'
@@ -341,8 +340,6 @@ const searchOptions = {
   PREFIX: 'symbol_prefix'
 }
 
-const searchOptionsList = ['NAME', 'KEYWORD', 'DESCRIPTION', 'COMPONENT_LIBRARY', 'PREFIX']
-
 // Draggable probe tile for the flyout
 function ProbeItem ({ probeType, label, color, description }) {
   const imgRef = useRef(null)
@@ -411,49 +408,60 @@ export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResu
   const [loading, setLoading] = useState(false)
   const [searchedComponentList, setSearchedComponents] = useState([])
   const [searchOption, setSearchOption] = useState('NAME')
-  const timeoutId = useRef()
 
-  const handleSearchOptionType = (evt) => {
-    setSearchedComponents([])
-    setSearchOption(evt.target.value)
-  }
+  const searchBarRef = useRef(null)
 
-  const handleSearchText = (evt) => {
-    if (searchText.length === 0) {
-      setSearchedComponents([])
-    }
-    setSearchText(evt.target.value)
+  const handleSearchChange = React.useCallback((query, option = 'NAME') => {
     setSearchedComponents([])
-  }
+    setSearchText(query)
+    setSearchOption(option)
+  }, [])
 
   useEffect(() => {
-    clearTimeout(timeoutId.current)
     if (!searchText.trim()) return
-    timeoutId.current = setTimeout(() => {
-      setLoading(true)
-      let config = {}
-      const token = localStorage.getItem('esim_token')
-      if (token && token !== undefined) {
-        config = {
-          headers: {
-            Authorization: `Token ${token}`
-          }
+    setLoading(true)
+    let config = {}
+    const token = localStorage.getItem('esim_auth_token')
+    if (token && token !== undefined) {
+      config = {
+        headers: {
+          Authorization: `Token ${token}`
         }
       }
-      api.get(`components/?${searchOptions[searchOption]}=${searchText}`, config)
-        .then(
-          (res) => {
-            if (res.data.length === 0) {
-              setIssearchedResultsEmpty(true)
-            } else {
-              setIssearchedResultsEmpty(false)
-              setSearchedComponents([...res.data])
-            }
-          }
-        )
-        .catch((err) => { console.error(err) })
-      setLoading(false)
-    }, 800)
+    }
+    api.get(`components/?${searchOptions[searchOption]}=${searchText}`, config)
+      .then((res) => {
+        if (res.data.length === 0) {
+          setIssearchedResultsEmpty(true)
+          setSearchedComponents([])
+        } else {
+          setIssearchedResultsEmpty(false)
+          // Client-side sorting to prioritize exact matches and prefix matches
+          const sortedData = [...res.data].sort((a, b) => {
+            const aName = (a.full_name || a.name || '').toLowerCase()
+            const bName = (b.full_name || b.name || '').toLowerCase()
+            const q = searchText.toLowerCase().trim()
+
+            const aExact = aName === q
+            const bExact = bName === q
+            if (aExact && !bExact) return -1
+            if (!aExact && bExact) return 1
+
+            const aStarts = aName.startsWith(q)
+            const bStarts = bName.startsWith(q)
+            if (aStarts && !bStarts) return -1
+            if (!aStarts && bStarts) return 1
+
+            return 0
+          })
+          setSearchedComponents(sortedData)
+        }
+        setLoading(false)
+      })
+      .catch((err) => {
+        console.error(err)
+        setLoading(false)
+      })
   }, [searchText, searchOption])
 
   // Flyout State
@@ -461,6 +469,46 @@ export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResu
   const [activeCategory, setActiveCategory] = useState(null)
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [fetchedLibs, setFetchedLibs] = useState(new Set())
+
+  useEffect(() => {
+    const isModifierPressed = (evt) => evt.metaKey || evt.ctrlKey
+    const isTypingContext = (evt) => {
+      const tag = evt.target.tagName
+      return tag === 'INPUT' || tag === 'TEXTAREA' || evt.target.isContentEditable
+    }
+    const handleKeyDown = (evt) => {
+      if (isModifierPressed(evt) && evt.key === 'k') {
+        evt.preventDefault()
+        const searchBtn = document.getElementById('search-category-button')
+        if (searchBtn) {
+          setAnchorEl(searchBtn)
+          setActiveCategory(UI_CATEGORIES.find(c => c.id === 'search'))
+          setTimeout(() => {
+            if (searchBarRef.current) searchBarRef.current.focus()
+          }, 100)
+        }
+        return
+      }
+      if (evt.key === '/' && !isTypingContext(evt)) {
+        evt.preventDefault()
+        const searchBtn = document.getElementById('search-category-button')
+        if (searchBtn) {
+          setAnchorEl(searchBtn)
+          setActiveCategory(UI_CATEGORIES.find(c => c.id === 'search'))
+          setTimeout(() => {
+            if (searchBarRef.current) searchBarRef.current.focus()
+          }, 100)
+        }
+        return
+      }
+      if (evt.key === 'Escape' && searchBarRef.current && searchBarRef.current.isFocused()) {
+        evt.preventDefault()
+        searchBarRef.current.clear()
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [setAnchorEl, setActiveCategory])
 
   useEffect(() => {
     dispatch(fetchLibraries())
@@ -544,7 +592,7 @@ export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResu
             <Tooltip key={cat.id} title={cat.name} placement="right">
               <ListItem
                 button
-                id={cat.id === 'probes' ? 'probe-category-button' : undefined}
+                id={cat.id === 'probes' ? 'probe-category-button' : (cat.id === 'search' ? 'search-category-button' : undefined)}
                 className={`${classes.paletteItem} ${activeCategory?.id === cat.id ? classes.activeItem : ''}`}
                 onClick={(e) => handleCategoryClick(e, cat)}
               >
@@ -584,46 +632,36 @@ export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResu
               <ClickAwayListener onClickAway={handleClose}>
                 <div ref={compRef} className={classes.flyoutContent}>
 
+                  {/* Persistent Flyout Favourites Quick-Add Bar */}
+                  {favourites.length > 0 && (
+                    <div
+                      className={classes.favBar}
+                      style={{
+                        backgroundColor: '#fff',
+                        padding: '8px',
+                        borderBottom: '1px solid #ccc',
+                        marginBottom: '8px',
+                        display: 'flex',
+                        overflowX: 'auto'
+                      }}
+                    >
+                      <Typography variant="subtitle2" style={{ fontWeight: 'bold', color: '#555', marginRight: '16px', alignSelf: 'center' }}>
+                        Favourites
+                      </Typography>
+                      {favourites.map((comp) => (
+                        <div key={comp.id} style={{ display: 'flex', alignItems: 'center' }}>
+                          <SideComp component={comp} setFavourite={setFavourites} favourite={favourites} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   <div style={{ backgroundColor: '#fff', padding: '8px', borderBottom: '1px solid #ccc', marginBottom: '8px' }}>
                     {activeCategory?.id === 'search' ? (
-                      <>
-                        <TextField
-                          id="standard-number"
-                          placeholder="Search Component"
-                          variant="outlined"
-                          size="small"
-                          fullWidth
-                          value={searchText}
-                          onChange={handleSearchText}
-                          InputProps={{
-                            startAdornment: (
-                              <InputAdornment position="start">
-                                <SearchIcon />
-                              </InputAdornment>
-                            )
-                          }}
-                          style={{ marginBottom: '8px' }}
-                        />
-                        <TextField
-                          style={{ width: '100%' }}
-                          id="searchType"
-                          size='small'
-                          variant="outlined"
-                          select
-                          label="Search By"
-                          value={searchOption}
-                          onChange={handleSearchOptionType}
-                          SelectProps={{
-                            native: true
-                          }}
-                        >
-                          {searchOptionsList.map((value, i) => (
-                            <option key={i} value={value}>
-                              {value}
-                            </option>
-                          ))}
-                        </TextField>
-                      </>
+                      <ComponentSearchBar
+                        onSearchChange={handleSearchChange}
+                        ref={searchBarRef}
+                      />
                     ) : (
                       <Typography variant="subtitle2" style={{ fontWeight: 'bold', color: '#555' }}>
                         {activeCategory?.name}

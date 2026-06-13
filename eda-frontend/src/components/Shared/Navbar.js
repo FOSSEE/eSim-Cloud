@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react'
 import { useHistory, Link as RouterLink } from 'react-router-dom'
-import { useDispatch } from 'react-redux'
+import { useDispatch, useSelector } from 'react-redux'
 import {
   AppBar,
   Button,
@@ -60,7 +60,7 @@ export function Header () {
   const history = useHistory()
   const classes = useStyles()
   const [anchorEl, setAnchorEl] = React.useState(null)
-  const auth = store.getState().authReducer
+  const auth = useSelector(state => state.authReducer)
   const dispatch = useDispatch()
 
   const handleClick = (event) => {
@@ -73,7 +73,7 @@ export function Header () {
   var homeURL = `${window.location.protocol}\\\\${window.location.host}/`
   useEffect(() => {
     function checkUserData () {
-      const userToken = localStorage.getItem('esim_token')
+      const userToken = localStorage.getItem('esim_auth_token')
       if (userToken && userToken !== '') {
         dispatch(loadUser())
       } else {
@@ -248,7 +248,7 @@ export function Header () {
               onClick={handleClick}
             >
               <Avatar className={classes.purple}>
-                {auth.user.username.charAt(0).toUpperCase()}
+                {auth.user && auth.user.username ? auth.user.username.charAt(0).toUpperCase() : ''}
               </Avatar>
             </IconButton>
             <Menu
@@ -265,7 +265,7 @@ export function Header () {
                 to="/dashboard"
                 onClick={handleClose}
               >
-                <ListItemText primary={auth.user.username} secondary={auth.user.email} />
+                <ListItemText primary={auth.user ? auth.user.username : ''} secondary={auth.user ? auth.user.email : ''} />
               </MenuItem>
               <MenuItem
                 component={RouterLink}

@@ -65,7 +65,7 @@ export default function VersionComponent ({
         'Content-Type': 'application/x-www-form-urlencoded'
       }
     }
-    const token = localStorage.getItem('esim_token')
+    const token = localStorage.getItem('esim_auth_token')
     if (token) {
       config.headers.Authorization = `Token ${token}`
     }

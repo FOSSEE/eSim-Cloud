@@ -86,10 +86,10 @@ class CustomTokenCreateView(utils.ActionViewMixin, generics.GenericAPIView):
     permission_classes = [permissions.AllowAny]
 
     def _action(self, serializer):
-        token = utils.login_user(self.request, serializer.user)
-        token_serializer_class = TokenSerializer
+        from rest_framework.authtoken.models import Token
+        token, created = Token.objects.get_or_create(user=serializer.user)
         data = {
-            'auth_token': token_serializer_class(token).data["auth_token"],
+            'auth_token': token.key,
             'user_id': serializer.user.id
         }
         return Response(

@@ -148,7 +148,7 @@ export default function PropertiesSidebar ({ gridRef, outlineRef }) {
         'Content-Type': 'application/x-www-form-urlencoded'
       }
     }
-    const token = localStorage.getItem('esim_token')
+    const token = localStorage.getItem('esim_auth_token')
     // If token available add to headers
     if (token) {
       config.headers.Authorization = `Token ${token}`
@@ -297,7 +297,7 @@ export default function PropertiesSidebar ({ gridRef, outlineRef }) {
         'Content-Type': 'application/x-www-form-urlencoded'
       }
     }
-    const token = localStorage.getItem('esim_token')
+    const token = localStorage.getItem('esim_auth_token')
     if (token) {
       config.headers.Authorization = `Token ${token}`
     }

@@ -7,7 +7,7 @@ export const loadUser = () => (dispatch, getState) => {
   dispatch({ type: actions.USER_LOADING })
 
   // Get token from localstorage and dispatch LOGIN_SUCCESSFUL
-  const token = localStorage.getItem('esim_token')
+  const token = localStorage.getItem('esim_auth_token')
   const userId = localStorage.getItem('user_id')
   if (token) {
     dispatch({
@@ -70,7 +70,7 @@ export const loadUser = () => (dispatch, getState) => {
 // Api call for maintaining user login state throughout the application without excess actions
 export const loadMinUser = () => (dispatch) => {
   // Get token from localstorage and dispatch LOGIN_SUCCESSFUL
-  const token = localStorage.getItem('esim_token')
+  const token = localStorage.getItem('esim_auth_token')
   const userId = localStorage.getItem('user_id')
   if (token) {
     dispatch({
@@ -141,6 +141,7 @@ export const login = (username, password, toUrl) => {
     api.post('auth/user/token/', body)
       .then((res) => {
         if (res.status === 200) {
+          console.log('[AuthActions] Login success, token received:', res.data)
           dispatch({
             type: actions.LOGIN_SUCCESSFUL,
             payload: {
@@ -156,7 +157,7 @@ export const login = (username, password, toUrl) => {
           } else {
             if (process.env.NODE_ENV === 'development') {
               localStorage.setItem('ard_redurl', '')
-              window.location.href = toUrl + '?token=' + localStorage.getItem('esim_token')
+              window.location.href = toUrl + '?token=' + localStorage.getItem('esim_auth_token')
             } else {
               window.open(toUrl, '_self')
               localStorage.setItem('ard_redurl', '')
@@ -259,6 +260,7 @@ export const logout = (history) => (dispatch, getState) => {
               user: res.data
             }
           })
+          localStorage.removeItem('esim_auth_token')
           history.push('/login')
         }
       }

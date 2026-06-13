@@ -151,7 +151,7 @@ export default function SchematicCard ({ sch }) {
             />
             <CardMedia
               className={classes.media}
-              image={sch.base64_image}
+              image={(sch.base64_image && !sch.base64_image.endsWith('.None')) ? sch.base64_image : undefined}
               title={sch.name}
             />
             <CardContent>

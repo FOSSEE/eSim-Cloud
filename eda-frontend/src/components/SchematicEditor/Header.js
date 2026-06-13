@@ -127,11 +127,11 @@ function Header ({ gridRef }) {
   // Checks for localStore changess
   useEffect(() => {
     function checkUserData () {
-      const userToken = localStorage.getItem('esim_token')
+      const userToken = localStorage.getItem('esim_auth_token')
       if (userToken && userToken !== '') {
-        // esim_token was added by another tab
+        // esim_auth_token was added by another tab
         const newUser = parseInt(localStorage.getItem('user_id'))
-        if (auth.isAuthenticated === null) {
+        if (auth.isAuthenticated === null || auth.isAuthenticated === false) {
           dispatch(loadMinUser())
         } else if (auth.user && auth.user.id === newUser) {
           dispatch(loadMinUser())
@@ -140,7 +140,7 @@ function Header ({ gridRef }) {
           setReloginMessage('You are logged in but the circuit belongs to a different user! Login again with the same credentials')
         }
       } else {
-        /* User logged out and esim_token removed from localstore
+        /* User logged out and esim_auth_token removed from localstore
         But redux store still has it */
         if (auth.token && auth.token !== '') {
           if (!loginDialog) {
@@ -579,7 +579,7 @@ function Header ({ gridRef }) {
                 style={{ marginRight: '20px' }}
               >
                 <Avatar className={classes.purple}>
-                  {auth.user.username.charAt(0).toUpperCase()}
+                  {auth.user && auth.user.username ? auth.user.username.charAt(0).toUpperCase() : ''}
                 </Avatar>
               </IconButton>
               <Menu
@@ -597,7 +597,7 @@ function Header ({ gridRef }) {
                   to="/dashboard"
                   onClick={handleClose}
                 >
-                  <ListItemText primary={auth.user.username} secondary={auth.user.email} />
+                  <ListItemText primary={auth.user ? auth.user.username : ''} secondary={auth.user ? auth.user.email : ''} />
                 </MenuItem>
                 <MenuItem
                   target='_blank'

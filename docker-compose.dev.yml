@@ -1,4 +1,4 @@
-
+version: '3'
 services:
 
   nginx:
@@ -6,12 +6,12 @@ services:
     ports:
       - 80:80
     volumes:
-      - tmp_vol:/tmp:z
-      - ./Nginx/dev.conf.d:/etc/nginx/conf.d:z
-      - ./Nginx/static_pages:/usr/share/nginx/static_pages:z
-      - ./esim-cloud-backend/static:/usr/share/nginx/django_static:z
-      - ./esim-cloud-backend/file_storage:/usr/share/nginx/django_file_storage:z
-      - ./esim-cloud-backend/kicad-symbols/:/usr/share/nginx/kicad-libs:z
+      - tmp_vol:/tmp
+      - ./Nginx/dev.conf.d:/etc/nginx/conf.d
+      - ./Nginx/static_pages:/usr/share/nginx/static_pages
+      - ./esim-cloud-backend/static:/usr/share/nginx/django_static
+      - ./esim-cloud-backend/file_storage:/usr/share/nginx/django_file_storage
+      - ./esim-cloud-backend/kicad-symbols/:/usr/share/nginx/kicad-libs
     depends_on:
       - django
       - eda-frontend
@@ -26,7 +26,7 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./eda-frontend:/code:z
+      - ./eda-frontend:/code
     environment:
       - NODE_ENV=development
       - "PUBLIC_URL=${EDA_PUBLIC_URL}"
@@ -48,7 +48,7 @@ services:
       - "4200:4200"
 
     volumes:
-      - ./ArduinoFrontend:/code:z
+      - ./ArduinoFrontend:/code
     environment:
       - NODE_ENV=development
     depends_on:
@@ -64,48 +64,48 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./esim-cloud-backend:/code:z
+      - ./esim-cloud-backend:/code
       - run_vol:/var/run
       - cache_vol:/var/cache
       - tmp_vol:/tmp
     depends_on:
-      - redis
-      - db
-      - celery
+        - redis
+        - db
+        - celery
 
     env_file:
       - .env
 
     links:
-      - "redis:redis_cache"
-      - "db:mysql"
+        - "redis:redis_cache"
+        - "db:mysql"
 
   celery:
     image: "docker.pkg.github.com/frg-fossee/esim-cloud/celery:dev"
     build: ./esim-cloud-backend/
     command: celery -A esimCloud.celery worker -l info --concurrency=1
     links:
-      - "redis:redis_cache"
-      - "db:postgres"
+        - "redis:redis_cache"
+        - "db:postgres"
     env_file:
-      - .env
+          - .env
 
     volumes:
-      - ./esim-cloud-backend:/code:z
+      - ./esim-cloud-backend:/code
       - run_vol:/var/run
       - cache_vol:/var/cache
       - tmp_vol:/tmp
     depends_on:
-      - redis
-      - db
+        - redis
+        - db
 
   redis:
-    image: "redis:${TAG_REDIS}"
-    environment:
-      - ALLOW_EMPTY_PASSWORD=yes
-      - REDIS_DISABLE_COMMANDS=FLUSHDB,FLUSHALL
-    volumes:
-      - ./redis_data:/data:z
+      image: "redis:${TAG_REDIS}"
+      environment:
+        - ALLOW_EMPTY_PASSWORD=yes
+        - REDIS_DISABLE_COMMANDS=FLUSHDB,FLUSHALL
+      volumes:
+          - ./redis_data:/data
 
   # Uncomment this and Change appropriate env variables to switch to mysql
   # db:
@@ -117,9 +117,9 @@ services:
   #     - ./mysql_data:/var/lib/mysql
 
   db:
-    image: postgres:13
+    image: postgres:15
     volumes:
-      - ./postgres_data:/var/lib/postgresql/data/:z
+      - ./postgres_data:/var/lib/postgresql/data/
     env_file:
       - .env
 

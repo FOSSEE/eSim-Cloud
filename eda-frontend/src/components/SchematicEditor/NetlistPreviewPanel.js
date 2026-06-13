@@ -26,7 +26,7 @@ import 'brace/theme/monokai'
 import 'brace/theme/github'
 import { useSelector, useDispatch } from 'react-redux'
 import { useHistory } from 'react-router-dom'
-import { setNetlist } from '../../redux/actions/index'
+import { setNetlist, toggleSimulate } from '../../redux/actions/index'
 
 import { sanitizeNetlistForExport, buildNetlistFromGraph } from './Helper/NetlistExporter'
 
@@ -119,10 +119,14 @@ export default function NetlistPreviewPanel ({ gridRef }) {
                   printToPlotControlBlock += ctrlblk[line] + '\n'
                 }
               }
+            } else {
+              // P0 fix: Ensure complete netlist by adding default .control block
+              printToPlotControlBlock = '\n.control\nrun\nplot all\n.endc\n.end\n'
             }
 
             const title = (netfile && netfile.title) ? netfile.title : projectName
-            const controlLine = (netfile && netfile.controlLine) ? netfile.controlLine : ''
+            // P0 fix: Add default simulation command if missing
+            const controlLine = (netfile && netfile.controlLine) ? netfile.controlLine : '.tran 1u 1m 0'
 
             const fullNetlist =
               title +
@@ -189,7 +193,7 @@ export default function NetlistPreviewPanel ({ gridRef }) {
     dispatch(setNetlist(sanitized))
     setSnackMessage('Netlist loaded in Simulator')
     setSnackOpen(true)
-    history.push('/simulator/ngspice')
+    dispatch(toggleSimulate())
   }
 
   const handleCloseSnack = (event, reason) => {
@@ -258,8 +262,10 @@ export default function NetlistPreviewPanel ({ gridRef }) {
           <AceEditor
             style={{ width: '100%', minHeight: '300px', height: '300px' }}
             value={netlistText}
+            onChange={(newValue) => setNetlistText(newValue)}
             theme={themeState.checkedA ? 'github' : 'monokai'}
-            readOnly={true}
+            // P0 fix: Allow users to edit netlist directly
+            readOnly={false}
             mode="text"
             editorProps={{
               $blockScrolling: true

@@ -106,6 +106,9 @@ export default function SimulationProperties (props) {
   // or null when no structured help is available (backward-compatibility).
   const [errorHelp, setErrorHelp] = useState(null)
 
+  // Auto-run state to prevent infinite loops when entering the simulator via the "Send to Simulator" button
+  const [autoRunFired, setAutoRunFired] = useState(false)
+
   // ── History drawer state ─────────────────────────────────────────────────
   const [historyOpen, setHistoryOpen] = useState(false)
   // historyErrorHelp holds the error_help from a SELECTED HISTORICAL result.
@@ -474,7 +477,7 @@ export default function SimulationProperties (props) {
 
   // Upload the nelist
   function netlistConfig (file) {
-    const token = localStorage.getItem('esim_token')
+    const token = localStorage.getItem('esim_auth_token')
     const url = queryString.parse(window.location.href.split('editor?')[1])
     const formData = new FormData()
     formData.append('simulationType', typeSimulation)
@@ -675,10 +678,12 @@ export default function SimulationProperties (props) {
           break
         case 'Transient':
           // console.log(transientAnalysisControlLine)
-          if (transientAnalysisControlLine.step !== '' && transientAnalysisControlLine.start !== '' && transientAnalysisControlLine.stop !== '') {
+          if (transientAnalysisControlLine.step !== '' && transientAnalysisControlLine.stop !== '') {
             typeSimulation = 'Transient'
             if (transientAnalysisControlLine.skipInitial === true) uic = 'UIC'
-            controlLine = `.tran ${transientAnalysisControlLine.step} ${transientAnalysisControlLine.stop} ${transientAnalysisControlLine.start} ${uic}`
+            // P0 fix: Simulation transient analysis validation allows string times and missing start time
+            const start = transientAnalysisControlLine.start !== '' ? transientAnalysisControlLine.start : '0'
+            controlLine = `.tran ${transientAnalysisControlLine.step} ${transientAnalysisControlLine.stop} ${start} ${uic}`
             dispatch(setResultTitle('Transient Analysis Output'))
             setSelectedValue(selectedValueTransientAnal)
             setSelectedValueComp(selectedValueTransientAnalComp)
@@ -805,6 +810,16 @@ export default function SimulationProperties (props) {
   const handleAddExpressionClose = () => {
     setAnchorEl(null)
   }
+
+  // Auto-execute the simulation if it comes directly from "Send to Simulator"
+  // NetlistPreviewPanel appends a generic .control block.
+  React.useEffect(() => {
+    if (!autoRunFired && netfile && netfile.netlist && netfile.netlist.includes('.control')) {
+      setAutoRunFired(true)
+      typeSimulation = 'Custom'
+      prepareNetlist(netfile.netlist)
+    }
+  }, [netfile, autoRunFired])
 
   /**
    * Called when the user clicks a row in SimulationHistoryDrawer.

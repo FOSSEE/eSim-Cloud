@@ -140,7 +140,7 @@ export default function CircuitCard ({ sch, onRefresh }) {
 
   // ── Action handlers ───────────────────────────────────────────────────────
 
-  const hasToken = () => auth.token || localStorage.getItem('esim_token')
+  const hasToken = () => auth.token || localStorage.getItem('esim_auth_token')
 
   const handlePin = () => {
     if (!hasToken()) {
@@ -172,7 +172,7 @@ export default function CircuitCard ({ sch, onRefresh }) {
       <div className={classes.mediaWrapper}>
         <CardMedia
           className={classes.media}
-          image={sch.base64_image || undefined}
+          image={(sch.base64_image && !sch.base64_image.endsWith('.None')) ? sch.base64_image : undefined}
           title={sch.name || 'Circuit'}
         />
         {isPinned && (

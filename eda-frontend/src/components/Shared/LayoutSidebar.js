@@ -4,23 +4,21 @@ import { Drawer, Hidden, IconButton } from '@material-ui/core'
 import HighlightOffIcon from '@material-ui/icons/HighlightOff'
 import { makeStyles } from '@material-ui/core/styles'
 
-const drawerWidth = 60
-
 const useStyles = makeStyles((theme) => ({
   drawer: {
     [theme.breakpoints.up('md')]: {
-      width: drawerWidth,
+      width: props => props.isDashboard ? 240 : 60,
       flexShrink: 0
     }
   },
   drawerPaper: {
-    width: drawerWidth
+    width: props => props.isDashboard ? 240 : 60
   }
 }))
 
 // Common layout left side pane for Dashboard and Schematic Editor
-export default function LayoutSidebar ({ window, mobileOpen, mobileClose, children }) {
-  const classes = useStyles()
+export default function LayoutSidebar ({ window, mobileOpen, mobileClose, children, isDashboard }) {
+  const classes = useStyles({ isDashboard })
 
   const container =
     window !== undefined ? () => window().document.body : undefined

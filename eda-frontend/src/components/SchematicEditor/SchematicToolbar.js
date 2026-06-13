@@ -497,15 +497,24 @@ export default function SchematicToolbar ({
     canvas.style.width = canvas.width + 'px'
     canvas.style.height = canvas.height + 'px'
     const images = svg.getElementsByTagName('image')
-    for (const image of images) {
-      const data = await fetch(image.getAttribute('xlink:href')).then((v) => {
-        return v.text()
-      })
-      image.removeAttribute('xlink:href')
-      image.setAttribute(
-        'href',
-        'data:image/svg+xml;base64,' + window.btoa(data)
-      )
+    try {
+      for (const image of images) {
+        const href = image.getAttribute('xlink:href') || image.getAttribute('href')
+        if (!href) continue
+        if (href.startsWith('data:')) {
+          image.removeAttribute('xlink:href')
+          image.setAttribute('href', href)
+          continue
+        }
+        const data = await fetch(href).then((v) => v.text())
+        image.removeAttribute('xlink:href')
+        image.setAttribute(
+          'href',
+          'data:image/svg+xml;base64,' + window.btoa(unescape(encodeURIComponent(data)))
+        )
+      }
+    } catch (err) {
+      console.warn('[exportImage] Failed to inline images:', err)
     }
     const ctx = canvas.getContext('2d')
     ctx.mozImageSmoothingEnabled = true
@@ -520,28 +529,34 @@ export default function SchematicToolbar ({
         resolve('<?xml version="1.0" encoding="UTF-8"?>' + svgdata)
         return
       }
-      const v = Canvg.fromString(ctx, svg.outerHTML)
-      v.render().then(() => {
-        let image = ''
-        if (type === 'JPG') {
-          const imgdata = ctx.getImageData(0, 0, canvas.width, canvas.height)
-          for (let i = 0; i < imgdata.data.length; i += 4) {
-            if (imgdata.data[i + 3] === 0) {
-              imgdata.data[i] = 255
-              imgdata.data[i + 1] = 255
-              imgdata.data[i + 2] = 255
-              imgdata.data[i + 3] = 255
+      try {
+        const v = Canvg.fromString(ctx, svg.outerHTML)
+        v.render().then(() => {
+          let image = ''
+          if (type === 'JPG') {
+            const imgdata = ctx.getImageData(0, 0, canvas.width, canvas.height)
+            for (let i = 0; i < imgdata.data.length; i += 4) {
+              if (imgdata.data[i + 3] === 0) {
+                imgdata.data[i] = 255
+                imgdata.data[i + 1] = 255
+                imgdata.data[i + 2] = 255
+                imgdata.data[i + 3] = 255
+              }
             }
-          }
-          ctx.putImageData(imgdata, 0, 0)
-          image = canvas.toDataURL('image/jpeg', 1.0)
-        } else {
-          if (type === 'PNG') {
+            ctx.putImageData(imgdata, 0, 0)
+            image = canvas.toDataURL('image/jpeg', 1.0)
+          } else if (type === 'PNG') {
             image = canvas.toDataURL('image/png')
           }
-        }
-        resolve(image)
-      })
+          resolve(image)
+        }).catch((err) => {
+          console.warn('[exportImage] Canvg render error:', err)
+          resolve(canvas.toDataURL('image/png'))
+        })
+      } catch (err) {
+        console.warn('[exportImage] Canvg fromString error:', err)
+        resolve(canvas.toDataURL('image/png'))
+      }
     })
   }
 

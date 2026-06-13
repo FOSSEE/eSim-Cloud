@@ -22,7 +22,7 @@ const useStyles = makeStyles((theme) => ({
 }))
 
 // Common layout for Dashboard and Schematic Editor
-function Layout ({ header, resToolbar, sidebar }) {
+function Layout ({ header, resToolbar, sidebar, isDashboard }) {
   const classes = useStyles()
   const [mobileOpen, setMobileOpen] = React.useState(false)
 
@@ -58,7 +58,7 @@ function Layout ({ header, resToolbar, sidebar }) {
       </AppBar>
 
       {/* Left Sidebar for Layout */}
-      <LayoutSidebar mobileOpen={mobileOpen} mobileClose={handleDrawerToggle}>
+      <LayoutSidebar mobileOpen={mobileOpen} mobileClose={handleDrawerToggle} isDashboard={isDashboard}>
         {sidebar}
       </LayoutSidebar>
     </>
