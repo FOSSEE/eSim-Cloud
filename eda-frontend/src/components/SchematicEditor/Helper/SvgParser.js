@@ -63,7 +63,7 @@ export function getSvgMetadata (graph, parent, evt, target, x, y, component, rot
   // initialize information from the svg meta
   // plots pinnumbers and component labels.
 
-  var path = '../' + component.svg_path
+   var path = (component.svg_path && /^(blob:|https?:|data:)/.test(component.svg_path)) ? component.svg_path : '../' + component.svg_path
 
   return fetch(path)
     .then(function (response) {
