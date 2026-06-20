@@ -75,10 +75,10 @@ class StateSaveView(APIView):
                     branch=request.data["branch"])
                 serializer = StateSaveSerializer(data=request.data)
                 if serializer.is_valid():
-                    queryset.name = serializer.data["name"]
-                    queryset.description = serializer.data["description"]
+                    queryset.name = serializer.validated_data["name"]
+                    queryset.description = serializer.validated_data["description"]
                     queryset.save()
-                    response = serializer.data
+                    response = StateSaveSerializer(queryset).data
                     response['duplicate'] = True
                     response['owner'] = queryset.owner.username
                     return Response(response)
