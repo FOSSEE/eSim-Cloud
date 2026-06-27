@@ -535,6 +535,7 @@ export default function LoadGrid(container, sidebar, outline, minimap) {
       })
     })
 
+    var _prevLabelUpdateKey = null
     store.subscribe(() => {
       var id = store.getState().componentPropertiesReducer.id
       var props = store.getState().componentPropertiesReducer.compProperties
@@ -542,6 +543,30 @@ export default function LoadGrid(container, sidebar, outline, minimap) {
       var c = cellList[id]
       if (c !== undefined) {
         c.properties = props
+
+        // Rebuild canvas label from PREFIX / VALUE and respect the SHOW_LABEL toggle
+        var showLabel = props.SHOW_LABEL !== false // default: show label
+        var labelKey = id + '|' + (props.PREFIX || '') + '|' + (props.VALUE || '') + '|' + showLabel
+        if (labelKey !== _prevLabelUpdateKey) {
+          _prevLabelUpdateKey = labelKey
+          var newLabel = ''
+          if (showLabel) {
+            var parts = []
+            if (props.PREFIX) parts.push(props.PREFIX)
+            if (props.VALUE !== undefined && props.VALUE !== '') {
+              var valStr = String(props.VALUE)
+              if (props.VALUE_UNIT) valStr += ' ' + props.VALUE_UNIT
+              parts.push(valStr)
+            }
+            newLabel = parts.join('\n')
+          }
+          graph.getModel().beginUpdate()
+          try {
+            graph.getModel().setValue(c, newLabel)
+          } finally {
+            graph.getModel().endUpdate()
+          }
+        }
       }
     })
     var editor = new mxEditor()

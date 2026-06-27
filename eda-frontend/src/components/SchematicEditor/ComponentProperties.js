@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { setCompProperties } from '../../redux/actions/index'
 import Draggable from 'react-draggable'
-import { List, ListItem, ListItemText, Button, TextField, TextareaAutosize, Paper } from '@material-ui/core'
+import { List, ListItem, ListItemText, Button, TextField, TextareaAutosize, Paper, Checkbox, FormControlLabel } from '@material-ui/core'
 
 export default function ComponentProperties () {
   // component properties that are displayed on the right side bar when user clicks on a component on the grid.
@@ -56,6 +56,13 @@ export default function ComponentProperties () {
     })
   }
 
+  const handleShowLabelToggle = (evt) => {
+    setVal({
+      ...val,
+      SHOW_LABEL: evt.target.checked
+    })
+  }
+
   const setProps = () => {
     dispatch(setCompProperties(id, val))
   }
@@ -99,6 +106,9 @@ export default function ComponentProperties () {
                       <TextField disabled id={keyName} label='COMPONENT NAME' value={val[keyName] || ''} size='small' variant="outlined" onChange={getInputValues} />
                     </ListItem>)
                 }
+                else if (keyName === 'SHOW_LABEL') {
+                  return <span key={i} />
+                }
                 return (
                   <ListItem key={i}>
                     <TextField id={keyName} label={keyName} value={val[keyName] || ''} size='small' variant="outlined" onChange={getInputValues} />
@@ -106,6 +116,19 @@ export default function ComponentProperties () {
                   </ListItem>)
               })
             }
+            <ListItem>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={val.SHOW_LABEL !== false}
+                    onChange={handleShowLabelToggle}
+                    color="primary"
+                    size="small"
+                  />
+                }
+                label="Show label on canvas"
+              />
+            </ListItem>
             <ListItem>
               <Button size='small' variant="contained" color="primary" onClick={setProps}>SET PARAMETERS</Button>
             </ListItem>
