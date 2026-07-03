@@ -60,6 +60,10 @@ MIDDLEWARE = [
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
+    # Task 4: Inject trace_id / session_id correlation IDs into every request
+    'simulationAPI.middleware.CorrelationIdMiddleware',
+    # Task 3: Per-user API rate limiting + concurrent-job limit
+    'simulationAPI.middleware.SimulationRateLimitMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -218,8 +222,8 @@ MEDIA_URL = '/files/'
 MEDIA_ROOT = os.path.join(BASE_DIR, "file_storage")
 
 # celery
-CELERY_BROKER_URL = 'redis://redis:6379'
-CELERY_RESULT_BACKEND = 'redis://redis:6379'
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://redis:6379')
+CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'redis://redis:6379')
 CELERY_ACCEPT_CONTENT = ['application/json']
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TASK_SERIALIZER = 'json'
@@ -228,17 +232,81 @@ CELERY_IMPORTS = (
     'arduinoAPI.tasks'
 )
 
+# Task 1: Celery Beat – periodic stale-job recovery (every 60 s)
+# Task 6: Celery Beat – data hygiene tasks (daily)
+from celery.schedules import crontab  # noqa: E402
+CELERY_BEAT_SCHEDULE = {
+    'recover-stale-simulation-jobs': {
+        'task': 'simulationAPI.tasks.recover_stale_jobs',
+        'schedule': 60.0,   # every 60 seconds
+    },
+    'cleanup-old-simulation-jobs': {
+        'task': 'simulationAPI.maintenance_tasks.cleanup_old_simulation_jobs',
+        'schedule': crontab(hour=2, minute=0),  # daily at 02:00
+    },
+    'cleanup-orphan-files': {
+        'task': 'simulationAPI.maintenance_tasks.cleanup_orphan_files',
+        'schedule': crontab(hour=3, minute=0),  # daily at 03:00
+    },
+}
+
+# Task 6: Data retention periods (days)
+SIM_JOB_RETENTION_DAYS = int(os.environ.get('SIM_JOB_RETENTION_DAYS', 30))
+SIM_ARTIFACT_RETENTION_DAYS = int(os.environ.get('SIM_ARTIFACT_RETENTION_DAYS', 7))
+
+# Task 3: Rate limiting + concurrency settings
+SIM_RATE_LIMIT_REQUESTS = int(os.environ.get('SIM_RATE_LIMIT_REQUESTS', 20))
+SIM_RATE_LIMIT_WINDOW = int(os.environ.get('SIM_RATE_LIMIT_WINDOW', 60))    # seconds
+SIM_MAX_CONCURRENT_JOBS = int(os.environ.get('SIM_MAX_CONCURRENT_JOBS', 3))
+SIM_RATE_LIMIT_PATHS = ['/api/simulation/']
+
+# Task 2: Simulation timeout defaults (seconds, 0 = no limit)
+SIM_QUEUE_WAIT_TIMEOUT = int(os.environ.get('SIM_QUEUE_WAIT_TIMEOUT', 300))
+SIM_POD_PROVISION_TIMEOUT = int(os.environ.get('SIM_POD_PROVISION_TIMEOUT', 120))
+SIM_EXECUTION_TIMEOUT = int(os.environ.get('SIM_EXECUTION_TIMEOUT', 300))
+
+# Task 4: Structured JSON logging with correlation-ID support
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'formatters': {
+        'json': {
+            '()': 'simulationAPI.middleware.StructuredJsonFormatter',
+        },
+        'simple': {
+            'format': '[%(asctime)s] %(levelname)s %(name)s: %(message)s',
+        },
+    },
     'handlers': {
-        'console': {
+        'console_json': {
             'class': 'logging.StreamHandler',
+            'formatter': 'json',
+        },
+        'console_simple': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
         },
     },
     'root': {
-        'handlers': ['console'],
+        'handlers': ['console_json'],
         'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console_json'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'simulationAPI': {
+            'handlers': ['console_json'],
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'propagate': False,
+        },
+        'celery': {
+            'handlers': ['console_json'],
+            'level': 'INFO',
+            'propagate': False,
+        },
     },
 }
 

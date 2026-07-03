@@ -14,3 +14,4 @@ symbol_svgs
 postgres_data
 file_storage
 node_modules
+tasks.env

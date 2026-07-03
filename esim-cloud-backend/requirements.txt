@@ -67,3 +67,7 @@ zipp==3.1.0
 pylti==0.7.0
 sphinxcontrib-openapi
 m2r2
+# --- Task 3 & 4: Observability + Rate Limiting ---
+# Last versions supporting Python 3.7 (base image: python:3.7-alpine3.16)
+prometheus_client==0.16.0
+django-redis==5.2.0
