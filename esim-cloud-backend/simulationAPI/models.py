@@ -72,3 +72,74 @@ class simulation(models.Model):
         to=get_user_model(), null=True, on_delete=models.CASCADE)
     netlist = models.TextField()
     result = JSONField(null=True, blank=True)
+class SweepRun(models.Model):
+    """
+    Parent record for one parametric sweep: sweeps a single component's
+    value across a range, dispatching N child SweepStep simulations.
+    """
+    id = models.UUIDField(
+        primary_key=True, default=uuid.uuid4, editable=False)
+    owner = models.ForeignKey(
+        to=get_user_model(), null=True, on_delete=models.CASCADE,
+        related_name='sweep_runs')
+    schematic = models.ForeignKey(
+        to=StateSave, on_delete=models.CASCADE, null=True, blank=True)
+    base_netlist = models.TextField()
+
+    component = models.CharField(max_length=50)
+    start_value = models.FloatField()
+    stop_value = models.FloatField()
+    step_count = models.IntegerField()
+    scale = models.CharField(max_length=3, default='lin')
+
+    STATUS = [
+        ('PENDING', 'Pending'),
+        ('RUNNING', 'Running'),
+        ('DONE', 'Done'),
+        ('FAILED', 'Failed'),
+    ]
+    status = models.CharField(max_length=10, choices=STATUS, default='PENDING')
+    total_steps = models.IntegerField(default=0)
+    completed_steps = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return '{} sweep {}->{} ({} steps)'.format(
+            self.component, self.start_value, self.stop_value, self.step_count)
+
+
+class SweepStep(models.Model):
+    """
+    One simulation within a SweepRun: the base netlist with `component`
+    substituted to `value`, executed independently via ExecNetlist.
+    """
+    id = models.UUIDField(
+        primary_key=True, default=uuid.uuid4, editable=False)
+    sweep_run = models.ForeignKey(
+        SweepRun, on_delete=models.CASCADE, related_name='steps')
+    step_index = models.IntegerField()
+    value = models.FloatField()
+
+    STATUS = [
+        ('PENDING', 'Pending'),
+        ('RUNNING', 'Running'),
+        ('DONE', 'Done'),
+        ('FAILED', 'Failed'),
+    ]
+    status = models.CharField(max_length=10, choices=STATUS, default='PENDING')
+    result = JSONField(null=True, blank=True)
+    error = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('sweep_run', 'step_index')
+        ordering = ['step_index']
+
+    def __str__(self):
+        return '{}={:g} [{}]'.format(
+            self.sweep_run.component, self.value, self.status)
