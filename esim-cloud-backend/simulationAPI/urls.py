@@ -33,4 +33,15 @@ urlpatterns = [
     path('history/lti/<int:lti_id>',
          simulationAPI_views.GetLTISimResults.as_view(),
          name='lti sim history'),
+
+    # -----------------------------------------------------------------
+    # Parametric Sweep endpoints (Phase 1)
+    # -----------------------------------------------------------------
+    path('sweep-simulate/',
+         simulationAPI_views.SweepSimulateView.as_view(),
+         name='sweep_simulate'),
+
+    path('sweep-simulate/<uuid:sweep_run_id>/',
+         simulationAPI_views.SweepResultView.as_view(),
+         name='sweep_result'),
 ]
