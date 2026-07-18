@@ -62,22 +62,53 @@ def differentiateTabularResults(expected, given, sim_params):
         return "Same Values"
 
 
-def process_submission(expected_simulation, given_simulation, sim_params):
-    score = 0
+def compute_weighted_score(comparison_result, sim_params, rubric_weights=None):
+    weights = rubric_weights or {}
+    default_weight = 1
+    total_weight = sum(
+        weights.get(param, default_weight) for param in sim_params)
+    if total_weight == 0:
+        total_weight = 1
+
+    rubric_breakdown = {}
+
+    if comparison_result == "Same Values":
+        for param in sim_params:
+            w = weights.get(param, default_weight)
+            rubric_breakdown[param] = {
+                'status': 'same', 'weight': w, 'points': w}
+        return 1, rubric_breakdown
+
+    earned = 0
+    for param in sim_params:
+        w = weights.get(param, default_weight)
+        if param in comparison_result['same']:
+            status, points = 'same', w
+        elif param in comparison_result['different']:
+            status, points = 'different', 0
+        elif param in comparison_result['missing']:
+            status, points = 'missing', 0
+        else:
+            status, points = 'unknown', 0
+        earned += points
+        rubric_breakdown[param] = {
+            'status': status, 'weight': w, 'points': points}
+
+    score = earned / total_weight
+    return score, rubric_breakdown
+
+
+def process_submission(expected_simulation, given_simulation, sim_params,
+                        rubric_weights=None):
     if expected_simulation['graph'] == "true":
         comparison_result = differentiateGraphResults(
             expected_simulation, given_simulation, sim_params)
     else:
         comparison_result = differentiateTabularResults(
             expected_simulation, given_simulation, sim_params)
-    if comparison_result == "Same Values":
-        score = 1
-    else:
-        total = len(comparison_result['same']) + \
-            len(comparison_result['different']) + \
-            len(comparison_result['missing'])
-        score += len(comparison_result['same'])/total
-    return score, comparison_result
+    score, rubric_breakdown = compute_weighted_score(
+        comparison_result, sim_params, rubric_weights)
+    return score, comparison_result, rubric_breakdown
 
 
 def arduino_eval(original_data, student_data, con_weight, max_score):

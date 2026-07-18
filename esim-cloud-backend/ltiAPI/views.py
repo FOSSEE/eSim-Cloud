@@ -24,9 +24,9 @@ from rest_framework.views import APIView
 from django.db.models import Q
 from django.http import HttpResponseRedirect
 from django.shortcuts import render
-from pylti.common import LTIException, verify_request_common, post_message, \
-    generate_request_xml, LTIPostMessageException
+from pylti.common import LTIException, verify_request_common
 from .process_submission import arduino_eval, process_submission
+from .tasks import send_grade_passback, send_arduino_grade_passback
 
 
 def denied(r):
@@ -561,64 +561,50 @@ class LTIPostGrade(APIView):
         schematic.shared = True
         schematic.is_submission = True
         schematic.save()
-        if(sim):
-            score, comparison_result = process_submission(
-                consumer.test_case.result, sim.result, consumer.sim_params)
+        if(sim and consumer.test_case):
+            score, comparison_result, rubric_breakdown = process_submission(
+                consumer.test_case.result, sim.result, consumer.sim_params,
+                consumer.rubric_weights)
         else:
             score = consumer.score
             comparison_result = None
+            rubric_breakdown = None
         submission_data = {
             "project": consumer,
             "student": schematic.owner,
             "score": score,
             "ltisession": lti_session,
             "schematic": schematic,
-            "student_simulation": sim
+            "student_simulation": sim,
+            "comparison_result": comparison_result,
+            "rubric_breakdown": rubric_breakdown
         }
         submission = Submission.objects.create(**submission_data)
-        print("after submission model created")
-        xml = generate_request_xml(
-            message_identifier(), 'replaceResult',
-            lti_session.lis_result_sourcedid, submission.score)
-        msg = ""
-        try:
-            post = post_message(
-                consumers(), lti_session.oauth_consumer_key,
-                lti_session.lis_outcome_service_url, xml)
-            print(post)
-            if not post:
-                msg = 'An error occurred while saving your score.\
-                     Please try again.'
-                raise LTIPostMessageException('Post grade failed')
-            else:
-                submission.lms_success = True
-                submission.save()
-                msg = 'Your score was submitted. Great job!'
-                if consumer.scored:
-                    response_data = {
-                        "message": msg,
-                        "score": score,
-                        "given": sim.result if sim else None,
-                        "comparison_result": comparison_result,
-                        "sim_params": consumer.sim_params,
-                    }
-                else:
-                    response_data = {
-                        "message": msg,
-                        "score": score,
-                        "expected": consumer.test_case.result,
-                        "given": sim.result if sim else None,
-                        "comparison_result": comparison_result,
-                        "sim_params": consumer.sim_params,
-                    }
-                return Response(data=response_data, status=status.HTTP_200_OK)
-
-        except LTIException:
-            submission.lms_success = False
-            submission.save()
-            return Response(data={"message": msg},
-                            status=status.HTTP_400_BAD_REQUEST)
-
+        submission.passback_status = 'pending'
+        submission.save()
+        send_grade_passback.delay(submission.id)
+        msg = 'Your score was submitted. Grade sync with your ' \
+              'classroom is in progress.'
+        if consumer.scored:
+            response_data = {
+                "message": msg,
+                "score": score,
+                "given": sim.result if sim else None,
+                "comparison_result": comparison_result,
+                "sim_params": consumer.sim_params,
+                "rubric_breakdown": rubric_breakdown,
+            }
+        else:
+            response_data = {
+                "message": msg,
+                "score": score,
+                "expected": consumer.test_case.result,
+                "given": sim.result if sim else None,
+                "comparison_result": comparison_result,
+                "sim_params": consumer.sim_params,
+                "rubric_breakdown": rubric_breakdown,
+            }
+        return Response(data=response_data, status=status.HTTP_200_OK)
 
 class ArduinoLTIPostGrade(APIView):
     permission_classes = [AllowAny, ]
@@ -649,7 +635,7 @@ class ArduinoLTIPostGrade(APIView):
         schematic.shared = True
         schematic.is_submission = True
         schematic.save()
-        if(sim):
+        if(sim and consumer.test_case):
             score, evaluated = arduino_eval(consumer.test_case.result,
                                             sim.result, consumer.con_weightage,
                                             consumer.score)
@@ -668,46 +654,25 @@ class ArduinoLTIPostGrade(APIView):
             "student_simulation": sim
         }
         submission = ArduinoSubmission.objects.create(**submission_data)
-        print("after submission model created")
-        xml = generate_request_xml(
-            message_identifier(), 'replaceResult',
-            lti_session.lis_result_sourcedid, submission.score)
-        msg = ""
-        try:
-            post = post_message(
-                ArduinoConsumers(), lti_session.oauth_consumer_key,
-                lti_session.lis_outcome_service_url, xml)
-            print(post)
-            if not post:
-                msg = 'An error occurred while saving your score.\
-                     Please try again.'
-                raise LTIPostMessageException('Post grade failed')
-            else:
-                submission.lms_success = True
-                submission.save()
-                msg = 'Your score : ' + str(score) + ' was submitted. \
-                    Great job!'
-                if consumer.scored:
-                    response_data = {
-                        "message": msg,
-                        "score": score,
-                        "given": sim.result if sim else None
-                    }
-                else:
-                    response_data = {
-                        "message": msg,
-                        "score": score,
-                        "expected": consumer.test_case.result,
-                        "given": sim.result if sim else None
-                    }
-                return Response(data=response_data, status=status.HTTP_200_OK)
-
-        except LTIException:
-            submission.lms_success = False
-            submission.save()
-            return Response(data={"message": msg},
-                            status=status.HTTP_400_BAD_REQUEST)
-
+        submission.passback_status = 'pending'
+        submission.save()
+        send_arduino_grade_passback.delay(submission.id)
+        msg = 'Your score : ' + str(score) + ' was submitted. ' \
+              'Grade sync with your classroom is in progress.'
+        if consumer.scored:
+            response_data = {
+                "message": msg,
+                "score": score,
+                "given": sim.result if sim else None
+            }
+        else:
+            response_data = {
+                "message": msg,
+                "score": score,
+                "expected": consumer.test_case.result,
+                "given": sim.result if sim else None
+            }
+        return Response(data=response_data, status=status.HTTP_200_OK)
 
 class GetLTISubmission(APIView):
     permission_classes = [IsAuthenticated, ]
@@ -737,6 +702,125 @@ class GetArduinoLTISubmission(APIView):
         # print(submissions)
         serialized = GetArduinoSubmissionsSerializer(submissions, many=True)
         return Response(serialized.data, status=status.HTTP_200_OK)
+
+
+class ResendGradePassback(APIView):
+    """
+    Manually retrigger grade passback for a submission stuck at
+    'failed' status.
+    """
+    permission_classes = [IsAuthenticated, ]
+
+    def post(self, request, submission_id):
+        try:
+            submission = Submission.objects.get(id=submission_id)
+        except Submission.DoesNotExist:
+            return Response(
+                data={"error": "Submission not found"},
+                status=status.HTTP_404_NOT_FOUND)
+        submission.passback_status = 'pending'
+        submission.save()
+        send_grade_passback.delay(submission.id)
+        return Response(
+            data={"message": "Grade resend has been queued"},
+            status=status.HTTP_200_OK)
+
+
+class ArduinoResendGradePassback(APIView):
+    """
+    Arduino variant of ResendGradePassback.
+    """
+    permission_classes = [IsAuthenticated, ]
+
+    def post(self, request, submission_id):
+        try:
+            submission = ArduinoSubmission.objects.get(id=submission_id)
+        except ArduinoSubmission.DoesNotExist:
+            return Response(
+                data={"error": "Submission not found"},
+                status=status.HTTP_404_NOT_FOUND)
+        submission.passback_status = 'pending'
+        submission.save()
+        send_arduino_grade_passback.delay(submission.id)
+        return Response(
+            data={"message": "Grade resend has been queued"},
+            status=status.HTTP_200_OK)
+
+
+class LTISubmissionAnalytics(APIView):
+    """
+    Aggregated analytics for all submissions to a given LTI consumer:
+    score distribution, average/median score, and the most common
+    per-parameter failure points across the class.
+    """
+    permission_classes = [IsAuthenticated, ]
+
+    def get(self, request, consumer_id):
+        import statistics
+        from collections import Counter
+
+        try:
+            consumer = lticonsumer.objects.get(id=consumer_id)
+        except lticonsumer.DoesNotExist:
+            return Response(
+                data={"error": "LTI consumer not found"},
+                status=status.HTTP_404_NOT_FOUND)
+
+        submissions = consumer.submission_set.all()
+        scores = [s.score for s in submissions if s.score is not None]
+
+        if scores:
+            avg_score = round(sum(scores) / len(scores), 3)
+            median_score = round(statistics.median(scores), 3)
+        else:
+            avg_score = None
+            median_score = None
+
+        bucket_edges = [0, 0.2, 0.4, 0.6, 0.8, 1.01]
+        bucket_labels = ["0-20%", "20-40%", "40-60%",
+                          "60-80%", "80-100%"]
+        distribution = [0] * len(bucket_labels)
+        for sc in scores:
+            for i in range(len(bucket_edges) - 1):
+                if bucket_edges[i] <= sc < bucket_edges[i + 1]:
+                    distribution[i] += 1
+                    break
+
+        failure_counter = Counter()
+        for s in submissions:
+            cr = s.comparison_result
+            if not cr or cr == "Same Values":
+                continue
+            for param in cr.get("different", []):
+                failure_counter[param] += 1
+            for param in cr.get("missing", []):
+                failure_counter[param] += 1
+
+        common_failures = [
+            {"parameter": param, "count": count}
+            for param, count in failure_counter.most_common(10)
+        ]
+
+        date_counter = Counter()
+        for s in submissions:
+            if s.submitted_at:
+                date_counter[s.submitted_at.date().isoformat()] += 1
+        submissions_over_time = [
+            {"date": d, "count": c}
+            for d, c in sorted(date_counter.items())
+        ]
+
+        return Response(data={
+            "total_submissions": submissions.count(),
+            "average_score": avg_score,
+            "median_score": median_score,
+            "score_distribution": [
+                {"range": bucket_labels[i], "count": distribution[i]}
+                for i in range(len(bucket_labels))
+            ],
+            "common_failures": common_failures,
+            "submissions_over_time": submissions_over_time,
+        }, status=status.HTTP_200_OK)
 
 
 class ArduinoLTISimulationDataView(APIView):

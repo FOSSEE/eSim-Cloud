@@ -169,6 +169,29 @@ export default function SubmissionTable () {
     setOpen(false)
   }
 
+  const handleResend = (submissionId) => {
+    const token = localStorage.getItem('esim_auth_token')
+    const config = {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    }
+    if (token) {
+      config.headers.Authorization = `Token ${token}`
+    }
+    api.post(`/lti/resend/${submissionId}/`, {}, config)
+      .then(() => {
+        setResponseData((prev) =>
+          prev.map((s) =>
+            s.id === submissionId
+              ? { ...s, passback_status: 'pending' }
+              : s
+          )
+        )
+      })
+      .catch((err) => { console.error(err) })
+  }
+
   return (
     <>
       <IconButton onClick={handleFilterOpen} style={{ float: 'right' }} ><FilterListIcon /></IconButton>
@@ -186,6 +209,7 @@ export default function SubmissionTable () {
                 <TableCell onClick={handleTimeSort} align="center">Submitted at {sortOrderTime === 1 ? <ArrowUpwardIcon fontSize="small" /> : sortOrderTime === 2 ? <ArrowDownwardIcon fontSize="small" /> : <ArrowUpwardIcon color="disabled" fontSize="small" />}</TableCell>
                 <TableCell align="center">Submitted From</TableCell>
                 <TableCell align="center">Score</TableCell>
+                <TableCell align="center">Grade Sync</TableCell>
                 <TableCell align="center">Submission Circuit</TableCell>
                 <TableCell align="center">Submission Simulation</TableCell>
                 <TableCell align="center">Teacher Simulation</TableCell>
@@ -201,6 +225,20 @@ export default function SubmissionTable () {
                   <TableCell align="center">{student.schematic.save_time.toLocaleString()}</TableCell>
                   <TableCell align="center">{student.ltisession.lis_outcome_service_url ? student.ltisession.lis_outcome_service_url.split('/')[2] : <h1>None</h1>}</TableCell>
                   <TableCell align="center">{student.score}</TableCell>
+                  <TableCell align="center">
+                    {student.passback_status === 'success' &&
+                      <Typography style={{ color: 'green' }}>Synced</Typography>}
+                    {student.passback_status === 'pending' &&
+                      <Typography style={{ color: 'orange' }}>Syncing...</Typography>}
+                    {student.passback_status === 'failed' &&
+                      <>
+                        <Typography style={{ color: 'red' }}>Failed</Typography>
+                        <Button size="small" variant="outlined" color="primary"
+                          onClick={() => handleResend(student.id)}>
+                          Resend
+                        </Button>
+                      </>}
+                  </TableCell>
                   <TableCell align="center">
                     <Button disableElevation variant="contained" color="primary" href={`#/editor?id=${student.schematic.save_id}&version=${student.schematic.version}&branch=${student.schematic.branch}`}>
                       Open Submission

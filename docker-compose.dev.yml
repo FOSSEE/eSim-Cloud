@@ -99,6 +99,23 @@ services:
         - redis
         - db
 
+  celery-beat:
+    image: "docker.pkg.github.com/frg-fossee/esim-cloud/celery:dev"
+    build: ./esim-cloud-backend/
+    command: celery -A esimCloud.celery beat -l info
+    links:
+        - "redis:redis_cache"
+        - "db:postgres"
+    env_file:
+          - .env
+    volumes:
+      - ./esim-cloud-backend:/code
+      - run_vol:/var/run
+      - cache_vol:/var/cache
+      - tmp_vol:/tmp
+    depends_on:
+        - redis
+        - db
   redis:
       image: "redis:${TAG_REDIS}"
       environment:

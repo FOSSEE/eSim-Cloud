@@ -489,6 +489,16 @@ export default function LTIConfig () {
             >
               Submissions
             </Button>}
+          {configExists &&
+            <Button
+              style={{ marginLeft: '1%', marginTop: '1%', minWidth: 300 }}
+              disableElevation
+              color="primary"
+              variant="contained"
+              href={`#/analytics?id=${ltiDetails.id}`}
+            >
+              Analytics
+            </Button>}
           {configExists && <Button
             style={{ marginLeft: '1%', marginTop: '1%', minWidth: 297 }}
             disableElevation

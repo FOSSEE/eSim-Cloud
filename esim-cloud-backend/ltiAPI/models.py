@@ -1,7 +1,7 @@
 from pyexpat import model
 from django.db import models
 from saveAPI.models import ArduinoModelSimulationData, StateSave
-from django.contrib.postgres.fields import ArrayField
+from django.contrib.postgres.fields import ArrayField, JSONField
 from django.contrib.auth import get_user_model
 from simulationAPI.models import simulation
 import uuid
@@ -25,6 +25,7 @@ class lticonsumer(models.Model):
     sim_params = ArrayField(
         models.CharField(max_length=20), blank=True, null=True)
     scored = models.BooleanField(null=False)
+    rubric_weights = JSONField(null=True, blank=True)
 
     def __str__(self):
         return self.consumer_key
@@ -95,6 +96,15 @@ class Submission(models.Model):
     student_simulation = models.ForeignKey(to=simulation,
                                            on_delete=models.CASCADE, null=True)
     lms_success = models.BooleanField(null=True)
+    passback_status = models.CharField(
+        max_length=10,
+        choices=[("pending", "Pending"), ("success", "Success"),
+                 ("failed", "Failed")],
+        default="pending")
+    passback_attempts = models.IntegerField(default=0)
+    submitted_at = models.DateTimeField(auto_now_add=True, null=True)
+    comparison_result = JSONField(null=True, blank=True)
+    rubric_breakdown = JSONField(null=True, blank=True)
 
     def __str__(self):
         return "Submitted" if self.lms_success else "Not submitted"
@@ -125,6 +135,12 @@ class ArduinoSubmission(models.Model):
     student_simulation = models.ForeignKey(to=ArduinoLTISimData,
                                            on_delete=models.CASCADE, null=True)
     lms_success = models.BooleanField(null=True)
+    passback_status = models.CharField(
+        max_length=10,
+        choices=[("pending", "Pending"), ("success", "Success"),
+                 ("failed", "Failed")],
+        default="pending")
+    passback_attempts = models.IntegerField(default=0)
 
     def __str__(self):
         return "Submitted" if self.lms_success else "Not submitted"

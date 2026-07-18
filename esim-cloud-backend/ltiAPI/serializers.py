@@ -153,9 +153,10 @@ class GetSubmissionsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Submission
-        fields = ["schematic", "student", "project",
+        fields = ["id", "schematic", "student", "project",
                   "score", "lms_success", "ltisession",
-                  "student_simulation"]
+                  "student_simulation", "passback_status",
+                  "passback_attempts"]
 
 
 class ArduinoLTISimulationDataSerializer(serializers.ModelSerializer):
@@ -176,6 +177,7 @@ class GetArduinoSubmissionsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ArduinoSubmission
-        fields = ["schematic", "student", "project",
+        fields = ["id", "schematic", "student", "project",
                   "score", "lms_success", "ltisession",
-                  "student_simulation"]
+                  "student_simulation", "passback_status",
+                  "passback_attempts"]

@@ -31,5 +31,11 @@ urlpatterns = [
     path('arduino/viewcode/<int:ltiID>', views.ArduinoLTIViewCode.as_view()),
     path('exists/', views.LTIAllConsumers.as_view()),
     path('save/arduinodata/<int:save_id>/<int:lti_id>',
-         views.ArduinoLTISimulationDataView.as_view())
+         views.ArduinoLTISimulationDataView.as_view()),
+    path('resend/<int:submission_id>/',
+         views.ResendGradePassback.as_view()),
+    path('arduino/resend/<int:submission_id>/',
+         views.ArduinoResendGradePassback.as_view()),
+    path('analytics/<uuid:consumer_id>/',
+         views.LTISubmissionAnalytics.as_view()),
 ]

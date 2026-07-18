@@ -81,6 +81,41 @@ function SubmitResults ({ show, setResults, results }) {
           <h1 style={{ textAlign: 'center' }}>Your Score: {results.score} /1 </h1>
           {/* <h2>Teacher Values</h2> */}
         </Grid>
+        {results.rubric_breakdown && (
+          <Grid item xs={12} style={{ padding: '2%' }}>
+            <h2 style={{ textAlign: 'center' }}>Rubric Breakdown</h2>
+            <Grid container spacing={1}>
+              {Object.keys(results.rubric_breakdown).map((param) => {
+                const entry = results.rubric_breakdown[param]
+                return (
+                  <Grid item xs={12} sm={6} md={4} key={param}>
+                    <Paper class={classes.paper} style={{ padding: '3%' }}>
+                      <Typography style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        flexWrap: 'wrap'
+                      }}
+                      >
+                        {entry.status === 'same' ? (
+                          <Tooltip title="Correct">
+                            <CheckCircleIcon />
+                          </Tooltip>
+                        ) : (
+                          <Tooltip title={entry.status === 'missing' ? 'Missing' : 'Wrong'}>
+                            <CancelIcon />
+                          </Tooltip>
+                        )}
+                        <span style={{ marginLeft: '2%' }}>
+                          {param}: {entry.points} / {entry.weight} pts
+                        </span>
+                      </Typography>
+                    </Paper>
+                  </Grid>
+                )
+              })}
+            </Grid>
+          </Grid>
+        )}
         {results.expected && results.given.graph !== 'true' && (
           <>
             <Grid item xs={5} style={{ padding: '2%' }}>

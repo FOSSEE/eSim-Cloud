@@ -9,8 +9,11 @@ mongo_data/
 sample_lib/
 symbols/*
 .DS_Store
-migrations
 symbol_svgs
 postgres_data
 file_storage
 node_modules
+esim-cloud-backend/celerybeat-schedule
+esim-cloud-backend/celerybeat.pid
+esim-cloud-backend/celerybeat-schedule
+esim-cloud-backend/celerybeat.pid
