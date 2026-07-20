@@ -64,11 +64,52 @@ const checkWireChange = (changes) => {
   return false
 }
 
+// ---------------------------------------------------------------------------
+// Atomic-edit tagging
+//
+// Some operations (delete-all, delete-selection) are already guaranteed by
+// mxGraph to collapse into exactly ONE mxUndoableEdit, because they are
+// wrapped in a single beginUpdate/endUpdate pair (mxGraph nests these safely,
+// so wrapping again here is a no-op if the callee already does it, and a
+// guarantee if it doesn't). For these operations we don't need to guess
+// where the "logical action" boundary is in undoManager.history — we know
+// it exactly, so we tag the resulting edit and let Undo()/Redo() short
+// circuit the legacy grouping heuristic below.
+// ---------------------------------------------------------------------------
+function markLastEditAtomic() {
+  const lastEdit = undoManager.history[undoManager.history.length - 1]
+  if (lastEdit) {
+    lastEdit.isAtomicUserAction = true
+  }
+}
+
 // UNDO
 export function Undo() {
+  console.log("============= UNDO =============");
+  console.log("indexOfNextAdd:", undoManager.indexOfNextAdd);
+
+  if (undoManager.indexOfNextAdd > 0) {
+    const edit = undoManager.history[undoManager.indexOfNextAdd - 1];
+
+    console.log("Number of changes:", edit.changes.length);
+
+    edit.changes.forEach((change, i) => {
+      console.log(`----- Change ${i} -----`);
+      console.log("type:", change.constructor.name);
+      console.log("child:", change.child);
+      console.log("parent:", change.parent);
+      console.log("previous:", change.previous);
+      console.log("index:", change.index);
+    });
+  }
   if (undoManager.indexOfNextAdd === 0) {
     // Nothing to undo
     return
+  } else if (undoManager.history[undoManager.indexOfNextAdd - 1].isAtomicUserAction) {
+    // Known-atomic edit (e.g. delete-all, delete-selection): it is already
+    // exactly one logical user action, so undo it in a single step and
+    // skip the length/type-based grouping heuristic entirely.
+    undoManager.undo()
   } else if (checkWireChange(undoManager.history[undoManager.indexOfNextAdd - 1].changes)) {
     // Found Wire
     undoManager.undo()
@@ -78,6 +119,7 @@ export function Undo() {
     for (let i = undoManager.indexOfNextAdd - 1; i >= 0; i--, undos++) {
       if (undoManager.history[i].changes.length === 1
         || checkWireChange(undoManager.history[i].changes)
+        || undoManager.history[i].isAtomicUserAction
       ) { break }
     }
     while (undos !== 0) {
@@ -88,7 +130,9 @@ export function Undo() {
     // Found Rotate/Move
     let undos = 0
     for (let i = undoManager.indexOfNextAdd - 1; i >= 0; i--, undos++) {
-      if (undoManager.history[i].changes.length !== 1) { break }
+      if (undoManager.history[i].changes.length !== 1
+        || undoManager.history[i].isAtomicUserAction
+      ) { break }
     }
     while (undos !== 0) {
       undoManager.undo()
@@ -106,6 +150,9 @@ export function Redo() {
   if (undoManager.indexOfNextAdd === undoManager.history.length) {
     // Nothing to redo
     return
+  } else if (undoManager.history[undoManager.indexOfNextAdd].isAtomicUserAction) {
+    // Known-atomic edit: redo it in a single step, mirroring Undo() above.
+    undoManager.redo()
   } else if (checkWireChange(undoManager.history[undoManager.indexOfNextAdd].changes)) {
     // Found Wire
     undoManager.redo()
@@ -118,7 +165,8 @@ export function Redo() {
     for (let i = undoManager.indexOfNextAdd + 1; i < undoManager.history.length; i++, redos++) {
       if (undoManager.history[i].changes.length === 12 ||
         undoManager.history[i].changes.length === 1 ||
-        checkWireChange(undoManager.history[i].changes)
+        checkWireChange(undoManager.history[i].changes) ||
+        undoManager.history[i].isAtomicUserAction
       ) { break }
     }
     while (redos !== 0) {
@@ -130,7 +178,8 @@ export function Redo() {
     let redos = 1;
     for (let i = undoManager.indexOfNextAdd + 1; i < undoManager.history.length; i++, redos++) {
       if (undoManager.history[i].changes.length !== 1 ||
-        undoManager.history[i].changes[0].__proto__.constructor.name === 'mxChildChange'
+        undoManager.history[i].changes[0].__proto__.constructor.name === 'mxChildChange' ||
+        undoManager.history[i].isAtomicUserAction
       ) { break }
     }
     while (redos !== 0) {
@@ -160,12 +209,24 @@ export function ZoomAct() {
 
 // DELETE COMPONENT
 export function DeleteComp() {
-  graph.removeCells()
+  graph.getModel().beginUpdate()
+  try {
+    graph.removeCells()
+  } finally {
+    graph.getModel().endUpdate()
+  }
+  markLastEditAtomic()
 }
 
 // CLEAR WHOLE GRID
 export function ClearGrid() {
-  graph.removeCells(graph.getChildVertices(graph.getDefaultParent()))
+  graph.getModel().beginUpdate()
+  try {
+    graph.removeCells(graph.getChildVertices(graph.getDefaultParent()))
+  } finally {
+    graph.getModel().endUpdate()
+  }
+  markLastEditAtomic()
 }
 
 export function rotateCell (cell, rot_ang) {
