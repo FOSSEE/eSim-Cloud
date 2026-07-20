@@ -35,11 +35,15 @@ import {
   Snackbar,
   Collapse,
   Hidden,
-  Input
+  Input,
+  Chip
 } from '@material-ui/core'
 
 import { makeStyles } from '@material-ui/core/styles'
 import CloseIcon from '@material-ui/icons/Close'
+import KeyboardIcon from '@material-ui/icons/Keyboard'
+import TableChartOutlinedIcon from '@material-ui/icons/TableChartOutlined'
+import TuneIcon from '@material-ui/icons/Tune'
 import { useSelector, useDispatch } from 'react-redux'
 import { setTitle, setSchTitle, fetchSchematics, fetchSchematic, fetchGallerySchematic, fetchAllLibraries, fetchLibrary, removeLibrary, uploadLibrary, resetUploadSuccess, deleteLibrary, fetchComponents, fetchGallery, setSchXmlData, saveSchematic } from '../../redux/actions/index'
 import { blue } from '@material-ui/core/colors'
@@ -124,7 +128,90 @@ const useStyles = makeStyles((theme) => ({
     backgroundColor: theme.palette.background.default
   },
   helpToolbar: {
-    backgroundColor: theme.palette.type === 'dark' ? theme.palette.grey[900] : '#404040'
+    backgroundColor: theme.palette.type === 'dark' ? theme.palette.grey[900] : theme.palette.primary.dark,
+    color: theme.palette.getContrastText(theme.palette.type === 'dark' ? theme.palette.grey[900] : theme.palette.primary.dark)
+  },
+  helpSection: {
+    padding: theme.spacing(3, 3.5),
+    borderRadius: theme.spacing(1.5),
+    backgroundColor: theme.palette.background.paper,
+    border: `1px solid ${theme.palette.divider}`,
+    height: '100%',
+    transition: theme.transitions.create(['box-shadow', 'transform'], { duration: 200 }),
+    '&:hover': {
+      boxShadow: theme.shadows[6]
+    }
+  },
+  sectionHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(1.5),
+    marginBottom: theme.spacing(2.5),
+    color: theme.palette.text.primary
+  },
+  sectionIcon: {
+    color: theme.palette.primary.main,
+    fontSize: '1.7rem'
+  },
+  sectionTitle: {
+    fontWeight: 600
+  },
+  shortcutRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: theme.spacing(1.1, 1),
+    borderRadius: theme.spacing(0.75),
+    transition: theme.transitions.create('background-color', { duration: 150 }),
+    '&:hover': {
+      backgroundColor: theme.palette.action.hover
+    }
+  },
+  shortcutLabel: {
+    color: theme.palette.text.primary,
+    fontWeight: 500
+  },
+  keyGroup: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(0.5)
+  },
+  keyChip: {
+    fontFamily: 'monospace',
+    fontWeight: 700,
+    letterSpacing: '0.02em',
+    backgroundColor: theme.palette.type === 'dark' ? theme.palette.grey[800] : theme.palette.grey[200],
+    color: theme.palette.text.primary,
+    border: `1px solid ${theme.palette.divider}`
+  },
+  keyPlus: {
+    color: theme.palette.text.secondary,
+    fontSize: '0.85rem'
+  },
+  unitsTable: {
+    backgroundColor: theme.palette.background.paper,
+    color: theme.palette.text.primary
+  },
+  unitsTableHeadCell: {
+    fontWeight: 700,
+    color: theme.palette.text.primary,
+    backgroundColor: theme.palette.type === 'dark' ? theme.palette.grey[800] : theme.palette.grey[100]
+  },
+  modeBlock: {
+    padding: theme.spacing(1.25, 1),
+    borderRadius: theme.spacing(0.75),
+    transition: theme.transitions.create('background-color', { duration: 150 }),
+    '&:hover': {
+      backgroundColor: theme.palette.action.hover
+    }
+  },
+  modeTitle: {
+    color: theme.palette.text.primary,
+    fontWeight: 600
+  },
+  modeDescription: {
+    color: theme.palette.text.secondary,
+    lineHeight: 1.6
   },
   avatar: {
     width: theme.spacing(4),
@@ -150,6 +237,55 @@ const useStyles = makeStyles((theme) => ({
 // Screen to display information about as keyboard shortcuts, units table and simulation modes
 export function HelpScreen ({ open, close }) {
   const classes = useStyles()
+
+  const shortcuts = [
+    { label: 'Undo', keys: ['Ctrl', 'Z'] },
+    { label: 'Redo', keys: ['Ctrl', 'Shift', 'Z'] },
+    { label: 'Zoom In', keys: ['Ctrl', '+'] },
+    { label: 'Zoom Out', keys: ['Ctrl', '-'] },
+    { label: 'Default Size', keys: ['Ctrl', 'Y'] },
+    { label: 'Save Circuit', keys: ['Ctrl', 'S'] },
+    { label: 'Print Circuit', keys: ['Ctrl', 'P'] },
+    { label: 'Open Dialog', keys: ['Ctrl', 'O'] },
+    { label: 'Export as JSON', keys: ['Ctrl', 'E'] },
+    { label: 'Export as Image', keys: ['Ctrl', 'Shift', 'E'] },
+    { label: 'Rotate Clockwise', keys: ['Alt', '→'] },
+    { label: 'Rotate Anti-Clockwise', keys: ['Alt', '←'] },
+    { label: 'Clear All', keys: ['Shift', 'Del'] }
+  ]
+
+  const units = [
+    { suffix: 'T', name: 'Tera', factor: '10', exp: '12' },
+    { suffix: 'G', name: 'Giga', factor: '10', exp: '9' },
+    { suffix: 'Meg', name: 'Mega', factor: '10', exp: '6' },
+    { suffix: 'K', name: 'Kilo', factor: '10', exp: '3' },
+    { suffix: 'mil', name: 'Mil', factor: '25.4 X 10', exp: '-6' },
+    { suffix: 'm', name: 'milli', factor: '10', exp: '-3' },
+    { suffix: 'u', name: 'micro', factor: '10', exp: '-6' },
+    { suffix: 'n', name: 'nano', factor: '10', exp: '-9' },
+    { suffix: 'p', name: 'pico', factor: '10', exp: '-12' },
+    { suffix: 'f', name: 'femto', factor: '10', exp: '-15' }
+  ]
+
+  const simulationModes = [
+    {
+      title: 'DC Solver',
+      description: 'A DC simulation attempts to find a stable DC solution of your circuit.'
+    },
+    {
+      title: 'DC Sweep',
+      description: 'A DC Sweep will plot the DC solution of your circuit across different values of a parameter of a circuit element. You can sweep any numerical parameter of any circuit element in your circuit.'
+    },
+    {
+      title: 'Transient Analysis',
+      description: 'A Transient analysis does a Time-Domain Simulation of your circuit over a certain period of time.'
+    },
+    {
+      title: 'AC Analysis',
+      description: 'AC Analysis does a small signal analysis of your circuit. The input can be any voltage source or current source.'
+    }
+  ]
+
   return (
     <div>
       <Dialog fullScreen open={open} onClose={close} TransitionComponent={Transition} PaperProps={{
@@ -174,237 +310,93 @@ export function HelpScreen ({ open, close }) {
             spacing={3}
             direction="row"
             justify="center"
-            alignItems="center"
+            alignItems="stretch"
           >
 
-            <Grid item xs={12} sm={12}>
-              <Paper className={classes.paper}>
-                <fieldset style={{ padding: '20px 40px' }}>
-                  <legend>
-                    <Typography variant="h5" align="center" component="p" gutterBottom>
-                      Keyboard Shorcuts
-                    </Typography>
-                  </legend>
-                  <Typography variant="h6" align='left' gutterBottom>
-                    UNDO
+            <Grid item xs={12} md={6}>
+              <div className={classes.helpSection}>
+                <div className={classes.sectionHeader}>
+                  <KeyboardIcon className={classes.sectionIcon} />
+                  <Typography variant="h5" component="p" className={classes.sectionTitle}>
+                    Keyboard Shortcuts
                   </Typography>
-                  <Typography variant="subtitle1" align='left' style={{ color: '#b3b3b3' }} gutterBottom>
-                    Ctrl + Z
-                  </Typography>
-                  <Divider />
-                  <Typography variant="h6" align='left' gutterBottom>
-                    REDO
-                  </Typography>
-                  <Typography variant="subtitle1" align='left' style={{ color: '#b3b3b3' }} gutterBottom>
-                    Ctrl + Shift + Z
-                  </Typography>
-                  <Divider />
-                  <Typography variant="h6" align='left' gutterBottom>
-                    ZOOM IN
-                  </Typography>
-                  <Typography variant="subtitle1" align='left' style={{ color: '#b3b3b3' }} gutterBottom>
-                    Ctrl + +
-                  </Typography>
-                  <Divider />
-                  <Typography variant="h6" align='left' gutterBottom>
-                    ZOOM OUT
-                  </Typography>
-                  <Typography variant="subtitle1" align='left' style={{ color: '#b3b3b3' }} gutterBottom>
-                    Ctrl + -
-                  </Typography>
-                  <Divider />
-                  <Typography variant="h6" align='left' gutterBottom>
-                    DEFAULT SIZE
-                  </Typography>
-                  <Typography variant="subtitle1" align='left' style={{ color: '#b3b3b3' }} gutterBottom>
-                    Ctrl + Y
-                  </Typography>
-                  <Divider />
-                  <Typography variant="h6" align='left' gutterBottom>
-                    Save Circuit
-                  </Typography>
-                  <Typography variant="subtitle1" align='left' style={{ color: '#b3b3b3' }} gutterBottom>
-                    Ctrl + S
-                  </Typography>
-                  <Divider />
-                  <Typography variant="h6" align='left' gutterBottom>
-                    Print Circuit
-                  </Typography>
-                  <Typography variant="subtitle1" align='left' style={{ color: '#b3b3b3' }} gutterBottom>
-                    Ctrl + P
-                  </Typography>
-                  <Divider />
-                  <Typography variant="h6" align='left' gutterBottom>
-                    Open Dialog
-                  </Typography>
-                  <Typography variant="subtitle1" align='left' style={{ color: '#b3b3b3' }} gutterBottom>
-                    Ctrl + O
-                  </Typography>
-                  <Divider />
-                  <Typography variant="h6" align='left' gutterBottom>
-                    Export as JSON
-                  </Typography>
-                  <Typography variant="subtitle1" align='left' style={{ color: '#b3b3b3' }} gutterBottom>
-                    Ctrl + E
-                  </Typography>
-                  <Divider />
-                  <Typography variant="h6" align='left' gutterBottom>
-                    Export as Image
-                  </Typography>
-                  <Typography variant="subtitle1" align='left' style={{ color: '#b3b3b3' }} gutterBottom>
-                    Ctrl + Shift + E
-                  </Typography>
-                  <Divider />
-                  <Typography variant="h6" align='left' gutterBottom>
-                    Rotate Component Clockwise
-                  </Typography>
-                  <Typography variant="subtitle1" align='left' style={{ color: '#b3b3b3' }} gutterBottom>
-                    Alt + Right Arrow
-                  </Typography>
-                  <Divider />
-                  <Typography variant="h6" align='left' gutterBottom>
-                    Rotate Component Anti-Clockwise
-                  </Typography>
-                  <Typography variant="subtitle1" align='left' style={{ color: '#b3b3b3' }} gutterBottom>
-                    Alt + Left Arrow
-                  </Typography>
-                  <Divider />
-                  <Typography variant="h6" align='left' gutterBottom>
-                    Clear All
-                  </Typography>
-                  <Typography variant="subtitle1" align='left' style={{ color: '#b3b3b3' }} gutterBottom>
-                    Shift + Del
-                  </Typography>
-                </fieldset>
-              </Paper>
+                </div>
+                {shortcuts.map((shortcut, index) => (
+                  <React.Fragment key={shortcut.label}>
+                    <div className={classes.shortcutRow}>
+                      <Typography variant="body1" className={classes.shortcutLabel}>
+                        {shortcut.label}
+                      </Typography>
+                      <div className={classes.keyGroup}>
+                        {shortcut.keys.map((key, i) => (
+                          <React.Fragment key={key}>
+                            {i > 0 && <Typography component="span" className={classes.keyPlus}>+</Typography>}
+                            <Chip label={key} size="small" className={classes.keyChip} />
+                          </React.Fragment>
+                        ))}
+                      </div>
+                    </div>
+                    {index < shortcuts.length - 1 && <Divider />}
+                  </React.Fragment>
+                ))}
+              </div>
             </Grid>
 
-            <Grid item xs={12} sm={12}>
-              <Paper className={classes.paper}>
-                <fieldset style={{ padding: '20px 40px' }}>
-                  <legend>
-                    <Typography variant="h5" align="center" component="p" gutterBottom>
-                      Units Table
-                    </Typography>
-                  </legend>
-                  <Typography>
-
-                    <TableContainer component={Paper}>
-                      <Table className={classes.table} aria-label="simple table">
-                        <caption>Ngspice scale factors naming conventions</caption>
-                        <TableHead>
-                          <TableRow>
-                            <TableCell align="center">SUFFIX</TableCell>
-                            <TableCell align="center">NAME</TableCell>
-                            <TableCell align="center">FACTOR</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-
-                          <TableRow>
-                            <TableCell align="center">T</TableCell>
-                            <TableCell align="center">Tera</TableCell>
-                            <TableCell align="center">10<sup>12</sup></TableCell>
-                          </TableRow>
-
-                          <TableRow>
-                            <TableCell align="center">G</TableCell>
-                            <TableCell align="center">Giga</TableCell>
-                            <TableCell align="center">10<sup>9</sup></TableCell>
-                          </TableRow>
-
-                          <TableRow>
-                            <TableCell align="center">Meg</TableCell>
-                            <TableCell align="center">Mega</TableCell>
-                            <TableCell align="center">10<sup>6</sup></TableCell>
-                          </TableRow>
-
-                          <TableRow>
-                            <TableCell align="center">K</TableCell>
-                            <TableCell align="center">Kilo</TableCell>
-                            <TableCell align="center">10<sup>3</sup></TableCell>
-                          </TableRow>
-
-                          <TableRow>
-                            <TableCell align="center">mil</TableCell>
-                            <TableCell align="center">Mil</TableCell>
-                            <TableCell align="center">25.4 X 10<sup>-6</sup></TableCell>
-                          </TableRow>
-
-                          <TableRow>
-                            <TableCell align="center">m</TableCell>
-                            <TableCell align="center">milli</TableCell>
-                            <TableCell align="center">10<sup>-3</sup></TableCell>
-                          </TableRow>
-
-                          <TableRow>
-                            <TableCell align="center">u</TableCell>
-                            <TableCell align="center">micro</TableCell>
-                            <TableCell align="center">10<sup>-6</sup></TableCell>
-                          </TableRow>
-
-                          <TableRow>
-                            <TableCell align="center">n</TableCell>
-                            <TableCell align="center">nano</TableCell>
-                            <TableCell align="center">10<sup>-9</sup></TableCell>
-                          </TableRow>
-                          <TableRow>
-                            <TableCell align="center">p</TableCell>
-                            <TableCell align="center">pico</TableCell>
-                            <TableCell align="center">10<sup>-12</sup></TableCell>
-                          </TableRow>
-
-                          <TableRow>
-                            <TableCell align="center">f</TableCell>
-                            <TableCell align="center">femto</TableCell>
-                            <TableCell align="center">10<sup>-15</sup></TableCell>
-                          </TableRow>
-
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
+            <Grid item xs={12} md={6}>
+              <div className={classes.helpSection}>
+                <div className={classes.sectionHeader}>
+                  <TableChartOutlinedIcon className={classes.sectionIcon} />
+                  <Typography variant="h5" component="p" className={classes.sectionTitle}>
+                    Units Table
                   </Typography>
-                </fieldset>
-              </Paper>
+                </div>
+                <TableContainer>
+                  <Table className={classes.unitsTable} aria-label="units table" size="small">
+                    <caption>Ngspice scale factors naming conventions</caption>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell align="center" className={classes.unitsTableHeadCell}>SUFFIX</TableCell>
+                        <TableCell align="center" className={classes.unitsTableHeadCell}>NAME</TableCell>
+                        <TableCell align="center" className={classes.unitsTableHeadCell}>FACTOR</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {units.map((unit) => (
+                        <TableRow key={unit.suffix} hover>
+                          <TableCell align="center">{unit.suffix}</TableCell>
+                          <TableCell align="center">{unit.name}</TableCell>
+                          <TableCell align="center">{unit.factor}<sup>{unit.exp}</sup></TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </div>
             </Grid>
-            <Grid item xs={12} sm={12}>
-              <Paper className={classes.paper}>
-                <fieldset style={{ padding: '20px 40px' }}>
-                  <legend>
-                    <Typography variant="h5" align="center" component="p" gutterBottom>
-                      Simulation Modes
-                    </Typography>
-                  </legend>
-                  <Typography variant="h6" align='left' gutterBottom>
-                    DC Solver
+
+            <Grid item xs={12}>
+              <div className={classes.helpSection}>
+                <div className={classes.sectionHeader}>
+                  <TuneIcon className={classes.sectionIcon} />
+                  <Typography variant="h5" component="p" className={classes.sectionTitle}>
+                    Simulation Modes
                   </Typography>
-                  <Typography variant="subtitle1" align='left' style={{ color: '#b3b3b3' }} gutterBottom>
-                    A DC simulation attempts to find a stable DC solution of your circuit.
-                  </Typography>
-                  <Divider />
-                  <Typography variant="h6" align='left' gutterBottom>
-                    DC Sweep
-                  </Typography>
-                  <Typography variant="subtitle1" align='left' style={{ color: '#b3b3b3' }} gutterBottom>
-                    A DC Sweep will plot the DC solution of your circuit across different values of a parameter of a circuit element.
-                    You can sweep any numerical parameter of any circuit element in your circuit.
-                  </Typography>
-                  <Divider />
-                  <Typography variant="h6" align='left' gutterBottom>
-                    Transient Analysis
-                  </Typography>
-                  <Typography variant="subtitle1" align='left' style={{ color: '#b3b3b3' }} gutterBottom>
-                    A Transient analysis does a Time-Domain Simulation of your circuit over a certain period of time.
-                  </Typography>
-                  <Divider />
-                  <Typography variant="h6" align='left' gutterBottom>
-                    AC Analysis
-                  </Typography>
-                  <Typography variant="subtitle1" align='left' style={{ color: '#b3b3b3' }} gutterBottom>
-                    AC Analysis does a small signal analysis of your circuit. The input can be any voltage source or current source.
-                  </Typography>
-                </fieldset>
-              </Paper>
+                </div>
+                <Grid container spacing={2}>
+                  {simulationModes.map((mode) => (
+                    <Grid item xs={12} sm={6} key={mode.title}>
+                      <div className={classes.modeBlock}>
+                        <Typography variant="h6" align='left' className={classes.modeTitle} gutterBottom>
+                          {mode.title}
+                        </Typography>
+                        <Typography variant="body2" align='left' className={classes.modeDescription}>
+                          {mode.description}
+                        </Typography>
+                      </div>
+                    </Grid>
+                  ))}
+                </Grid>
+              </div>
             </Grid>
           </Grid>
         </Container>
