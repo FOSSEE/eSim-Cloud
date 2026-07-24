@@ -1,0 +1,9 @@
+{
+  "description": "Source documents for eSim-Cloud RAG pipeline. Add markdown files to rag/source/ then run: python manage.py ingest_docs",
+  "source_directory": "chatbotAPI/rag/source/",
+  "notes": [
+    "Place .md documentation files in the source_directory before running ingest_docs.",
+    "Suggested sources: eSim Cloud RTD (esim-cloud.readthedocs.io), in-repo docs/, README.md",
+    "After adding files run: docker-compose -f docker-compose.dev.yml exec django python manage.py ingest_docs --reset"
+  ]
+}

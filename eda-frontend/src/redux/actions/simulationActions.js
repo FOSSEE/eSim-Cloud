@@ -29,3 +29,13 @@ export const setResultText = (text) => (dispatch) => {
     }
   })
 }
+
+// Action to update store with the last simulation error summary
+export const setLastSimulationError = (errorSummary) => (dispatch) => {
+  dispatch({
+    type: actions.SET_LAST_SIMULATION_ERROR,
+    payload: {
+      lastSimulationError: errorSummary
+    }
+  })
+}

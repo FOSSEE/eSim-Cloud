@@ -4,6 +4,7 @@ from simulationAPI.tasks import process_task
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.views import APIView
+from rest_framework.throttling import UserRateThrottle, AnonRateThrottle
 from rest_framework.response import Response
 from rest_framework import status
 from django.conf import settings
@@ -72,6 +73,7 @@ class NetlistUploader(APIView):
     'file' parameter
     '''
     permission_classes = (AllowAny,)
+    throttle_classes = [UserRateThrottle, AnonRateThrottle]
     parser_classes = (MultiPartParser, FormParser,)
 
     def post(self, request, *args, **kwargs):

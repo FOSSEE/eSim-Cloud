@@ -23,7 +23,7 @@ export default function (state = initialState, action) {
     case actions.SET_SCH_SHARED: {
       return {
         ...state,
-        isShared: true,
+        isShared: action.payload.shared === true || action.payload.shared === 'on',
         details: action.payload
       }
     }

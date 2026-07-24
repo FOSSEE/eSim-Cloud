@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
 import {
   List,
@@ -11,7 +11,8 @@ import {
   Box,
   CircularProgress,
   Switch,
-  FormControlLabel
+  FormControlLabel,
+  Chip
 } from '@material-ui/core'
 import MuiAlert from '@material-ui/lab/Alert'
 import { makeStyles } from '@material-ui/core/styles'
@@ -21,11 +22,12 @@ import RefreshIcon from '@material-ui/icons/Refresh'
 import FileCopyIcon from '@material-ui/icons/FileCopy'
 import GetAppIcon from '@material-ui/icons/GetApp'
 import CloseIcon from '@material-ui/icons/Close'
+import DescriptionIcon from '@material-ui/icons/Description'
 import AceEditor from 'react-ace'
+import EmptyState from '../Shared/EmptyState.js'
 import 'brace/theme/monokai'
 import 'brace/theme/github'
 import { useSelector, useDispatch } from 'react-redux'
-import { useHistory } from 'react-router-dom'
 import { setNetlist, toggleSimulate } from '../../redux/actions/index'
 
 import { sanitizeNetlistForExport, buildNetlistFromGraph } from './Helper/NetlistExporter'
@@ -59,10 +61,49 @@ export default function NetlistPreviewPanel ({ gridRef }) {
   const [themeState, setThemeState] = useState({ checkedA: false })
   const [templateLoadedSnack, setTemplateLoadedSnack] = useState(false)
 
+  const [livePreview, setLivePreview] = useState(false)
+  const [isStale, setIsStale] = useState(false)
+  const livePreviewRef = useRef(livePreview)
+  const refreshTimerRef = useRef(null)
+  const handleRefreshRef = useRef(null)
+
+  const isMounted = useRef(true)
+  useEffect(() => {
+    return () => {
+      isMounted.current = false
+    }
+  }, [])
+
+  useEffect(() => {
+    livePreviewRef.current = livePreview
+    if (!livePreview) {
+      clearTimeout(refreshTimerRef.current)
+    }
+  }, [livePreview])
+
+  useEffect(() => {
+    const handleGraphChange = () => {
+      setIsStale(true)
+      if (livePreviewRef.current) {
+        clearTimeout(refreshTimerRef.current)
+        refreshTimerRef.current = setTimeout(() => {
+          if (handleRefreshRef.current) {
+            handleRefreshRef.current(true)
+          }
+        }, 800)
+      }
+    }
+    window.addEventListener('esim-graph-changed', handleGraphChange)
+    return () => {
+      window.removeEventListener('esim-graph-changed', handleGraphChange)
+      clearTimeout(refreshTimerRef.current)
+    }
+  }, [])
+
   const schSave = useSelector(state => state.saveSchematicReducer)
   const netfile = useSelector(state => state.netlistReducer)
   const projectName = schSave.title || 'Untitled_Schematic'
-  const history = useHistory()
+  // const history = useHistory()
   const dispatch = useDispatch()
 
   const templateNetlist = useSelector(state => state.netlistReducer.netlist)
@@ -91,13 +132,20 @@ export default function NetlistPreviewPanel ({ gridRef }) {
     setOpen(!open)
   }
 
-  const handleRefresh = () => {
+  const handleRefresh = (isAuto = false) => {
     setIsLoading(true)
     const timer = setTimeout(() => {
-      setShowSpinner(true)
+      if (isMounted.current) {
+        setShowSpinner(true)
+      }
     }, 100)
 
     setTimeout(() => {
+      if (!isMounted.current) {
+        clearTimeout(timer)
+        return
+      }
+      const start = Date.now()
       if (!gridRef || !gridRef.current || !gridRef.current.graph) {
         setNetlistText('// Error: Graph not loaded yet.')
       } else {
@@ -141,18 +189,31 @@ export default function NetlistPreviewPanel ({ gridRef }) {
               '\n'
 
             setNetlistText(fullNetlist)
-            setSnackMessage('Netlist refreshed successfully!')
-            setSnackOpen(true)
+            setIsStale(false)
+            if (isAuto !== true) {
+              setSnackMessage('Netlist refreshed successfully!')
+              setSnackOpen(true)
+            }
           }
         } catch (e) {
           setNetlistText('// Error generating netlist:\n// ' + e.message)
         }
       }
+
+      const duration = Date.now() - start
+      if (duration > 500) {
+        console.warn(`Netlist generation took ${duration}ms — consider turning off Live Preview for large schematics.`)
+      }
+
       clearTimeout(timer)
       setShowSpinner(false)
       setIsLoading(false)
     }, 0)
   }
+
+  useEffect(() => {
+    handleRefreshRef.current = handleRefresh
+  })
 
   const handleCopy = () => {
     if (!navigator.clipboard) {
@@ -210,6 +271,17 @@ export default function NetlistPreviewPanel ({ gridRef }) {
       <List id="netlist-preview-panel" data-testid="netlist-preview-panel">
         <ListItem button onClick={handleToggle} divider>
           <h2 className={classes.header}>Netlist Preview</h2>
+          {/* Min-width wrapper prevents layout shift when Chip appears/disappears */}
+          <Box style={{ minWidth: 60, display: 'inline-flex', alignItems: 'center' }}>
+            {isStale && (
+              <Chip
+                label="● Stale"
+                size="small"
+                // Warning color — MUI v4 Chip has no warning variant
+                style={{ backgroundColor: '#f9a825', color: '#000', fontSize: '10px', marginLeft: '10px' }}
+              />
+            )}
+          </Box>
           <Box flexGrow={1} />
           {open ? <ExpandLess /> : <ExpandMore />}
         </ListItem>
@@ -255,32 +327,51 @@ export default function NetlistPreviewPanel ({ gridRef }) {
             </Button>
             <FormControlLabel
               style={{ marginLeft: 'auto' }}
+              control={<Switch checked={livePreview} color="primary" onChange={(e) => setLivePreview(e.target.checked)} size="small" />}
+              label={<Typography variant="caption">Live</Typography>}
+            />
+            <FormControlLabel
+              style={{ marginLeft: '10px' }}
               control={<Switch checked={themeState.checkedA} color="primary" onChange={handleThemeChange} name="checkedA" size="small" />}
               label={<Typography variant="caption">Light Mode</Typography>}
             />
           </Box>
-          <AceEditor
-            style={{ width: '100%', minHeight: '300px', height: '300px' }}
-            value={netlistText}
-            onChange={(newValue) => setNetlistText(newValue)}
-            theme={themeState.checkedA ? 'github' : 'monokai'}
-            // P0 fix: Allow users to edit netlist directly
-            readOnly={false}
-            mode="text"
-            editorProps={{
-              $blockScrolling: true
-            }}
-            setOptions={{
-              enableBasicAutocompletion: true,
-              enableLiveAutocompletion: true,
-              enableSnippets: true,
-              fontSize: 14,
-              showPrintMargin: false
-            }}
-          />
-          <Typography variant="caption" display="block" className={classes.footer}>
-            Line Count: {lineCount} | Char Count: {charCount}
-          </Typography>
+          {netlistText.startsWith('// Netlist not generated yet') ? (
+            <EmptyState
+              icon={<DescriptionIcon />}
+              title="No Netlist Generated"
+              description="Click Refresh to generate a netlist from your circuit schematic."
+              actionLabel="Generate Netlist"
+              onAction={handleRefresh}
+              actionIcon={<RefreshIcon />}
+              minHeight="300px"
+            />
+          ) : (
+            <>
+              <AceEditor
+                style={{ width: '100%', minHeight: '300px', height: '300px' }}
+                value={netlistText}
+                onChange={(newValue) => setNetlistText(newValue)}
+                theme={themeState.checkedA ? 'github' : 'monokai'}
+                // P0 fix: Allow users to edit netlist directly
+                readOnly={false}
+                mode="text"
+                editorProps={{
+                  $blockScrolling: true
+                }}
+                setOptions={{
+                  enableBasicAutocompletion: true,
+                  enableLiveAutocompletion: true,
+                  enableSnippets: true,
+                  fontSize: 14,
+                  showPrintMargin: false
+                }}
+              />
+              <Typography variant="caption" display="block" className={classes.footer}>
+                Line Count: {lineCount} | Char Count: {charCount}
+              </Typography>
+            </>
+          )}
         </Collapse>
       </List>
 

@@ -14,3 +14,6 @@ symbol_svgs
 postgres_data
 file_storage
 node_modules
+
+# ChromaDB vector store data — do not commit
+chroma_data/

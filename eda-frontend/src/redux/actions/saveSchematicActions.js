@@ -205,7 +205,7 @@ export const fetchSchematic = (saveId, version, branch) => (dispatch, getState) 
           dispatch(fetchProject())
         }
         renderGalleryXML(res.data.data_dump)
-        if (res.data.esim_libraries.length > 0) {
+        if (res.data.esim_libraries && res.data.esim_libraries.length > 0) {
           getState().schematicEditorReducer.libraries.forEach(e => dispatch(removeLibrary(e.id)))
           res.data.esim_libraries.forEach(e => dispatch(fetchLibrary(e.id)))
         }
@@ -231,7 +231,7 @@ export const fetchGallerySchematic = (Id) => (dispatch, getState) => {
       dispatch(setSchXmlData(data.data_dump))
 
       renderGalleryXML(data.data_dump)
-      if (data.esim_libraries.length > 0) {
+      if (data.esim_libraries && data.esim_libraries.length > 0) {
         getState().schematicEditorReducer.libraries.forEach(e => dispatch(removeLibrary(e.id)))
         data.esim_libraries.forEach(e => dispatch(fetchLibrary(e.id)))
       }
@@ -240,9 +240,15 @@ export const fetchGallerySchematic = (Id) => (dispatch, getState) => {
 }
 
 export const setSchShared = (share) => (dispatch, getState) => {
-  // Get token from localstorage
-  const token = getState().authReducer.token
+  // Get token from redux state, fall back to localStorage
+  const reduxToken = getState().authReducer.token
+  const token = reduxToken || localStorage.getItem('esim_auth_token')
   const schSave = getState().saveSchematicReducer
+
+  if (!schSave.details || !schSave.details.save_id) {
+    console.warn('[setSchShared] No saved circuit details found.')
+    return
+  }
 
   // add headers
   const config = {
@@ -274,9 +280,11 @@ export const setSchShared = (share) => (dispatch, getState) => {
         type: actions.SET_SCH_SHARED,
         payload: res.data
       })
+      return { success: true }
     })
     .catch((err) => {
-      console.error(err)
+      console.error('[setSchShared] Failed:', err)
+      return { success: false }
     })
 }
 

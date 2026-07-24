@@ -62,11 +62,17 @@ services:
     env_file:
       - .env.prod
     environment:
-      - DJANGO_DEBUG=True
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - THROTTLE_REDIS_URL=${THROTTLE_REDIS_URL:-redis://redis:6379/1}
+      - ANON_THROTTLE_RATE=${ANON_THROTTLE_RATE:-30/hour}
+      - USER_THROTTLE_RATE=${USER_THROTTLE_RATE:-200/hour}
+      - CHAT_THROTTLE_RATE=${CHAT_THROTTLE_RATE:-10/minute}
+      - DJANGO_DEBUG=${DJANGO_DEBUG:-False}
     links:
       - "redis:redis"
       - "db:db"
-
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   celery:
     image: "docker.pkg.github.com/frg-fossee/esim-cloud/celery:master"
@@ -78,7 +84,9 @@ services:
     env_file:
           - .env.prod
     environment:
-          - DJANGO_DEBUG=True
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - THROTTLE_REDIS_URL=${THROTTLE_REDIS_URL:-redis://redis:6379/1}
+      - DJANGO_DEBUG=${DJANGO_DEBUG:-False}
     volumes:
       - ./esim-cloud-backend:/code
       - run_vol:/var/run
@@ -87,9 +95,6 @@ services:
     depends_on:
       - redis
       - db
-    links:
-      - "redis:redis"
-      - "db:db"
 
     deploy:
       replicas: 3
@@ -112,7 +117,7 @@ services:
   #     - ./mysql_data:/var/lib/mysql
 
   db:
-    image: postgres
+    image: postgres:14
     volumes:
       - ./postgres_data:/var/lib/postgresql/data/
     env_file:

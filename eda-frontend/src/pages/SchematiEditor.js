@@ -22,6 +22,8 @@ import TemplateWizard from '../components/SchematicEditor/TemplateWizard'
 import '../components/SchematicEditor/Helper/SchematicEditor.css'
 import { fetchSchematic, fetchGallerySchematic } from '../redux/actions/index'
 import { useDispatch, useSelector } from 'react-redux'
+import ChatPanel from '../components/AIAssistant/ChatPanel'
+import ErrorBoundary from '../components/Shared/ErrorBoundary'
 
 const useStyles = makeStyles(() => ({
   root: {
@@ -126,61 +128,66 @@ export default function SchematiEditor (props) {
             onNewFromTemplate={handleNewFromTemplate}
           />
         }
-        sidebar={<ComponentSidebar compRef={compRef} ltiSimResult={ltiSimResult}
-          setLtiSimResult={setLtiSimResult}/>}
+        sidebar={
+          <ErrorBoundary fallbackTitle="Component Sidebar crashed" compact={true}>
+            <ComponentSidebar compRef={compRef} ltiSimResult={ltiSimResult} setLtiSimResult={setLtiSimResult}/>
+          </ErrorBoundary>
+        }
       />
 
-      <LayoutMain>
-        <div className={classes.toolbar} />
-        <div style={{ display: 'flex', height: 'calc(100vh - 80px)' }}>
-          <div style={{ flex: isSimulate ? 1 : 'none', width: isSimulate ? '50%' : '100%', borderRight: isSimulate ? '2px solid #ccc' : 'none', overflow: 'hidden', height: '100%', position: 'relative' }}>
-            <div className="grid-container" ref={gridRef} id="divGrid" style={{ width: '100%', height: '100%', margin: 0, border: 'none', borderRadius: 0, boxShadow: 'none' }} />
-            {/* Opaque Floating Dynamic Minimap */}
-            <div
-              className="minimap-container"
-              ref={minimapRef}
-              id="minimapContainer"
-              style={{
-                position: 'absolute',
-                top: '15px',
-                left: '15px',
-                width: '200px',
-                height: '150px',
-                backgroundColor: '#ffffff', // Opaque
-                border: '1px solid #ccc',
-                borderRadius: '5px',
-                pointerEvents: 'none',
-                boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
-                zIndex: 1000
-              }}
-            />
-          </div>
-          {isSimulate && (
-            <div style={{ flex: 1, width: '50%', overflowY: 'auto' }}>
-              <SimulationScreen open={simulateOpen} isResult={isResult} close={() => setSimulateOpen(false)} taskId={taskId} simType={simType} />
+      <ErrorBoundary>
+        <LayoutMain>
+          <div className={classes.toolbar} />
+          <div style={{ display: 'flex', height: 'calc(100vh - 80px)' }}>
+            <div style={{ flex: isSimulate ? 1 : 'none', width: isSimulate ? '50%' : '100%', borderRight: isSimulate ? '2px solid #ccc' : 'none', overflow: 'hidden', height: '100%', position: 'relative' }}>
+              <div className="grid-container" ref={gridRef} id="divGrid" style={{ width: '100%', height: '100%', margin: 0, border: 'none', borderRadius: 0, boxShadow: 'none' }} />
+              {/* Opaque Floating Dynamic Minimap */}
+              <div
+                className="minimap-container"
+                ref={minimapRef}
+                id="minimapContainer"
+                style={{
+                  position: 'absolute',
+                  top: '15px',
+                  left: '15px',
+                  width: '200px',
+                  height: '150px',
+                  backgroundColor: '#ffffff', // Opaque
+                  border: '1px solid #ccc',
+                  borderRadius: '5px',
+                  pointerEvents: 'none',
+                  boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+                  zIndex: 1000
+                }}
+              />
             </div>
-          )}
-        </div>
-      </LayoutMain>
+            {isSimulate && (
+              <div style={{ flex: 1, width: '50%', overflowY: 'auto' }}>
+                <SimulationScreen open={simulateOpen} isResult={isResult} close={() => setSimulateOpen(false)} taskId={taskId} simType={simType} />
+              </div>
+            )}
+          </div>
+        </LayoutMain>
 
-      <RightSidebar mobileOpen={mobileOpen} mobileClose={handleDrawerToggle}>
-        {isSimulate ? (
-          <SimulationProperties
-            setSimulateOpen={setSimulateOpen}
-            setIsResult={setIsResult}
-            setTaskId={setTaskId}
-            setSimType={setSimType}
-            ltiSimResult={ltiSimResult}
-            setLtiSimResult={setLtiSimResult}
-          />
-        ) : (
-          <>
-            <PropertiesSidebar gridRef={gridRef} outlineRef={outlineRef} />
-            <NetlistPreviewPanel gridRef={gridRef} />
-          </>
-        )}
-      </RightSidebar>
-      <ComponentProperties/>
+        <RightSidebar mobileOpen={mobileOpen} mobileClose={handleDrawerToggle}>
+          {isSimulate ? (
+            <SimulationProperties
+              setSimulateOpen={setSimulateOpen}
+              setIsResult={setIsResult}
+              setTaskId={setTaskId}
+              setSimType={setSimType}
+              ltiSimResult={ltiSimResult}
+              setLtiSimResult={setLtiSimResult}
+            />
+          ) : (
+            <>
+              <PropertiesSidebar gridRef={gridRef} outlineRef={outlineRef} />
+              <NetlistPreviewPanel gridRef={gridRef} />
+            </>
+          )}
+        </RightSidebar>
+        <ComponentProperties/>
+      </ErrorBoundary>
       {wizardOpen && (
         <TemplateWizard
           open={wizardOpen}
@@ -189,6 +196,7 @@ export default function SchematiEditor (props) {
           clearCanvasFirst={clearCanvasFirst}
         />
       )}
+      <ChatPanel />
     </div>
   )
 }

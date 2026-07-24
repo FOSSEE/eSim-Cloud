@@ -58,9 +58,6 @@ urlpatterns = [
     # LTI Routes
     path('api/lti/', include(ltiURLS)),
 
-    # Chatbot Routes
-    path('api/chat/', include(chatbotURLs)),
-
     # Auth API Routes
     url(r'^api/auth/', include('djoser.urls')),
     url(r'^api/auth/', include('djoser.urls.authtoken')),
@@ -79,3 +76,9 @@ urlpatterns = [
          name='schema-swagger-ui'),
 
 ]
+
+from django.conf import settings
+from django.conf.urls.static import static
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

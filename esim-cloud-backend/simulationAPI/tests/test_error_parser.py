@@ -44,3 +44,11 @@ class ErrorParserTests(TestCase):
         self.assertTrue(len(res['summary']) > 0)
         self.assertTrue(len(res['hints']) > 0)
         self.assertEqual(res['summary'], "Simulation failed with an unknown error")
+
+    def test_unknown_subckt_regression(self):
+        stderr = 'Circuit: bad test circuit\nError: unknown subckt: xu1 1 0 nonexistent_subckt_name\nNote: No "plot", "print", or "fourier" lines; no simulations run'
+        res = parse_ngspice_error(stderr)
+        self.assertTrue(len(res['summary']) > 0)
+        self.assertTrue(len(res['hints']) > 0)
+        self.assertIn("subcircuit", res['summary'].lower())
+        self.assertNotEqual(res['summary'], "No simulation command found")

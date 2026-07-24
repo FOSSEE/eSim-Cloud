@@ -36,11 +36,11 @@ def parse_ngspice_error(stderr_text: str) -> dict:
             }
 
         # Pattern 2 — unknown subcircuit
-        if "unknown subcircuit" in lower_stderr or "could not find subcircuit" in lower_stderr:
-            match = re.search(r'(?:unknown subcircuit|could not find subcircuit)\s+([^\s,;.]+)', stderr_text, re.IGNORECASE)
+        if "unknown subckt" in lower_stderr or "unknown subcircuit" in lower_stderr or "could not find subcircuit" in lower_stderr:
+            match = re.search(r'(?:unknown subckt:?|unknown subcircuit|could not find subcircuit)\s+(?:.*?\s+)?([^\s,;.]+)(?:\r|\n|$)', stderr_text, re.IGNORECASE)
             subckt_name = match.group(1) if match else "unknown"
             return {
-                "summary": f"Could not find subcircuit {subckt_name}.",
+                "summary": f"Unknown subcircuit reference: {subckt_name}.",
                 "hints": ["Check that the component model file is included and the name matches exactly."],
                 "codes": extracted_codes + ["unknown subcircuit"]
             }
@@ -89,18 +89,6 @@ def parse_ngspice_error(stderr_text: str) -> dict:
                 "codes": extracted_codes + ["device not found"]
             }
 
-        # Pattern 8 — no simulation command
-        if "no .plot" in lower_stderr or "no simulations run" in lower_stderr:
-            return {
-                "summary": "No simulation command found",
-                "hints": [
-                    "Add a .tran, .ac, or .dc analysis line to your netlist",
-                    "Add a .print or .plot output directive",
-                    "Check if your circuit has a valid simulation type selected"
-                ],
-                "codes": extracted_codes
-            }
-
         # Pattern 9 — malformed B line
         if "mal formed b line" in lower_stderr:
             return {
@@ -121,6 +109,18 @@ def parse_ngspice_error(stderr_text: str) -> dict:
                     "The component model (e.g. BC546B, BC547) is not installed in eSim-Cloud's ngspice",
                     "Try using a component from the DEFAULT library instead of custom models",
                     "Check if the component has a .model or .lib definition in the netlist"
+                ],
+                "codes": extracted_codes
+            }
+
+        # Pattern 8 — no simulation command (Generic fallback)
+        if "no .plot" in lower_stderr or "no simulations run" in lower_stderr:
+            return {
+                "summary": "No simulation command found",
+                "hints": [
+                    "Add a .tran, .ac, or .dc analysis line to your netlist",
+                    "Add a .print or .plot output directive",
+                    "Check if your circuit has a valid simulation type selected"
                 ],
                 "codes": extracted_codes
             }

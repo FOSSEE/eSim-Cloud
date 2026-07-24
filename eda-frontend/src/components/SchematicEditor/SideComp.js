@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
 import {
   List, ListItemText, Tooltip, Popover,
@@ -55,6 +55,21 @@ export default function SideComp ({ favourite, setFavourite, component }) {
   const [anchorEl, setAnchorEl] = React.useState(null)
   const [snackbar, setSnackbar] = React.useState({ open: false, message: '' })
 
+  // Local starred state so the star icon updates immediately on click
+  // without waiting for a parent re-render cycle.
+  const [starred, setStarred] = useState(() => isFavourite(component.id))
+
+  // Keep local starred state in sync when the parent `favourite` array changes
+  // (e.g. another SideComp instance adds/removes a favourite).
+  useEffect(() => {
+    if (favourite && Array.isArray(favourite)) {
+      setStarred(favourite.some((fav) => fav.id === component.id))
+    } else {
+      setStarred(isFavourite(component.id))
+    }
+  // eslint-disable-next-line
+  }, [favourite])
+
   const showSnackbar = (message) => setSnackbar({ open: true, message })
   const closeSnackbar = (_, reason) => {
     if (reason === 'clickaway') return
@@ -75,38 +90,28 @@ export default function SideComp ({ favourite, setFavourite, component }) {
     // eslint-disable-next-line
   }, [])
 
-  // Returns true when this component is already in the user's favourites list.
-  // Reads from localStorage via isFavourite() — works without auth.
-  const isStarred = () => {
-    // Prefer the parent's in-memory state (passed as `favourite` prop) when available
-    // so the star updates immediately on toggle without waiting for a localStorage re-read.
-    if (favourite && Array.isArray(favourite)) {
-      return favourite.some((fav) => fav.id === component.id)
-    }
-    return isFavourite(component.id)
-  }
-
-  // ── localStorage-backed add ──────────────────────────────────────────────
+  // ── localStorage-backed add — no backend API, no auth required ──────────────
   const handleAddFavourite = () => {
     const updated = addFavourite(component)
-    if (setFavourite) setFavourite(updated)
+    setStarred(true)                    // update local icon immediately
+    if (setFavourite) setFavourite(updated)  // update parent state if available
     showSnackbar('Added to favourites')
     setAnchorEl(null)
   }
 
-  // ── localStorage-backed remove ───────────────────────────────────────────
+  // ── localStorage-backed remove — no backend API, no auth required ────────────
   const handleRemoveFavourite = () => {
     const updated = removeFavourite(component.id)
-    if (setFavourite) setFavourite(updated)
+    setStarred(false)                   // update local icon immediately
+    if (setFavourite) setFavourite(updated)  // update parent state if available
     showSnackbar('Removed from favourites')
     setAnchorEl(null)
   }
 
-  // One-click star toggle on thumbnail — bypasses the info popover.
-  // Works for ALL users — no token check required.
+  // One-click star toggle — works for ALL users, no auth check needed.
   const handleStarToggle = (e) => {
     e.stopPropagation()
-    if (isStarred()) {
+    if (starred) {
       handleRemoveFavourite()
     } else {
       handleAddFavourite()
@@ -132,18 +137,18 @@ export default function SideComp ({ favourite, setFavourite, component }) {
           </Tooltip>
 
           {/* Star icon overlay — shown for ALL users, no auth required */}
-          <Tooltip title={isStarred() ? 'Remove from favourites' : 'Add to favourites'} arrow>
+          <Tooltip title={starred ? 'Remove from favourites' : 'Add to favourites'} arrow>
             <IconButton
               className={classes.starBtn}
               size="small"
               onClick={handleStarToggle}
               aria-label={
-                isStarred()
+                starred
                   ? `Remove ${component.name} from favourites`
                   : `Add ${component.name} to favourites`
               }
             >
-              {isStarred()
+              {starred
                 ? <StarIcon className={classes.starIconOn} />
                 : <StarBorderIcon className={classes.starIconOff} />}
             </IconButton>
@@ -192,7 +197,7 @@ export default function SideComp ({ favourite, setFavourite, component }) {
           }
 
           {/* Add / Remove from Favourites buttons — no auth required */}
-          {!isStarred() &&
+          {!starred &&
             <ListItemText>
               <Button onClick={handleAddFavourite}>
                 Add to Favourites
@@ -200,7 +205,7 @@ export default function SideComp ({ favourite, setFavourite, component }) {
             </ListItemText>
           }
 
-          {isStarred() &&
+          {starred &&
             <ListItemText>
               <Button onClick={handleRemoveFavourite}>
                 Remove from Favourites

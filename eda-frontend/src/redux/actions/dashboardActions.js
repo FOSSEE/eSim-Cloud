@@ -15,7 +15,7 @@ export const fetchSchematics = () => (dispatch, getState) => {
     config.headers.Authorization = `Token ${token}`
   }
 
-  return api.get('save/list', config)
+  return api.get(`save/list?t=${new Date().getTime()}`, config)
     .then(
       (res) => {
         dispatch({
@@ -144,12 +144,15 @@ export const togglePinSave = (saveId, version, branch, pinned) => (dispatch, get
     config.headers.Authorization = `Token ${token}`
   }
 
-  return api.post(`save/${saveId}/${version}/${branch}`, { pinned: pinned }, config)
+  const encSaveId = encodeURIComponent(saveId)
+  const encVersion = encodeURIComponent(version)
+  const encBranch = encodeURIComponent(branch)
+  return api.post(`save/${encSaveId}/${encVersion}/${encBranch}`, { pinned: pinned }, config)
     .then(
       (res) => {
         if (res.status === 200) {
           console.log('[togglePinSave] success, pinned =', pinned)
-          dispatch(fetchSchematics())
+          return dispatch(fetchSchematics())
         }
       }
     )

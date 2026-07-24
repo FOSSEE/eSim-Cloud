@@ -57,6 +57,18 @@ export function getSimulationHistory () {
 export function saveSimulationRun (runData) {
   try {
     const existing = getSimulationHistory()
+    
+    // Prevent duplicate saves if multiple async chains trigger this within a short time.
+    // If the newest entry has the exact same simulationType and netlist, and was created within the last 2 seconds, ignore the new one.
+    if (existing.length > 0) {
+      const newest = existing[0]
+      const timeDiffMs = Math.abs(Date.now() - parseInt(newest.id))
+      if (timeDiffMs < 2000 && newest.simulationType === (runData.simulationType || 'Unknown') && newest.netlist === (runData.netlist || '')) {
+        console.warn('[simulationHistory] Ignoring duplicate simulation run save.')
+        return
+      }
+    }
+
     const entry = {
       id: Date.now().toString(),
       timestamp: runData.timestamp || new Date().toISOString(),

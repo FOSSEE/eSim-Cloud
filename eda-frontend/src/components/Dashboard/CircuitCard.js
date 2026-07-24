@@ -172,7 +172,11 @@ export default function CircuitCard ({ sch, onRefresh }) {
       <div className={classes.mediaWrapper}>
         <CardMedia
           className={classes.media}
-          image={(sch.base64_image && !sch.base64_image.endsWith('.None')) ? sch.base64_image : undefined}
+          image={(() => {
+            const raw = sch.base64_image
+            if (!raw || raw.endsWith('.None') || raw.endsWith('/None')) return undefined
+            return raw
+          })()}
           title={sch.name || 'Circuit'}
         />
         {isPinned && (

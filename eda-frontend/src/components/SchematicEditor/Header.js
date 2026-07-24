@@ -234,9 +234,21 @@ function Header ({ gridRef }) {
     }
   }, [history.location.search, dispatch])
 
-  const handleShareChange = (event) => {
-    setShared(event.target.checked)
-    dispatch(setSchShared(event.target.checked))
+  const handleShareChange = async (event) => {
+    const isShared = event.target.checked
+    setShared(isShared)
+
+    if (!schSave.details || !schSave.details.save_id) {
+      setMessage('Please save the circuit first before changing share settings.')
+      handleSnacClick()
+      setShared(!isShared) // revert
+      return
+    }
+
+    // Use the existing Redux action which correctly attaches auth token
+    await dispatch(setSchShared(isShared))
+    setMessage(isShared ? 'Circuit is now public! Share the link below.' : 'Circuit is now private.')
+    handleSnacClick()
   }
 
   const handleShare = () => {

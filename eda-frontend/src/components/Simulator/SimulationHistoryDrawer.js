@@ -32,6 +32,14 @@ import ErrorIcon from '@material-ui/icons/Error'
 import HistoryIcon from '@material-ui/icons/History'
 import { makeStyles } from '@material-ui/core/styles'
 import { getSimulationHistory, clearSimulationHistory } from '../../utils/simulationHistory'
+import EmptyState from '../Shared/EmptyState'
+import Checkbox from '@material-ui/core/Checkbox'
+import Tooltip from '@material-ui/core/Tooltip'
+import Snackbar from '@material-ui/core/Snackbar'
+import MuiAlert from '@material-ui/lab/Alert'
+import CompareArrowsIcon from '@material-ui/icons/CompareArrows'
+
+import SimulationCompareChart from './SimulationCompareChart'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const DRAWER_WIDTH = 380
@@ -154,11 +162,39 @@ export default function SimulationHistoryDrawer ({ open, onClose, onSelectResult
 
   /** Local copy of localStorage history — refreshed on every open. */
   const [history, setHistory] = useState([])
+  const [selectedForCompare, setSelectedForCompare] = useState([])
+  const [compareMode, setCompareMode] = useState(false)
+  const [compareRuns, setCompareRuns] = useState([])
+  const [snackbarOpen, setSnackbarOpen] = useState(false)
+
+  const handleCheckboxToggle = (e, entry) => {
+    e.stopPropagation() // Prevent row click
+    // Null guard: protect against corrupted localStorage entries in selectedForCompare
+    if (selectedForCompare.some(item => item && item.timestamp === entry.timestamp)) {
+      setSelectedForCompare(selectedForCompare.filter(item => item && item.timestamp !== entry.timestamp))
+    } else {
+      if (selectedForCompare.length < 2) {
+        setSelectedForCompare([...selectedForCompare, entry])
+      } else {
+        setSnackbarOpen(true)
+      }
+    }
+  }
+
+  const handleCompareClick = () => {
+    if (selectedForCompare.length === 2) {
+      setCompareRuns([...selectedForCompare])
+      setCompareMode(true)
+    }
+  }
 
   // Reload history from localStorage every time the drawer opens.
   useEffect(() => {
     if (open) {
       setHistory(getSimulationHistory())
+      setSelectedForCompare([])
+      setCompareMode(false)
+      setCompareRuns([])
     }
   }, [open])
 
@@ -166,6 +202,9 @@ export default function SimulationHistoryDrawer ({ open, onClose, onSelectResult
   const handleClearHistory = () => {
     clearSimulationHistory()
     setHistory([])
+    setSelectedForCompare([])
+    setCompareMode(false)
+    setCompareRuns([])
   }
 
   return (
@@ -199,69 +238,122 @@ export default function SimulationHistoryDrawer ({ open, onClose, onSelectResult
       <div className={classes.body}>
         {history.length === 0
           ? (
-            <div className={classes.emptyBox}>
-              <Typography variant="body2" color="textSecondary">
-                No simulation history yet. Run a simulation to see it here.
-              </Typography>
-            </div>
+            <EmptyState
+              icon={<HistoryIcon />}
+              title="No Simulation History"
+              description="Run a simulation to see it here."
+              minHeight="250px"
+            />
           )
           : (
             <List disablePadding>
-              {history.map((entry, idx) => (
-                <React.Fragment key={entry.id || idx}>
-                  <ListItem
-                    className={classes.listItem}
-                    button
-                    onClick={() => {
-                      if (typeof onSelectResult === 'function') {
-                        onSelectResult(entry)
-                      }
-                      onClose()
-                    }}
-                    aria-label={`Simulation run on ${formatDateTime(entry.timestamp)}`}
-                  >
-                    {/* Success / failure icon */}
-                    <ListItemIcon>
-                      {entry.success
-                        ? (
-                          <CheckCircleIcon
-                            className={classes.successIcon}
-                            titleAccess="Simulation succeeded"
-                          />
-                        )
-                        : (
-                          <ErrorIcon
-                            className={classes.failureIcon}
-                            titleAccess="Simulation failed"
+              {history.map((entry, idx) => {
+                const isGraphable = entry.result?.graph === 'true'
+                // Null guard on selectedForCompare entries against localStorage corruption
+                const isSelected = selectedForCompare.some(item => item && item.timestamp === entry.timestamp)
+                return (
+                  <React.Fragment key={entry.id || idx}>
+                    <ListItem
+                      className={classes.listItem}
+                      button
+                      onClick={() => {
+                        if (typeof onSelectResult === 'function') {
+                          onSelectResult(entry)
+                        }
+                        onClose()
+                      }}
+                      aria-label={`Simulation run on ${formatDateTime(entry.timestamp)}`}
+                    >
+                      <ListItemIcon style={{ minWidth: 40 }} onClick={(e) => e.stopPropagation()}>
+                        {!isGraphable ? (
+                          <Tooltip title="Compare is only available for graph results (Transient, AC analysis).">
+                            <span>
+                              <Checkbox
+                                disabled
+                                edge="start"
+                              />
+                            </span>
+                          </Tooltip>
+                        ) : (
+                          <Checkbox
+                            edge="start"
+                            checked={isSelected}
+                            onChange={(e) => handleCheckboxToggle(e, entry)}
                           />
                         )}
-                    </ListItemIcon>
+                      </ListItemIcon>
+                      {/* Success / failure icon */}
+                      <ListItemIcon style={{ minWidth: 40 }}>
+                        {entry.success
+                          ? (
+                            <CheckCircleIcon
+                              className={classes.successIcon}
+                              titleAccess="Simulation succeeded"
+                            />
+                          )
+                          : (
+                            <ErrorIcon
+                              className={classes.failureIcon}
+                              titleAccess="Simulation failed"
+                            />
+                          )}
+                      </ListItemIcon>
 
-                    {/* Date + simulation type */}
-                    <ListItemText
-                      primary={
-                        <Typography variant="body2">
-                          {formatDateTime(entry.timestamp)}
-                        </Typography>
-                      }
-                      secondary={
-                        <Typography variant="caption" className={classes.simType}>
-                          {formatSimType(entry.simulationType)}
-                          {!entry.success ? ' — failed' : ''}
-                        </Typography>
-                      }
-                    />
-                  </ListItem>
-                  {idx < history.length - 1 && <Divider component="li" />}
-                </React.Fragment>
-              ))}
+                      {/* Date + simulation type */}
+                      <ListItemText
+                        primary={
+                          <Typography variant="body2">
+                            {formatDateTime(entry.timestamp)}
+                          </Typography>
+                        }
+                        secondary={
+                          <Typography variant="caption" className={classes.simType}>
+                            {formatSimType(entry.simulationType)}
+                            {!entry.success ? ' — failed' : ''}
+                          </Typography>
+                        }
+                      />
+                    </ListItem>
+                    {idx < history.length - 1 && <Divider component="li" />}
+                  </React.Fragment>
+                )
+              })}
             </List>
-          )}
+          )
+        }
       </div>
 
+      <SimulationCompareChart
+        open={compareMode}
+        onClose={() => {
+          setCompareMode(false)
+          setCompareRuns([])
+          setSelectedForCompare([])
+        }}
+        run1={compareRuns[0]}
+        run2={compareRuns[1]}
+      />
+
       {/* ── Footer — Clear History ─────────────────────────────────────── */}
-      {history.length > 0 && (
+      {!compareMode && history.length > 0 && (
         <div className={classes.footer}>
+          <div style={{ marginBottom: 12, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <Button
+              variant="contained"
+              color="primary"
+              size="small"
+              fullWidth
+              startIcon={<CompareArrowsIcon />}
+              disabled={selectedForCompare.length !== 2}
+              onClick={handleCompareClick}
+            >
+              Compare Selected Runs
+            </Button>
+            <Typography variant="caption" color="textSecondary" style={{ marginTop: 4 }}>
+              {selectedForCompare.length === 0 && 'Select 2 runs to compare'}
+              {selectedForCompare.length === 1 && 'Select 1 more run to compare'}
+            </Typography>
+          </div>
           <Button
             id="sim-history-clear-btn"
             variant="outlined"
@@ -274,6 +366,17 @@ export default function SimulationHistoryDrawer ({ open, onClose, onSelectResult
           </Button>
         </div>
       )}
+
+      <Snackbar
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        open={snackbarOpen}
+        autoHideDuration={4000}
+        onClose={() => setSnackbarOpen(false)}
+      >
+        <MuiAlert onClose={() => setSnackbarOpen(false)} severity="warning" elevation={6} variant="filled">
+          Select a maximum of 2 runs to compare. Deselect one first.
+        </MuiAlert>
+      </Snackbar>
     </Drawer>
   )
 }

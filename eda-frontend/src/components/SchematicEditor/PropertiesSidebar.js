@@ -210,7 +210,9 @@ export default function PropertiesSidebar ({ gridRef, outlineRef }) {
   }
 
   async function exportImage (type) {
-    const svg = document.querySelector('#divGrid > svg').cloneNode(true)
+    const rawSvg = document.querySelector('#divGrid svg')
+    if (!rawSvg || !gridRef || !gridRef.current) return null
+    const svg = rawSvg.cloneNode(true)
     svg.removeAttribute('style')
     svg.setAttribute('width', gridRef.current.scrollWidth)
     svg.setAttribute('height', gridRef.current.scrollHeight)

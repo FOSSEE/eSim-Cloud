@@ -24,7 +24,7 @@ SECRET_KEY = os.environ.get(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = bool(os.environ.get("DJANGO_DEBUG", default=True) == 'True')
 
-ALLOWED_HOSTS = ['0.0.0.0', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['0.0.0.0', 'localhost', '127.0.0.1', 'django']
 
 # Application definition
 
@@ -88,6 +88,17 @@ TEMPLATES = [
 WSGI_APPLICATION = 'esimCloud.wsgi.application'
 
 AUTH_USER_MODEL = 'authAPI.User'
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': os.environ.get('THROTTLE_REDIS_URL', 'redis://redis:6379/1'),
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        }
+    }
+}
+
 # Database config Defaults to sqlite3 if not provided in environment files
 
 DATABASES = {
@@ -151,11 +162,16 @@ GOOGLE_OAUTH_REDIRECT_URI = os.environ.get(
 POST_ACTIVATE_REDIRECT_URL = os.environ.get(
     "POST_ACTIVATE_REDIRECT_URL", "http://localhost/")
 
-# AI Assistant API Key
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+
+# Ollama LLM settings (local model, no API key required)
+OLLAMA_BASE_URL = os.environ.get(
+    'OLLAMA_BASE_URL', 'http://host.docker.internal:11434')
+OLLAMA_MODEL = os.environ.get('OLLAMA_MODEL', 'llama3')
 
 DJOSER = {
-    'SEND_ACTIVATION_EMAIL': True,
+    'SEND_ACTIVATION_EMAIL': False,
     'PASSWORD_RESET_CONFIRM_URL': 'eda/#/password/reset/confirm/{uid}/{token}',
     'PASSWORD_RESET_CONFIRM_RETYPE': True,
     'SET_PASSWORD_RETYPE': True,
@@ -175,6 +191,16 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework.authentication.TokenAuthentication',
     ),
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': os.environ.get('ANON_THROTTLE_RATE', '30/hour'),
+        'user': os.environ.get('USER_THROTTLE_RATE', '200/hour'),
+        'chat_burst': os.environ.get('CHAT_THROTTLE_RATE', '10/minute'),
+    },
+    'EXCEPTION_HANDLER': 'chatbotAPI.exception_handlers.custom_throttle_exception_handler',
 }
 
 AUTHENTICATION_BACKENDS = (

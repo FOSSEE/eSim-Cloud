@@ -81,14 +81,22 @@ const useStyles = makeStyles((theme) => ({
  * to the three props below.
  *
  * @param {object}   props
- * @param {string}   props.summary   — Short sentence describing what went wrong.
- * @param {string[]} props.hints     — Ordered list of actionable fix suggestions.
- * @param {string[]} props.codes     — Raw error codes / keywords from the parser.
- * @param {Function} [props.onAskAI] — Called when the user clicks "Ask AI About
- *                                     This Error".  If omitted the button is hidden.
+ * @param {object}   props.errorDetails  — Simulation result object from the backend
+ * @param {Function} [props.onAskAI]     — Called when the user clicks "Ask AI About
+ *                                         This Error".  If omitted the button is hidden.
  */
-export default function ErrorExplainerCard ({ summary, hints, codes, onAskAI }) {
+export default function ErrorExplainerCard ({ errorDetails, onAskAI }) {
   const classes = useStyles()
+
+  // Gracefully extract error help and raw string
+  const errorHelp = errorDetails && errorDetails.error_help
+  const summary = errorHelp ? errorHelp.summary : "Simulation failed"
+  const hints = errorHelp ? errorHelp.hints : []
+  
+  // Use raw stderr for technical details if available
+  const rawStderr = errorDetails && errorDetails.fail 
+    ? errorDetails.fail.replace(/^b'|'$/g, '') 
+    : "No technical details available."
 
   return (
     <Card className={classes.card} variant="outlined">
@@ -122,22 +130,12 @@ export default function ErrorExplainerCard ({ summary, hints, codes, onAskAI }) 
             </Typography>
           </ExpansionPanelSummary>
           <ExpansionPanelDetails className={classes.accordionDetails}>
-            {codes && codes.length > 0
-              ? codes.map((code, idx) => (
-                <Typography
-                  key={idx}
-                  variant="body2"
-                  className={classes.codeText}
-                  style={{ fontFamily: 'monospace' }}
-                >
-                  {code}
-                </Typography>
-              ))
-              : (
-                <Typography variant="body2" color="textSecondary">
-                  No additional error codes available.
-                </Typography>
-              )}
+            <Typography
+              variant="body2"
+              className={classes.codeText}
+            >
+              {rawStderr}
+            </Typography>
           </ExpansionPanelDetails>
         </ExpansionPanel>
 
@@ -161,12 +159,8 @@ export default function ErrorExplainerCard ({ summary, hints, codes, onAskAI }) 
 }
 
 ErrorExplainerCard.propTypes = {
-  /** Short sentence describing what went wrong. */
-  summary: PropTypes.string.isRequired,
-  /** Ordered list of actionable fix suggestions. */
-  hints: PropTypes.arrayOf(PropTypes.string),
-  /** Raw error codes / keywords from the backend parser. */
-  codes: PropTypes.arrayOf(PropTypes.string),
+  /** Simulation result object */
+  errorDetails: PropTypes.object,
   /**
    * Optional callback fired when the user clicks "Ask AI About This Error".
    * When omitted the button is not rendered at all.
@@ -175,6 +169,6 @@ ErrorExplainerCard.propTypes = {
 }
 
 ErrorExplainerCard.defaultProps = {
-  hints: [],
-  codes: []
+  errorDetails: null
 }
+

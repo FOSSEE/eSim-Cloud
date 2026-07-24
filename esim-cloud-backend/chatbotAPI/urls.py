@@ -2,12 +2,13 @@
 chatbotAPI/urls.py
 
 Registers:
-  POST  /api/chat/message/   →  ChatMessageView
+  GET  /api/chat/health/   →  HealthCheckView
+  POST /api/chat/message/  →  ChatMessageView
 """
 from django.urls import path
-from .views import ChatMessageView, ChatStatusView
+from .views import HealthCheckView, ChatMessageView
 
 urlpatterns = [
+    path('status/', HealthCheckView.as_view(), name='chat-health'),
     path('message/', ChatMessageView.as_view(), name='chat-message'),
-    path('status/', ChatStatusView.as_view(), name='chat-status'),
 ]

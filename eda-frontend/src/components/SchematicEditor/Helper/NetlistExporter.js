@@ -36,6 +36,25 @@ export function checkNetlistErc (graph) {
     }
   }
 
+  // Check for at least one independent voltage or current source
+  var hasSource = false
+  for (var prop in list) {
+    var c = list[prop]
+    if (c.Component === true && c.symbol) {
+      var sym = c.symbol.toLowerCase()
+      // Match V/I source prefixes and common source symbol names
+      if (sym.startsWith('v') || sym.startsWith('i_') ||
+          sym.indexOf('voltagesource') !== -1 || sym.indexOf('currentsource') !== -1 ||
+          sym.indexOf('vsource') !== -1 || sym.indexOf('isource') !== -1 ||
+          sym.indexOf('vdc') !== -1 || sym.indexOf('vac') !== -1 ||
+          sym.indexOf('vpulse') !== -1 || sym.indexOf('idc') !== -1 ||
+          sym.indexOf('iac') !== -1 || sym.indexOf('ipulse') !== -1) {
+        hasSource = true
+        break
+      }
+    }
+  }
+
   let errorMsg = null
   if (vertexCount === 0) {
     errorMsg = 'No Component added'
@@ -43,14 +62,17 @@ export function checkNetlistErc (graph) {
     errorMsg = 'Pins not connected'
   } else if (ground === 0) {
     errorMsg = 'Ground not connected'
+  } else if (!hasSource) {
+    errorMsg = 'No voltage or current source found. Add a source (e.g. VDC, VAC, IDC) to drive the circuit.'
   }
 
   return {
-    isValid: (vertexCount > 0 && PinNC === 0 && ground > 0 && errorCount === 0),
+    isValid: (vertexCount > 0 && PinNC === 0 && ground > 0 && hasSource && errorCount === 0),
     errorCount,
     vertexCount,
     pinNC: PinNC,
     ground,
+    hasSource,
     errorMsg
   }
 }

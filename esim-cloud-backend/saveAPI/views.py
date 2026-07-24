@@ -56,12 +56,14 @@ class StateSaveView(APIView):
                 branch=request.data.get("branch"),
                 version=request.data.get("version"))
             serializer = StateSaveSerializer(data=request.data)
+            logger.info("Base64 string starts with: %s", str(request.data.get("base64_image"))[:100])
             if serializer.is_valid():
                 img = Base64ImageField(max_length=None, use_url=True)
                 filename, content = img.update(request.data['base64_image'])
                 queryset.data_dump = request.data.get("data_dump")
                 queryset.save()
-                queryset.base64_image.save(filename, content)
+                if filename and content:
+                    queryset.base64_image.save(filename, content)
                 return Response(data=serializer.data,
                                 status=status.HTTP_200_OK)
             else:
@@ -85,8 +87,15 @@ class StateSaveView(APIView):
                 return Response(serializer.errors,
                                 status=status.HTTP_400_BAD_REQUEST)
             except StateSave.DoesNotExist:
+                logger.info("Base64 string starts with (CREATE): %s", str(request.data.get("base64_image"))[:100])
                 img = Base64ImageField(max_length=None, use_url=True)
                 filename, content = img.update(request.data['base64_image'])
+                # Check if any existing version of this save_id is pinned
+                is_currently_pinned = False
+                save_id_val = request.data.get('save_id')
+                if save_id_val and save_id_val not in ["null", "undefined", ""]:
+                    is_currently_pinned = StateSave.objects.filter(save_id=save_id_val, pinned=True).exists()
+
                 try:
                     project = Project.objects.get(
                         project_id=request.data.get('project_id', None))
@@ -100,6 +109,7 @@ class StateSaveView(APIView):
                         project=project,
                         shared=True,
                         is_arduino=True if esim_libraries is None else False,
+                        pinned=is_currently_pinned,
                     )
                 except:  # noqa
                     state_save = StateSave(
@@ -110,14 +120,24 @@ class StateSaveView(APIView):
                         branch=request.data.get('branch'),
                         version=request.data.get('version'),
                         is_arduino=True if esim_libraries is None else False,
+                        pinned=is_currently_pinned,
                     )
-                if request.data.get('save_id'):
-                    state_save.save_id = request.data.get('save_id')
-                state_save.base64_image.save(filename, content)
-                if esim_libraries:
-                    state_save.esim_libraries.set(esim_libraries)
+                    
+                if save_id_val and save_id_val not in ["null", "undefined", ""]:
+                    state_save.save_id = save_id_val
+                
+                # Must save before setting many-to-many fields
                 try:
                     state_save.save()
+                except Exception:
+                    return Response(status=status.HTTP_400_BAD_REQUEST)
+                    
+                if filename and content:
+                    state_save.base64_image.save(filename, content)
+                if esim_libraries:
+                    state_save.esim_libraries.set(esim_libraries)
+                    
+                try:
                     return Response(StateSaveSerializer(state_save).data)
                 except Exception:
                     return Response(status=status.HTTP_400_BAD_REQUEST)
@@ -163,13 +183,18 @@ class StateFetchUpdateView(APIView):
     methods = ['GET']
 
     @swagger_auto_schema(responses={200: StateSaveSerializer})
-    def get(self, request, save_id, version, branch):
+    def get(self, request, save_id, version=None, branch=None):
 
         if isinstance(save_id, uuid.UUID):
             # Check for permissions and sharing settings here
             try:
-                saved_state = StateSave.objects.get(
-                    save_id=save_id, version=version, branch=branch)
+                if version and branch and version != "undefined" and branch != "undefined" and version != "null" and branch != "null":
+                    saved_state = StateSave.objects.get(
+                        save_id=save_id, version=version, branch=branch)
+                else:
+                    saved_state = StateSave.objects.filter(save_id=save_id).order_by("-save_time").first()
+                    if not saved_state:
+                        raise StateSave.DoesNotExist
             except StateSave.DoesNotExist:
                 return Response({'error': 'Does not Exist'},
                                 status=status.HTTP_404_NOT_FOUND)
@@ -206,10 +231,10 @@ class StateFetchUpdateView(APIView):
         if isinstance(save_id, uuid.UUID):
             # Check for permissions and sharing settings here
             try:
-                if version and branch:
+                if version and branch and version != "undefined" and branch != "undefined" and version != "null" and branch != "null":
                     saved_state = StateSave.objects.get(save_id=save_id, version=version, branch=branch)
                 else:
-                    saved_state = StateSave.objects.filter(save_id=save_id).first()
+                    saved_state = StateSave.objects.filter(save_id=save_id).order_by("-save_time").first()
                     if not saved_state:
                         raise StateSave.DoesNotExist
             except StateSave.DoesNotExist:
@@ -224,7 +249,6 @@ class StateFetchUpdateView(APIView):
             if not any(k in request.data for k in ['data_dump', 'shared', 'name', 'description', 'pinned', 'base64_image', 'esim_libraries']):
                 return Response({'error': 'not a valid PUT request'},
                                 status=status.HTTP_406_NOT_ACCEPTABLE)
-
             try:
                 # if data dump, shared,name and description needs to be updated
                 if 'data_dump' in request.data:
@@ -235,22 +259,34 @@ class StateFetchUpdateView(APIView):
                     saved_state.name = request.data['name']
                 if 'description' in request.data:
                     saved_state.description = request.data['description']
-                if 'pinned' in request.data:
-                    saved_state.pinned = bool(request.data['pinned'])
+                
                 # if thumbnail needs to be updated
                 if 'base64_image' in request.data:
                     img = Base64ImageField(max_length=None, use_url=True)
                     filename, content = img.update(
                         request.data['base64_image'])
-                    saved_state.base64_image.save(filename, content)
+                    if filename and content:
+                        saved_state.base64_image.save(filename, content)
                 if 'esim_libraries' in request.data:
                     esim_libraries = json.loads(
                         request.data.get('esim_libraries'))
                     saved_state.esim_libraries.set(esim_libraries)
                 saved_state.save()
-                serialized = SaveListSerializer(saved_state)
+
+                if 'pinned' in request.data:
+                    pinned_val = request.data['pinned']
+                    if isinstance(pinned_val, str):
+                        is_pinned = pinned_val.lower() == 'true'
+                    else:
+                        is_pinned = bool(pinned_val)
+                    # Update all versions of this save_id so it stays pinned/unpinned consistently
+                    StateSave.objects.filter(save_id=save_id).update(pinned=is_pinned)
+                    saved_state.pinned = is_pinned
+
+                serialized = SaveListSerializer(saved_state, context={'request': request})
                 return Response(serialized.data)
-            except Exception:
+            except Exception as e:
+                logger.error("Error updating state: %s", str(e))
                 return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         else:
             return Response({'error': 'Invalid sharing state'},
@@ -341,25 +377,31 @@ class UserSavesView(APIView):
 
     @swagger_auto_schema(responses={200: StateSaveSerializer})
     def get(self, request):
-        # Step 1: deduplicate by save_id (PostgreSQL DISTINCT ON requires
-        # save_id to be the leading ORDER BY column for the distinct clause).
-        # Pick the most recent row per save_id first.
-        deduplicated_ids = StateSave.objects.filter(
-            owner=self.request.user, is_arduino=False).order_by(
-            "save_id", "-save_time").distinct("save_id").values_list(
-            'id', flat=True)
-        # Step 2: re-fetch those rows and apply the dashboard sort:
-        # pinned=True first, then most-recently-saved.
-        saved_state = StateSave.objects.filter(
-            id__in=deduplicated_ids).order_by("-pinned", "-save_time")
-        # Uncomment this if submissions are not required at the dashboard
-        # submissions = Submission.objects.filter(student=self.request.user)
-        # for submission in submissions:
-        #     saved_state = saved_state.exclude(save_id=submission.schematic.save_id)  # noqa
+        # Fetch all saves for this user (non-arduino), ordered by save_time desc.
+        # We deduplicate by save_id in Python so this works on both SQLite and
+        # PostgreSQL. (The original .distinct("save_id") is PostgreSQL-only and
+        # throws NotImplementedError on SQLite, causing a 500 response.)
+        all_saves = StateSave.objects.filter(
+            owner=self.request.user, is_arduino=False
+        ).order_by('-save_time')
+
+        # Keep only the most-recent row per save_id (dict preserves insertion order)
+        seen = {}
+        for obj in all_saves:
+            key = str(obj.save_id)
+            if key not in seen:
+                seen[key] = obj
+
+        # Sort: pinned first, then most-recently saved
+        deduped = sorted(seen.values(), key=lambda o: (not o.pinned, -o.save_time.timestamp()))
+
         try:
-            serialized = StateSaveSerializer(saved_state, many=True)
+            serialized = SaveListSerializer(deduped, many=True, context={'request': request})
             return Response(serialized.data)
-        except Exception:
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error("UserSavesView error: %s", str(e))
             return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -511,7 +553,7 @@ class GalleryView(APIView):
         else:
             galleryset = Gallery.objects.filter(is_arduino=False)
         try:
-            serialized = GallerySerializer(galleryset, many=True)
+            serialized = GallerySerializer(galleryset, many=True, context={'request': request})
             return Response(serialized.data)
         except Exception:
             return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)

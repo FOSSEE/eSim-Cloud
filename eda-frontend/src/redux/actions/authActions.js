@@ -181,8 +181,8 @@ export const login = (username, password, toUrl) => {
       })
       .catch((err) => {
         var res = err.response
-        if (res.status === 400 || res.status === 403 || res.status === 401) {
-          dispatch(loginError(res.data.non_field_errors[0]))
+        if (res && (res.status === 400 || res.status === 403 || res.status === 401)) {
+          dispatch(loginError(res.data.non_field_errors ? res.data.non_field_errors[0] : 'Login failed. Please check your credentials.'))
         } else {
           dispatch(loginError('Something went wrong! Login Failed'))
         }
@@ -333,10 +333,10 @@ export const googleLogin = (host, toUrl) => {
       .then((res) => { console.log(res) })
       .catch((err) => {
         var res = err.response
-        if (res.status === 400 || res.status === 403 || res.status === 401) {
-          dispatch(loginError('Incorrect Username or Password.'))
+        if (res && (res.status === 400 || res.status === 403 || res.status === 401)) {
+          dispatch(loginError('Google sign-in failed. Please check that Google OAuth is configured and try again.'))
         } else {
-          dispatch(loginError('Something went wrong! Login Failed'))
+          dispatch(loginError('Google sign-in failed. Please try again.'))
         }
       })
   }

@@ -78,7 +78,11 @@ function SchematicCard ({ sch }) {
           <CardActionArea>
             <CardMedia
               className={classes.media}
-              image={sch.media}
+              image={(() => {
+                const raw = sch.media
+                if (!raw || raw.endsWith('.None') || raw.endsWith('/None')) return undefined
+                return raw
+              })()}
               title={sch.name}
             />
             <CardContent>

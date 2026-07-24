@@ -13,6 +13,7 @@ import {
   Typography
 } from '@material-ui/core'
 import Loader from 'react-loader-spinner'
+import EmptyState from '../Shared/EmptyState'
 import SearchIcon from '@material-ui/icons/Search'
 import StarIcon from '@material-ui/icons/Star'
 import { makeStyles } from '@material-ui/core/styles'
@@ -333,6 +334,7 @@ const UI_CATEGORIES = [
 ]
 
 const searchOptions = {
+  ALL: 'search',
   NAME: 'name__icontains',
   KEYWORD: 'keyword__icontains',
   DESCRIPTION: 'description__icontains',
@@ -707,7 +709,7 @@ export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResu
                         {searchText.length !== 0 && searchedComponentList.length !== 0 &&
                           searchedComponentList.map((component, i) => {
                             return (<ListItemIcon key={i} style={{ width: '33%', display: 'inline-flex', padding: '4px', boxSizing: 'border-box' }}>
-                              <SideComp component={component} />
+                              <SideComp component={component} setFavourite={setFavourites} favourite={favourites} />
                             </ListItemIcon>)
                           })
                         }
@@ -721,9 +723,14 @@ export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResu
                           />
                         </ListItem>
                         {!loading && searchText.length !== 0 && isSearchedResultsEmpty && (
-                          <div style={{ padding: '16px', color: '#888', fontStyle: 'italic', width: '100%', textAlign: 'center' }}>
-                            <Typography variant="body2">No Components Found</Typography>
-                          </div>
+                          <EmptyState
+                            icon={<SearchIcon fontSize="inherit" />}
+                            title="No Components Found"
+                            description={`We couldn't find anything matching "${searchText}".`}
+                            actionLabel="Clear Search"
+                            onAction={() => handleSearchChange('', 'NAME')}
+                            compact={true}
+                          />
                         )}
                         {searchText.length === 0 && (
                           <div style={{ padding: '16px', color: '#888', fontStyle: 'italic', width: '100%', textAlign: 'center' }}>

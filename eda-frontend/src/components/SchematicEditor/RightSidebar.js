@@ -2,6 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { Drawer, Hidden, IconButton } from '@material-ui/core'
 import HighlightOffIcon from '@material-ui/icons/HighlightOff'
+import ResizerHandle from '../Shared/ResizerHandle'
 import { makeStyles } from '@material-ui/core/styles'
 
 const drawerWidth = 250
@@ -9,12 +10,10 @@ const drawerWidth = 250
 const useStyles = makeStyles((theme) => ({
   drawer: {
     [theme.breakpoints.up('lg')]: {
-      width: drawerWidth,
       flexShrink: 0
     }
   },
   drawerPaper: {
-    width: drawerWidth,
     height: '100vh',
     overflowY: 'auto'
   }
@@ -23,13 +22,45 @@ const useStyles = makeStyles((theme) => ({
 // Editor right side pane to display grid and component properties.
 export default function RightSidebar ({ window, mobileOpen, mobileClose, children }) {
   const classes = useStyles()
+  const [width, setWidth] = React.useState(drawerWidth)
+  const isResizing = React.useRef(false)
+
+  const handleMouseDown = (e) => {
+    e.preventDefault()
+    isResizing.current = true
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }
+
+  const handleMouseMove = React.useCallback((e) => {
+    if (!isResizing.current) return
+    // Calculate new width: window.innerWidth - mouse X position
+    let newWidth = document.body.clientWidth - e.clientX
+    if (newWidth < 150) newWidth = 150
+    if (newWidth > 600) newWidth = 600
+    setWidth(newWidth)
+  }, [])
+
+  const handleMouseUp = React.useCallback(() => {
+    isResizing.current = false
+    document.removeEventListener('mousemove', handleMouseMove)
+    document.removeEventListener('mouseup', handleMouseUp)
+  }, [handleMouseMove])
+
+  // Cleanup on unmount
+  React.useEffect(() => {
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [handleMouseMove, handleMouseUp])
 
   const container =
     window !== undefined ? () => window().document.body : undefined
 
   return (
     <>
-      <nav className={classes.drawer} aria-label="mailbox folders">
+      <nav className={classes.drawer} style={{ width: width }} aria-label="mailbox folders">
         <Hidden xlUp implementation="css">
           <Drawer
             container={container}
@@ -40,6 +71,7 @@ export default function RightSidebar ({ window, mobileOpen, mobileClose, childre
             classes={{
               paper: classes.drawerPaper
             }}
+            PaperProps={{ style: { width: width } }}
             ModalProps={{
               keepMounted: true // Better open performance on mobile.
             }}
@@ -60,10 +92,12 @@ export default function RightSidebar ({ window, mobileOpen, mobileClose, childre
             classes={{
               paper: classes.drawerPaper
             }}
+            PaperProps={{ style: { width: width } }}
             anchor="right"
             variant="permanent"
             open
           >
+            <ResizerHandle onMouseDown={handleMouseDown} position="left" />
             {children}
           </Drawer>
         </Hidden>

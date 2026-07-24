@@ -15,6 +15,14 @@ import { SideBar, magneticSnap } from './SideBar.js'
 import KiCadFileUtils from './KiCadFileUtils'
 
 var graph
+export function getEditorGraph() { return graph; }
+// Module-level timer for graph change debounce. Not cleaned up on
+// component unmount since mxGraph is also page-lifetime in this app.
+let graphChangeTimer = null;
+// Guard: prevents 'esim-graph-changed' events from firing during graph
+// initialization (beginUpdate/endUpdate on load). Set to true only after
+// the initial model update cycle completes.
+let graphInitialized = false;
 
 const {
   mxGraph,
@@ -306,6 +314,13 @@ export default function LoadGrid(container, sidebar, outline, minimap) {
       // Update minimap whenever the main graph's model changes
       graph.getModel().addListener('change', function () {
         setTimeout(fitMinimap, 50) // Small delay to let the model settle
+        // Only dispatch esim-graph-changed for genuine user edits,
+        // not during initial XML load (graphInitialized guard).
+        if (!graphInitialized) return
+        clearTimeout(graphChangeTimer)
+        graphChangeTimer = setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('esim-graph-changed'))
+        }, 300)
       })
 
       // Also fit on initial load
@@ -563,6 +578,10 @@ export default function LoadGrid(container, sidebar, outline, minimap) {
       // Updates the display
       graph.getModel().endUpdate()
     }
+
+    // Graph initialization is complete — user-driven changes from here on
+    // will fire 'esim-graph-changed' events (see model change listener above).
+    graphInitialized = true
 
     // Shows XML for debugging the actual modelSS
 

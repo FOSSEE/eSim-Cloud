@@ -24,14 +24,13 @@ import HistoryIcon from '@material-ui/icons/History'
 import MuiAlert from '@material-ui/lab/Alert'
 import { makeStyles } from '@material-ui/core/styles'
 import { useSelector, useDispatch } from 'react-redux'
-import { setControlLine, setControlBlock, setResultTitle, setResultGraph, setResultText, setNetlist, toggleSimulate } from '../../redux/actions/index'
+import { setControlLine, setControlBlock, setResultTitle, setResultGraph, setResultText, setNetlist, toggleSimulate, setLastSimulationError } from '../../redux/actions/index'
 import { GenerateNetList, GenerateNodeList, GenerateCompList, ErcCheckNets, Save, renderGalleryXML } from './Helper/ToolbarTools'
 import SimulationScreen from '../Shared/SimulationScreen'
 import { Multiselect } from 'multiselect-react-dropdown'
 import Notice from '../Shared/Notice'
 import ErrorExplainerCard from '../Simulator/ErrorExplainerCard'
 import SimulationHistoryDrawer from '../Simulator/SimulationHistoryDrawer'
-import ChatPanel from '../AIAssistant/ChatPanel'
 import api from '../../utils/Api'
 import { saveSimulationRun } from '../../utils/simulationHistory'
 
@@ -99,22 +98,22 @@ export default function SimulationProperties (props) {
   const [err, setErr] = useState(false)
   const [error, setError] = useState(false)
   const [warning, setWarning] = useState(false)
+  const [historyWarning, setHistoryWarning] = React.useState(false)
   const [needParameters, setNeedParameters] = useState(false)
   const [status, setStatus] = useState('')
   const stats = { loading: 'loading', error: 'error', success: 'success' }
-  // errorHelp holds the structured error_help object from the backend parser,
-  // or null when no structured help is available (backward-compatibility).
-  const [errorHelp, setErrorHelp] = useState(null)
+  // errorDetails holds the full result object for failed simulations
+  const [errorDetails, setErrorDetails] = useState(null)
 
   // Auto-run state to prevent infinite loops when entering the simulator via the "Send to Simulator" button
   const [autoRunFired, setAutoRunFired] = useState(false)
 
   // ── History drawer state ─────────────────────────────────────────────────
   const [historyOpen, setHistoryOpen] = useState(false)
-  // historyErrorHelp holds the error_help from a SELECTED HISTORICAL result.
-  // This is separate from errorHelp (live simulation) so that Task 4 can
+  // historyErrorDetails holds the result object from a SELECTED HISTORICAL result.
+  // This is separate from errorDetails (live simulation) so that Task 4 can
   // reuse ErrorExplainerCard without duplicating its logic.
-  const [historyErrorHelp, setHistoryErrorHelp] = useState(null)
+  const [historyErrorDetails, setHistoryErrorDetails] = useState(null)
   // historySuccessMsg is shown in the result area when a green (success)
   // history entry is clicked but waveform data is not stored in history.
   const [historySuccessMsg, setHistorySuccessMsg] = useState(null)
@@ -504,84 +503,52 @@ export default function SimulationProperties (props) {
 
   // Get the simulation result with task_Id
   function simulationResult (url) {
-    let isError = false
     let msg
-    let resPending = true // to stop immature opening of simulation screen
     api
       .get(url)
       .then((res) => {
         if (res.data.state === 'PROGRESS' || res.data.state === 'PENDING') {
           handleStatus(stats.loading)
-          setTimeout(simulationResult(url), 1000)
+          setTimeout(() => simulationResult(url), 1000)
+          return { type: 'PROGRESS' }
         } else if (Object.prototype.hasOwnProperty.call(res.data.details, 'fail')) {
-          resPending = false
-          setIsResult(false)
           console.log('failed notif')
           console.log(res.data.details)
           msg = res.data.details.fail.replace("b'", '')
-          isError = true
-          // Populate structured error help when the backend parser has provided it.
-          // Path: res.data.details.error_help (set by ngspice_helper.py via error_parser.py)
-          if (res.data?.details?.error_help) {
-            setErrorHelp(res.data.details.error_help)
-          } else {
-            setErrorHelp(null)
-          }
-          // Bug 3 Part A: capture canvas XML at the moment of simulation failure.
-          let canvasXmlOnFail = null
-          try { canvasXmlOnFail = Save() } catch (e) { console.warn('[History] Could not capture canvas XML:', e) }
-          // Task 2: save failed run to localStorage history (no auth required).
-          saveSimulationRun({
-            timestamp: new Date().toISOString(),
-            success: false,
-            simulationType: typeSimulation,
-            result: res.data?.details,
-            errorHelp: res.data?.details?.error_help || null,
-            netlist: netfile.netlist || '',
-            canvasXml: canvasXmlOnFail
-          })
+
+          // eslint-disable-next-line camelcase
+          const errorHelp = res.data?.details?.error_help
+          dispatch(setLastSimulationError(errorHelp?.summary || 'Simulation failed'))
+          setErrorDetails(res.data.details)
+
+          return { type: 'FAIL', details: res.data.details, errorHelp: errorHelp }
         } else {
           const result = res.data.details
-          resPending = false
           if (result === null) {
-            setIsResult(false)
+            console.log('[DEBUG] result is null in first .then!')
+            return { type: 'NULL_RESULT' }
           } else {
+            console.log('[DEBUG] Setting successResultData =', res.data.details)
             const temp = res.data.details.data
             const data = result.data
-            // console.log('DATA SIm', data)
+
             if (res.data.details.graph === 'true') {
               const simResultGraph = { labels: [], x_points: [], y_points: [] }
-              // populate the labels
               for (let i = 0; i < data.length; i++) {
                 simResultGraph.labels[0] = data[i].labels[0]
                 const lab = data[i].labels
-                // lab is an array containeing labels names ['time','abc','def']
                 simResultGraph.x_points = data[0].x
-
-                // labels
                 for (let x = 1; x < lab.length; x++) {
-                  //   if (lab[x].includes('#branch')) {
-                  //     lab[x] = `I (${lab[x].replace('#branch', '')})`
-                  //   }
-                  //  uncomment below if you want label like V(r1.1) but it will break the graph showing time as well
-                  //  else {
-                  // lab[x] = `V (${lab[x]})`
-
-                  // }
                   simResultGraph.labels.push(lab[x])
                 }
-                // populate y_points
                 for (let z = 0; z < data[i].y.length; z++) {
                   simResultGraph.y_points.push(data[i].y[z])
                 }
               }
-
               simResultGraph.x_points = simResultGraph.x_points.map(d => parseFloat(d))
-
               for (let i1 = 0; i1 < simResultGraph.y_points.length; i1++) {
                 simResultGraph.y_points[i1] = simResultGraph.y_points[i1].map(d => parseFloat(d))
               }
-
               dispatch(setResultGraph(simResultGraph))
             } else {
               const simResultText = []
@@ -597,43 +564,60 @@ export default function SimulationProperties (props) {
                   temp[i][0] = `V(${temp[i][0]})`
                   postfixUnit = 'V'
                 }
-
                 simResultText.push(temp[i][0] + ' ' + temp[i][1] + ' ' + parseFloat(temp[i][2]) + ' ' + postfixUnit + '\n')
               }
-
               handleSimulationResult(res.data.details)
               dispatch(setResultText(simResultText))
             }
-            setIsResult(true)
-            props.setLtiSimResult(true)
+            return { type: 'SUCCESS', details: res.data.details }
           }
         }
       })
-      .then((res) => {
-        if (isError === false && resPending === false) {
+      .then((chainData) => {
+        if (!chainData) return
+
+        if (chainData.type === 'SUCCESS') {
           console.log('no error')
           handleStatus(stats.success)
           handlesimulateOpen()
-          // Clear any previous error help on success.
-          setErrorHelp(null)
-          // Bug 3 Part A: capture canvas XML at the moment of successful simulation.
+          setErrorDetails(null)
+
           let canvasXmlOnSuccess = null
           try { canvasXmlOnSuccess = Save() } catch (e) { console.warn('[History] Could not capture canvas XML:', e) }
-          // Task 2: save successful run to localStorage history.
+
+          console.log('[DEBUG] Calling saveSimulationRun! successResultData =', chainData.details)
           saveSimulationRun({
             timestamp: new Date().toISOString(),
             success: true,
             simulationType: typeSimulation,
-            result: null,
+            result: chainData.details,
             errorHelp: null,
             netlist: netfile.netlist || '',
             canvasXml: canvasXmlOnSuccess
           })
-        } else if (resPending === false) {
+          setIsResult(true)
+          props.setLtiSimResult(true)
+        } else if (chainData.type === 'FAIL') {
+          setIsResult(false)
+          let canvasXmlOnFail = null
+          try { canvasXmlOnFail = Save() } catch (e) { console.warn('[History] Could not capture canvas XML:', e) }
+
+          saveSimulationRun({
+            timestamp: new Date().toISOString(),
+            success: false,
+            simulationType: typeSimulation,
+            result: chainData.details,
+            errorHelp: chainData.errorHelp || null,
+            netlist: netfile.netlist || '',
+            canvasXml: canvasXmlOnFail
+          })
+
           handleStatus(stats.error)
-          handleErrMsg(msg)
+          handleErrMsg('Simulation failed. See technical details above.')
+          handleErrOpen()
+        } else if (chainData.type === 'NULL_RESULT') {
+          setIsResult(false)
         }
-        handleErrOpen()
       })
       .catch(function (error) {
         console.log(error)
@@ -794,6 +778,7 @@ export default function SimulationProperties (props) {
         controlLine + '\n' +
         controlBlock + '\n'
 
+      setAutoRunFired(true)
       dispatch(setNetlist(netlist))
       prepareNetlist(netlist)
     }
@@ -829,20 +814,17 @@ export default function SimulationProperties (props) {
    */
   const handleSelectHistoryResult = (item) => {
     // Clear any live-simulation error / success state first.
-    setErrorHelp(null)
+    setErrorDetails(null)
     setHistorySuccessMsg(null)
 
     // ── Bug 2 fix: set appropriate result state ─────────────────────────────
-    if (item && item.errorHelp) {
-      // Failed run with structured error help → show ErrorExplainerCard
-      setHistoryErrorHelp(item.errorHelp)
-    } else if (item && !item.success) {
-      // Failed run without structured errorHelp — clear history card
-      setHistoryErrorHelp(null)
+    if (item && !item.success) {
+      // Failed run
+      setHistoryErrorDetails(item.result)
     } else {
       // Successful run — waveform data is not stored in history.
       // Show a clear message in the result area instead of a blank screen.
-      setHistoryErrorHelp(null)
+      setHistoryErrorDetails(null)
       setHistorySuccessMsg(
         'This simulation ran successfully. The full waveform output is not available in history — run the simulation again to see the graph.'
       )
@@ -855,6 +837,9 @@ export default function SimulationProperties (props) {
       } catch (e) {
         console.error('[History] Failed to restore canvas XML:', e)
       }
+    } else {
+      // If this is an older history run before canvasXml was captured, notify the user.
+      setHistoryWarning(true)
     }
   }
 
@@ -884,6 +869,15 @@ export default function SimulationProperties (props) {
           </Alert>
         </Snackbar>
         <Snackbar
+          open={historyWarning}
+          autoHideDuration={6000}
+          onClose={() => setHistoryWarning(false)}
+        >
+          <Alert onClose={() => setHistoryWarning(false)} severity="warning">
+            This history entry was saved before circuit capturing was enabled and cannot be loaded into the canvas.
+          </Alert>
+        </Snackbar>
+        <Snackbar
           open={error}
           autoHideDuration={6000}
           onClose={() => setError(false)}
@@ -894,20 +888,21 @@ export default function SimulationProperties (props) {
         </Snackbar>
         <Notice status={status} open={err} msg={errMsg} close={handleErrClose} />
         {/* ErrorExplainerCard for LIVE simulation errors (morning session, Task 4 source A). */}
-        {errorHelp && (
+        {errorDetails && (
           <ErrorExplainerCard
-            summary={errorHelp.summary}
-            hints={errorHelp.hints}
-            codes={errorHelp.codes}
+            errorDetails={errorDetails}
             onAskAI={() => {
+              const errorHelp = errorDetails.error_help
+              const summary = errorHelp ? errorHelp.summary : 'Simulation failed'
+              const hints = errorHelp && errorHelp.hints ? errorHelp.hints : []
               const message =
                 'I got this simulation error: ' +
-                errorHelp.summary +
-                (errorHelp.hints && errorHelp.hints.length > 0
-                  ? '. Hints: ' + errorHelp.hints.join(', ')
+                summary +
+                (hints && hints.length > 0
+                  ? '. Hints: ' + hints.join(', ')
                   : '')
               window.dispatchEvent(
-                new CustomEvent('esim-open-chat-with-prompt', { detail: { message } })
+                new CustomEvent('esim-open-chat-with-prompt', { detail: { message, includeContext: true } })
               )
             }}
           />
@@ -915,20 +910,21 @@ export default function SimulationProperties (props) {
         {/* ErrorExplainerCard for HISTORICAL simulation errors (Task 4 source B).
             Reuses the same component — no duplication. Only shown when the user
             has clicked a failed run inside SimulationHistoryDrawer. */}
-        {historyErrorHelp && (
+        {historyErrorDetails && (
           <ErrorExplainerCard
-            summary={historyErrorHelp.summary}
-            hints={historyErrorHelp.hints}
-            codes={historyErrorHelp.codes}
+            errorDetails={historyErrorDetails}
             onAskAI={() => {
+              const errorHelp = historyErrorDetails.error_help
+              const summary = errorHelp ? errorHelp.summary : 'Simulation failed'
+              const hints = errorHelp && errorHelp.hints ? errorHelp.hints : []
               const message =
                 'I got this simulation error: ' +
-                historyErrorHelp.summary +
-                (historyErrorHelp.hints && historyErrorHelp.hints.length > 0
-                  ? '. Hints: ' + historyErrorHelp.hints.join(', ')
+                summary +
+                (hints && hints.length > 0
+                  ? '. Hints: ' + hints.join(', ')
                   : '')
               window.dispatchEvent(
-                new CustomEvent('esim-open-chat-with-prompt', { detail: { message } })
+                new CustomEvent('esim-open-chat-with-prompt', { detail: { message, includeContext: true } })
               )
             }}
           />
@@ -946,11 +942,10 @@ export default function SimulationProperties (props) {
             History
           </Button>
         </div>
-        <SimulationHistoryDrawer
-          open={historyOpen}
-          onClose={() => setHistoryOpen(false)}
-          onSelectResult={handleSelectHistoryResult}
-        />
+        {/* SimulationHistoryDrawer is mounted once at the bottom of this component
+            (near line 1803) with full saveId/version/branch props.
+            Do NOT add a second instance here — it would cause each history entry
+            to appear twice in the drawer. */}
         {/* Bug 2 fix: show "success, waveform not available" message for green entries */}
         {historySuccessMsg && (
           <div style={{
@@ -970,7 +965,7 @@ export default function SimulationProperties (props) {
           {/* DC Solver */}
           <ListItem className={classes.simulationOptions} divider>
             <div className={classes.propertiesBox}>
-              <ExpansionPanel onClick={onTabExpand}>
+              <ExpansionPanel onClick={onTabExpand} style={{ width: '100%' }}>
                 <ExpansionPanelSummary
                   expandIcon={<ExpandMoreIcon />}
                   aria-controls="panel1a-content"
@@ -1030,12 +1025,12 @@ export default function SimulationProperties (props) {
 
           {/* DC Sweep */}
           <ListItem className={classes.simulationOptions} divider>
-            <ExpansionPanel onClick={onTabExpand}>
+            <ExpansionPanel onClick={onTabExpand} style={{ width: '100%' }}>
               <ExpansionPanelSummary
                 expandIcon={<ExpandMoreIcon />}
                 aria-controls="panel1a-content"
                 id="panel1a-header"
-                style={{ width: '97%' }}
+                style={{ width: '100%' }}
               >
                 <Typography className={classes.heading}>DC Sweep</Typography>
               </ExpansionPanelSummary>
@@ -1227,12 +1222,12 @@ export default function SimulationProperties (props) {
 
           {/* Transient Analysis */}
           <ListItem className={classes.simulationOptions} divider>
-            <ExpansionPanel onClick={onTabExpand}>
+            <ExpansionPanel onClick={onTabExpand} style={{ width: '100%' }}>
               <ExpansionPanelSummary
                 expandIcon={<ExpandMoreIcon />}
                 aria-controls="panel1a-content"
                 id="panel1a-header"
-                style={{ width: '97%' }}
+                style={{ width: '100%' }}
               >
                 <Typography className={classes.heading}>Transient Analysis</Typography>
               </ExpansionPanelSummary>
@@ -1358,7 +1353,7 @@ export default function SimulationProperties (props) {
 
           {/* AC Analysis */}
           <ListItem className={classes.simulationOptions} divider>
-            <ExpansionPanel onClick={onTabExpand}>
+            <ExpansionPanel onClick={onTabExpand} style={{ width: '100%' }}>
               <ExpansionPanelSummary
                 expandIcon={<ExpandMoreIcon />}
                 aria-controls="panel1a-content"
@@ -1470,12 +1465,12 @@ export default function SimulationProperties (props) {
 
           {/* Transfer Function Analysis */}
           <ListItem className={classes.simulationOptions} divider>
-            <ExpansionPanel onClick={onTabExpand}>
+            <ExpansionPanel onClick={onTabExpand} style={{ width: '100%' }}>
               <ExpansionPanelSummary
                 expandIcon={<ExpandMoreIcon />}
                 aria-controls="panel1a-content"
                 id="panel1a-header"
-                style={{ width: '97%' }}
+                style={{ width: '100%' }}
               >
                 <Typography className={classes.heading}>Transfer Function Analysis</Typography>
               </ExpansionPanelSummary>
@@ -1623,12 +1618,12 @@ export default function SimulationProperties (props) {
           </ListItem>
           {/* Noise Analysis */}
           <ListItem className={classes.simulationOptions} divider>
-            <ExpansionPanel onClick={onTabExpand}>
+            <ExpansionPanel onClick={onTabExpand} style={{ width: '100%' }}>
               <ExpansionPanelSummary
                 expandIcon={<ExpandMoreIcon />}
                 aria-controls="panel1a-content"
                 id="panel1a-header"
-                style={{ width: '97%' }}
+                style={{ width: '100%' }}
               >
                 <Typography className={classes.heading}>Noise Analysis</Typography>
               </ExpansionPanelSummary>
@@ -1813,12 +1808,6 @@ export default function SimulationProperties (props) {
           onSelectResult={handleSelectHistoryResult}
         />
 
-        {/* AI Chat Panel — embedded inline so it receives the esim-open-chat-with-prompt
-            event fired by the ErrorExplainerCard's "Ask AI About This Error" button.
-            Placed below all simulation controls for natural reading flow. */}
-        <div style={{ padding: '8px 4px 4px' }}>
-          <ChatPanel />
-        </div>
       </div>
     </>
   )

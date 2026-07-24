@@ -115,42 +115,6 @@ const useStyles = makeStyles((theme) => ({
   }
 }))
 
-// Notification snackbar to give alert messages
-function SimpleSnackbar ({ open, close, message }) {
-  return (
-    <div>
-      <Snackbar
-        anchorOrigin={{
-          vertical: 'bottom',
-          horizontal: 'left'
-        }}
-        open={open}
-        autoHideDuration={5000}
-        onClose={close}
-        message={message}
-        action={
-          <React.Fragment>
-            <IconButton
-              size="small"
-              aria-label="close"
-              color="inherit"
-              onClick={close}
-            >
-              <CloseIcon fontSize="small" />
-            </IconButton>
-          </React.Fragment>
-        }
-      />
-    </div>
-  )
-}
-
-SimpleSnackbar.propTypes = {
-  open: PropTypes.bool,
-  close: PropTypes.func,
-  message: PropTypes.string
-}
-
 export default function SchematicToolbar ({
   mobileClose,
   gridRef,
@@ -248,23 +212,43 @@ export default function SchematicToolbar ({
   const handleCopyLink = () => {
     try {
       navigator.clipboard.writeText(shareUrl)
-      setMessage('Link copied!')
-      setSnacOpen(true)
+      showSnack('Link copied to clipboard!', 'success')
     } catch (err) {
-      setMessage('Failed to copy link.')
-      setSnacOpen(true)
+      console.error(err)
+      showSnack('Failed to copy link.', 'error')
     }
   }
 
   const handleMakePublic = () => {
-    api.patch(`save/share/${currentSaveId}/${currentVersion}/${currentBranch}/`, { shared: true })
+    // Get token from Redux state or localStorage fallback
+    const token = auth.token || localStorage.getItem('esim_auth_token')
+    if (!token) {
+      showSnack('You must be logged in to share a circuit.', 'warning')
+      return
+    }
+    if (!currentSaveId) {
+      showSnack('Save your circuit first before sharing.', 'warning')
+      return
+    }
+    const config = {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Token ${token}`
+      }
+    }
+    api.patch(`save/share/${currentSaveId}/${currentVersion}/${currentBranch}/`, { shared: true }, config)
       .then(() => {
-        setMessage('Circuit is now public!')
-        setSnacOpen(true)
+        showSnack('Circuit is now public! Anyone with the link can view it.', 'success')
       })
       .catch((err) => {
-        setMessage('Login required to share circuits.')
-        setSnacOpen(true)
+        console.error('[handleMakePublic] Error:', err)
+        if (err.response && err.response.status === 403) {
+          showSnack('You do not own this circuit. Save a copy first, then share.', 'error')
+        } else if (err.response && err.response.status === 401) {
+          showSnack('Login required to share circuits.', 'warning')
+        } else {
+          showSnack('Failed to make circuit public. Please try again.', 'error')
+        }
       })
   }
 
@@ -453,6 +437,19 @@ export default function SchematicToolbar ({
     setHelpOpen(false)
   }
 
+  // handle ERC Check
+  // eslint-disable-next-line no-unused-vars
+  const handleErcCheck = () => {
+    const msg = ErcCheck()
+    if (msg) showSnack(msg, msg.includes('completed') ? 'success' : 'error')
+  }
+
+  // Handle Schematic Netlist Generate
+  // eslint-disable-next-line no-unused-vars
+  const handleGenerateNetList = () => {
+    GenerateNetList(showSnack)
+  }
+
   // handle Delete component
   const handleDeleteComp = () => {
     DeleteComp()
@@ -460,19 +457,8 @@ export default function SchematicToolbar ({
   }
 
   // handle Notification Snackbar
-  const [snacOpen, setSnacOpen] = React.useState(false)
-  const [message, setMessage] = React.useState('')
-
-  const handleSnacClick = () => {
-    setSnacOpen(true)
-  }
-
-  const handleSnacClose = (event, reason) => {
-    if (reason === 'clickaway') {
-      return
-    }
-    setSnacOpen(false)
-  }
+  const [snack, setSnack] = React.useState({ open: false, message: '', severity: 'success' })
+  const showSnack = (message, severity = 'success') => setSnack({ open: true, message, severity })
 
   const handleMenuOnClick = (e) => {
     window.location.href = `/eda/#/editor?id=${e}&consumer_key=${consumerKey}`
@@ -482,10 +468,10 @@ export default function SchematicToolbar ({
   // Image Export of Schematic Diagram
   async function exportImage (type) {
     // Fix A: null guard — if the mxGraph container SVG or gridRef is not ready, bail out gracefully
-    const rawSvg = document.querySelector('#divGrid > svg')
+    const rawSvg = document.querySelector('#divGrid svg')
     if (!rawSvg || !gridRef || !gridRef.current) {
       console.warn('[exportImage] Grid container or SVG not available — skipping thumbnail export.')
-      return null
+      throw new Error('SVG not ready')
     }
     const svg = rawSvg.cloneNode(true)
     svg.removeAttribute('style')
@@ -619,8 +605,7 @@ export default function SchematicToolbar ({
   // handle Save Schematic onCloud
   const handleSchSave = () => {
     if (auth.isAuthenticated !== true) {
-      setMessage('You are not Logged In')
-      handleSnacClick()
+      showSnack('You are not Logged In', 'warning')
     } else {
       const xml = Save()
       dispatch(setSchXmlData(xml))
@@ -634,8 +619,7 @@ export default function SchematicToolbar ({
           dispatch(
             saveSchematic(title, description, xml, res, false, null, handleSave)
           )
-          setMessage('Saved Successfully')
-          handleSnacClick()
+          showSnack('Circuit saved successfully.', 'success')
         })
         .catch((err) => {
           console.warn('[handleSchSave] Thumbnail export failed, saving without image:', err)
@@ -643,8 +627,7 @@ export default function SchematicToolbar ({
           dispatch(
             saveSchematic(title, description, xml, null, false, null, handleSave)
           )
-          setMessage('Saved (thumbnail skipped)')
-          handleSnacClick()
+          showSnack('Circuit saved successfully (thumbnail skipped).', 'success')
         })
     }
   }
@@ -652,8 +635,7 @@ export default function SchematicToolbar ({
   // Handle Save to Gallery
   const handleGalSave = () => {
     if (auth.isAuthenticated !== true) {
-      setMessage('You are not Logged In')
-      handleSnacClick()
+      showSnack('You are not Logged In', 'warning')
     } else {
       const xml = Save()
       dispatch(setSchXmlData(xml))
@@ -662,8 +644,7 @@ export default function SchematicToolbar ({
       exportImage('PNG').then((res) => {
         dispatch(saveToGallery(title, description, xml, res))
       })
-      setMessage('Saved To Gallery Successfully')
-      handleSnacClick()
+      showSnack('Saved To Gallery Successfully', 'success')
     }
   }
 
@@ -702,8 +683,7 @@ export default function SchematicToolbar ({
         reader.onload = onReaderLoad
         reader.readAsText(event.target.files[0])
       } else {
-        setMessage('Unsupported file type error ! Select valid file.')
-        handleSnacClick()
+        showSnack('Unsupported file type error ! Select valid file.', 'error')
       }
     })
     const onReaderLoad = function (event) {
@@ -713,8 +693,7 @@ export default function SchematicToolbar ({
         obj.title === undefined ||
         obj.description === undefined
       ) {
-        setMessage('Unsupported file error !')
-        handleSnacClick()
+        showSnack('Unsupported file error !', 'error')
       } else {
         dispatch(openLocalSch(obj))
       }
@@ -815,11 +794,16 @@ export default function SchematicToolbar ({
 
   return (
     <>
-      <SimpleSnackbar
-        message={'Possible short-circuit detected. Please recheck'}
+      <Snackbar
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         open={shortCircuit}
-        close={handleShortClose}
-      />
+        autoHideDuration={4000}
+        onClose={handleShortClose}
+      >
+        <Alert onClose={handleShortClose} severity="warning">
+          Possible short-circuit detected. Please recheck
+        </Alert>
+      </Snackbar>
 
       {(!ltiId || !ltiNonce) && <Tooltip title="New">
         <IconButton
@@ -909,12 +893,12 @@ export default function SchematicToolbar ({
                   This link will only work if you have saved and shared this circuit.
                 </Alert>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <TextField 
-                    readOnly 
-                    fullWidth 
-                    value={shareUrl} 
-                    variant="outlined" 
-                    size="small" 
+                  <TextField
+                    readOnly
+                    fullWidth
+                    value={shareUrl}
+                    variant="outlined"
+                    size="small"
                   />
                   <Button variant="contained" color="primary" onClick={handleCopyLink} style={{ whiteSpace: 'nowrap' }}>
                     Copy Link
@@ -929,13 +913,16 @@ export default function SchematicToolbar ({
           </DialogActions>
         </Dialog>
       )}
-      {message && (
-        <SimpleSnackbar
-          open={snacOpen}
-          close={handleSnacClose}
-          message={message}
-        />
-      )}
+      <Snackbar
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        open={snack.open}
+        autoHideDuration={4000}
+        onClose={(event, reason) => { if (reason === 'clickaway') return; setSnack(s => ({ ...s, open: false })) }}
+      >
+        <Alert onClose={() => setSnack(s => ({ ...s, open: false }))} severity={snack.severity}>
+          {snack.message}
+        </Alert>
+      </Snackbar>
       {ltiId && ltiUserId && ltiNonce && ltiSimHistory && (
         <div>
           <FormControl

@@ -28,24 +28,30 @@ urlpatterns = [
          saveAPI_views.GalleryFetchSaveDeleteView.as_view(),
          name='fetchGallerySchematic'),
 
-    path('save/<uuid:save_id>/<str:version>/<str:branch>',
+    path('save/<uuid:save_id>/<str:version>/<path:branch>',
          saveAPI_views.StateFetchUpdateView.as_view(), name='fetchState'),
 
-    path('save/copy/<str:version>/<uuid:save_id>/<str:branch>',
+    path('save/<uuid:save_id>/<str:version>',
+         saveAPI_views.StateFetchUpdateView.as_view(), name='fetchState_no_branch'),
+
+    path('save/<uuid:save_id>/<str:version>/',
+         saveAPI_views.StateFetchUpdateView.as_view(), name='fetchState_no_branch_slash'),
+
+    path('save/copy/<str:version>/<uuid:save_id>/<path:branch>',
          saveAPI_views.CopyStateView.as_view(), name='copyState'),
 
     path(
-        'save/<uuid:save_id>/sharing/<str:sharing>/<str:version>/<str:branch>',
+        'save/<uuid:save_id>/sharing/<str:sharing>/<str:version>/<path:branch>',
         saveAPI_views.StateShareView.as_view(), name='shareState'),
 
     path("save/versions/<uuid:save_id>",
          saveAPI_views.StateSaveAllVersions.as_view(), name="listAllVersions"),
 
-    path("save/versions/<str:version>/<uuid:save_id>/<str:branch>",
+    path("save/versions/<str:version>/<uuid:save_id>/<path:branch>",
          saveAPI_views.GetStateSpecificVersion.as_view(),
          name="getSpecificVersion"),
 
-    path("save/versions/<uuid:save_id>/<str:branch>",
+    path("save/versions/<uuid:save_id>/<path:branch>",
          saveAPI_views.DeleteBranch.as_view(),
          name="deleteBranch"),
 
@@ -56,14 +62,14 @@ urlpatterns = [
          saveAPI_views.ArduinoModelSimulationDataView.as_view(),
          name="uploadSimulationData"),
 
-    path("save/arduinodata/<uuid:save_id>/<str:version>/<str:branch>",
+    path("save/arduinodata/<uuid:save_id>/<str:version>/<path:branch>",
          saveAPI_views.ArduinoModelSimulationDataView.as_view(),
          name="uploadSimulationData"),
 
-    path('save/shared/<str:save_id>/<str:version>/<str:branch>/',
+    path('save/shared/<str:save_id>/<str:version>/<path:branch>/',
          saveAPI_views.SharedCircuitView.as_view(), name='sharedCircuit'),
 
-    path('save/share/<str:save_id>/<str:version>/<str:branch>/',
+    path('save/share/<str:save_id>/<str:version>/<path:branch>/',
          saveAPI_views.SetCircuitSharedView.as_view(), name='setCircuitShared')
 
 ]

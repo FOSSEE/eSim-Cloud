@@ -28,7 +28,7 @@ export const SET_CONTROL_BLOCK = 'SET_CONTROL_BLOCK'
 export const SET_RESULT_TITLE = 'SET_RESULT_TITLE'
 export const SET_RESULT_GRAPH = 'SET_RESULT_GRAPH'
 export const SET_RESULT_TEXT = 'SET_RESULT_TEXT'
-
+export const SET_LAST_SIMULATION_ERROR = 'SET_LAST_SIMULATION_ERROR'
 // Actions for handleing user authentication and registeration
 export const USER_LOADING = 'USER_LOADING'
 export const USER_LOADED = 'USER_LOADED'

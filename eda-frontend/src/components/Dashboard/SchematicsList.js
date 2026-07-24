@@ -46,6 +46,9 @@ import AddIcon from '@material-ui/icons/Add'
 import AppsIcon from '@material-ui/icons/Apps'
 import PlayCircleOutlineIcon from '@material-ui/icons/PlayCircleOutline'
 import { Alert } from '@material-ui/lab'
+import EmptyState from '../Shared/EmptyState'
+import FolderOpenIcon from '@material-ui/icons/FolderOpen'
+import StarBorderIcon from '@material-ui/icons/StarBorder'
 
 const useStyles = makeStyles((theme) => ({
   mainHead: {
@@ -361,31 +364,34 @@ export default function SchematicsList ({ ltiDetails = null }) {
                       </Typography>
                     </div>
 
-                    {pinnedCircuits.length === 0
-                      ? (
-                        <Typography className={classes.emptyText}>
-                  No pinned circuits yet. Click <strong>Pin</strong> on any circuit card to pin it here.
-                        </Typography>
-                      )
-                      : (
-                        <Grid container spacing={2}>
-                          {pinnedCircuits.map((sch) => (
-                            <Grid item xs={12} sm={6} md={4} key={sch.save_id}>
-                              <CircuitCard sch={sch} onRefresh={doFetch} />
-                            </Grid>
-                          ))}
-                        </Grid>
-                      )}
-                  </Grid>
+              {pinnedCircuits.length === 0
+                ? (
+                <EmptyState
+                  icon={<StarBorderIcon />}
+                  title="No Pinned Circuits"
+                  description="Click the pin icon on any circuit card to pin it here for quick access."
+                  minHeight="150px"
+                />
+                  )
+                : (
+                <Grid container spacing={2}>
+                  {pinnedCircuits.map((sch) => (
+                    <Grid item xs={12} sm={6} md={4} key={sch.save_id}>
+                      <CircuitCard sch={sch} onRefresh={doFetch} />
+                    </Grid>
+                  ))}
+                </Grid>
+                  )}
+            </Grid>
 
-                  <Grid item xs={12}>
-                    <Divider className={classes.sectionDivider} />
-                  </Grid>
+            <Grid item xs={12}>
+              <Divider className={classes.sectionDivider} />
+            </Grid>
 
-                  {/* ── RECENT section ─────────────────────────────────────────────── */}
-                  <Grid item xs={12}>
-                    <div className={classes.sectionHeader}>
-                      <Typography className={classes.sectionTitle} variant='h6'>
+            {/* ── RECENT section ─────────────────────────────────────────────── */}
+            <Grid item xs={12}>
+              <div className={classes.sectionHeader}>
+                <Typography className={classes.sectionTitle} variant='h6'>
                   🕒 Recent
                       </Typography>
                       <Typography variant='body2' color='textSecondary'>
@@ -393,24 +399,27 @@ export default function SchematicsList ({ ltiDetails = null }) {
                       </Typography>
                     </div>
 
-                    {recentCircuits.length === 0
-                      ? (
-                        <Typography className={classes.emptyText}>
-                  No saved circuits yet. Create your first circuit above!
-                        </Typography>
-                      )
-                      : (
-                        <Grid container spacing={2}>
-                          {recentCircuits.map((sch) => (
-                            <Grid item xs={12} sm={6} md={4} key={sch.save_id}>
-                              <CircuitCard sch={sch} onRefresh={doFetch} />
-                            </Grid>
-                          ))}
-                        </Grid>
-                      )}
-                  </Grid>
-                </>
-              )}
+              {recentCircuits.length === 0
+                ? (
+                <EmptyState
+                  icon={<FolderOpenIcon />}
+                  title="No Saved Circuits"
+                  description="Create your first circuit above!"
+                  minHeight="150px"
+                />
+                  )
+                : (
+                <Grid container spacing={2}>
+                  {recentCircuits.map((sch) => (
+                    <Grid item xs={12} sm={6} md={4} key={sch.save_id}>
+                      <CircuitCard sch={sch} onRefresh={doFetch} />
+                    </Grid>
+                  ))}
+                </Grid>
+                  )}
+            </Grid>
+          </>
+            )}
           </>
         )}
 
@@ -484,11 +493,12 @@ export default function SchematicsList ({ ltiDetails = null }) {
               )}
             </>
             : <Grid item xs={12}>
-              <Card style={{ padding: '7px 15px' }} className={classes.mainHead}>
-                <Typography variant='subtitle1' gutterBottom>
-                  Hey {auth.user.username} , You dont have any saved schematics...
-                </Typography>
-              </Card>
+              <EmptyState
+                icon={<FolderOpenIcon />}
+                title="No Saved Schematics"
+                description={`Hey ${auth.user.username}, you don't have any saved schematics...`}
+                minHeight="200px"
+              />
             </Grid>
           }
         </TabPanel>
@@ -507,11 +517,12 @@ export default function SchematicsList ({ ltiDetails = null }) {
               )}
             </>
             : <Grid item xs={12}>
-              <Card style={{ padding: '7px 15px' }} className={classes.mainHead}>
-                <Typography variant='subtitle1' gutterBottom>
-                  Hey {auth.user.username} , You dont have any saved projects...
-                </Typography>
-              </Card>
+              <EmptyState
+                icon={<FolderOpenIcon />}
+                title="No Saved Projects"
+                description={`Hey ${auth.user.username}, you don't have any saved projects...`}
+                minHeight="200px"
+              />
             </Grid>
           }
         </TabPanel>
@@ -530,11 +541,12 @@ export default function SchematicsList ({ ltiDetails = null }) {
               )}
             </>
             : <Grid item xs={12}>
-              <Card style={{ padding: '7px 15px' }} className={classes.mainHead}>
-                <Typography variant='subtitle1' gutterBottom>
-                  Hey {auth.user.username} , You dont have any saved projects...
-                </Typography>
-              </Card>
+              <EmptyState
+                icon={<FolderOpenIcon />}
+                title="No LTI Apps"
+                description={`Hey ${auth.user.username}, you don't have any LTI Apps...`}
+                minHeight="200px"
+              />
             </Grid>
           }
         </TabPanel>
@@ -553,11 +565,12 @@ export default function SchematicsList ({ ltiDetails = null }) {
               )}
             </>
             : <Grid item xs={12}>
-              <Card style={{ padding: '7px 15px' }} className={classes.mainHead}>
-                <Typography variant='subtitle1' gutterBottom>
-                  Hey {auth.user.username} , You dont have any saved projects...
-                </Typography>
-              </Card>
+              <EmptyState
+                icon={<FolderOpenIcon />}
+                title="No LTI Submissions"
+                description={`Hey ${auth.user.username}, you don't have any LTI Submissions...`}
+                minHeight="200px"
+              />
             </Grid>
           }
         </TabPanel>
