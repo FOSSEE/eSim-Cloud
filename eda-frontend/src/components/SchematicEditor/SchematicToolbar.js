@@ -38,6 +38,7 @@ import CreateNewFolderOutlinedIcon from '@material-ui/icons/CreateNewFolderOutli
 import LayersIcon from '@material-ui/icons/Layers'
 import ImageOutlinedIcon from '@material-ui/icons/ImageOutlined'
 import SystemUpdateAltOutlinedIcon from '@material-ui/icons/SystemUpdateAltOutlined'
+import PublishIcon from '@material-ui/icons/Publish'
 import LibraryAddRoundedIcon from '@material-ui/icons/LibraryAddRounded'
 import Button from '@material-ui/core/Button'
 import Menu from '@material-ui/core/Menu'
@@ -89,11 +90,6 @@ import api from '../../utils/Api'
 import { importSCHFile } from './Helper/KiCadFileUtils'
 import SubmitResults from '../LTI/SubmitResults'
 
-// Req for Development
-// import CodeIcon from '@material-ui/icons/Code'
-// // eslint-disable-next-line
-// import { dispGraph } from './Helper/ToolbarTools'
-
 const useStyles = makeStyles((theme) => ({
   menuButton: {
     marginLeft: 'auto',
@@ -115,7 +111,6 @@ const useStyles = makeStyles((theme) => ({
   }
 }))
 
-// Notification snackbar to give alert messages
 function SimpleSnackbar ({ open, close, message }) {
   return (
     <div>
@@ -167,7 +162,6 @@ export default function SchematicToolbar ({
   useEffect(() => {
     dispatch(fetchRole())
   }, [dispatch])
-  // Netlist Modal Control
   const [open, setOpen] = React.useState(false)
   const [netlist, genNetlist] = React.useState('')
   const [ltiId, setLtiId] = React.useState('')
@@ -328,8 +322,6 @@ export default function SchematicToolbar ({
       netlist = netlist.split('\n')
       for (let line = 0; line < netlist.length; line++) {
         const splitLine = netlist[line].split(' ')
-        // Works only for components with 2 nodes
-        // For multiple nodes all nodes need to be checked with each other
         if (splitLine[1] === splitLine[2] && splitLine.length >= 2) {
           setshortCircuit(true)
           return
@@ -442,7 +434,6 @@ export default function SchematicToolbar ({
     setOpen(false)
   }
 
-  // Control Help dialog window
   const [helpOpen, setHelpOpen] = React.useState(false)
 
   const handleHelpOpen = () => {
@@ -453,13 +444,11 @@ export default function SchematicToolbar ({
     setHelpOpen(false)
   }
 
-  // handle Delete component
   const handleDeleteComp = () => {
     DeleteComp()
     dispatch(closeCompProperties())
   }
 
-  // handle Notification Snackbar
   const [snacOpen, setSnacOpen] = React.useState(false)
   const [message, setMessage] = React.useState('')
 
@@ -479,7 +468,6 @@ export default function SchematicToolbar ({
     window.location.reload()
   }
 
-  // Image Export of Schematic Diagram
   async function exportImage (type) {
     // Fix A: null guard — if the mxGraph container SVG or gridRef is not ready, bail out gracefully
     const rawSvg = document.querySelector('#divGrid > svg')
@@ -560,7 +548,6 @@ export default function SchematicToolbar ({
     })
   }
 
-  // Download JPEG, PNG exported Image
   function downloadImage (data, type) {
     const evt = new MouseEvent('click', {
       view: window,
@@ -575,7 +562,6 @@ export default function SchematicToolbar ({
     a.dispatchEvent(evt)
   }
 
-  // Download SVG image
   function downloadText (data, options) {
     const blob = new Blob(data, options)
     const evt = new MouseEvent('click', {
@@ -616,7 +602,6 @@ export default function SchematicToolbar ({
     }
   }
 
-  // handle Save Schematic onCloud
   const handleSchSave = () => {
     if (auth.isAuthenticated !== true) {
       setMessage('You are not Logged In')
@@ -649,7 +634,6 @@ export default function SchematicToolbar ({
     }
   }
 
-  // Handle Save to Gallery
   const handleGalSave = () => {
     if (auth.isAuthenticated !== true) {
       setMessage('You are not Logged In')
@@ -667,7 +651,6 @@ export default function SchematicToolbar ({
     }
   }
 
-  // Save Schematics Locally
   const handleLocalSchSave = () => {
     const saveLocalData = {}
     saveLocalData.data_dump = Save()
@@ -688,7 +671,6 @@ export default function SchematicToolbar ({
     a.dispatchEvent(evt)
   }
 
-  // Open Locally Saved Schematic
   const handleLocalSchOpen = () => {
     let obj = {}
     const fileSelector = document.createElement('input')
@@ -738,7 +720,6 @@ export default function SchematicToolbar ({
     })
   }
 
-  // Control Help dialog window open and close
   const [schOpen, setSchOpen] = React.useState(false)
 
   const handleSchDialOpen = () => {
@@ -759,25 +740,20 @@ export default function SchematicToolbar ({
     setlibsOpen(false)
   }
 
-  // Shortcuts that cant be put in Helper/KeyboardShortcuts.js
   useEffect(() => {
     function shrtcts (event) {
-      // Save - Ctrl + S
       if (event.ctrlKey && event.keyCode === 83) {
         event.preventDefault()
         handleSchSave()
       }
-      // Print - Ctrl + P
       if (event.ctrlKey && event.keyCode === 80) {
         event.preventDefault()
         PrintPreview()
       }
-      // Open dialog - Ctrl + O
       if (event.ctrlKey && event.keyCode === 79) {
         event.preventDefault()
         handleSchDialOpen()
       }
-      // Export - Ctrl + E / Image Export Ctrl + Shift + E
       if (event.ctrlKey && event.keyCode === 69) {
         event.preventDefault()
         if (event.shiftKey) {
@@ -869,6 +845,78 @@ export default function SchematicToolbar ({
           onClick={handleSchDialOpen}
         >
           <OpenInBrowserIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>}
+      {(!ltiId || !ltiNonce) && <Tooltip title="Import LTspice / PSpice & Simulate">
+        <IconButton component="label">
+          <PublishIcon />
+          <input
+            type="file"
+            accept=".cir,.net,.asc"
+            hidden
+            onChange={async (e) => {
+              const file = e.target.files[0]
+              if (!file) return
+              e.target.value = ''
+              try {
+                const importForm = new FormData()
+                importForm.append('file', file)
+                const importRes = await fetch('/api/save/import-spice', { method: 'POST', body: importForm })
+                const importData = await importRes.json()
+                if (importData.status !== 'ok' || !importData.netlist) {
+                  window.alert('Import failed: ' + ((importData.errors || []).join(', ') || 'unknown error'))
+                  return
+                }
+                console.log('Converted ngspice netlist:\n' + importData.netlist)
+
+                const blob = new Blob([importData.netlist], { type: 'text/plain' })
+                const netlistFile = new File([blob], 'imported.cir', { type: 'text/plain' })
+                const simForm = new FormData()
+                simForm.append('file', netlistFile)
+                const token = localStorage.getItem('esim_token')
+                const headers = {}
+                if (token) headers.Authorization = 'Token ' + token
+                const simRes = await fetch('/api/simulation/upload', { method: 'POST', body: simForm, headers })
+                const simData = await simRes.json()
+                const taskId = simData.details && simData.details.task_id
+                if (!taskId) {
+                  window.alert('Simulation could not start. Check console.')
+                  console.log('sim upload response:', simData)
+                  return
+                }
+
+                let tries = 0
+                while (tries < 30) {
+                  const statusRes = await fetch('/api/simulation/status/' + taskId, { headers })
+                  const statusData = await statusRes.json()
+                  if (statusData.state === 'PROGRESS' || statusData.state === 'PENDING') {
+                    await new Promise(function (r) { setTimeout(r, 1000) })
+                    tries++
+                    continue
+                  }
+                  const details = statusData.details || {}
+                  const rawText = typeof details === 'string'
+                    ? details
+                    : (details.fail || details.data || JSON.stringify(details))
+                  const rowsMatch = String(rawText).match(/No\.\s*of\s*Data\s*Rows\s*:\s*(\d+)/i)
+                  const dataRows = rowsMatch ? parseInt(rowsMatch[1], 10) : 0
+                  const hasData = (details.data && details.data.length) || dataRows > 0
+                  console.log('Simulation result:', details)
+                  if (hasData) {
+                    const n = dataRows || (details.data ? details.data.length : 0)
+                    window.alert('Imported "' + importData.filename + '", converted, and simulated successfully! Got ' + n + ' data points. See console for the waveform data.')
+                  } else {
+                    window.alert('Imported and converted OK, but ngspice did not return data. Check console.')
+                  }
+                  return
+                }
+                window.alert('Simulation timed out. Check console.')
+              } catch (err) {
+                console.error('Import + simulate failed:', err)
+                window.alert('Something went wrong. Check console.')
+              }
+            }}
+          />
         </IconButton>
       </Tooltip>}
       {(!ltiId || !ltiNonce) && <OpenSchDialog
@@ -1244,12 +1292,6 @@ export default function SchematicToolbar ({
           </IconButton>
         </Tooltip>
       )}
-
-      {/* <Tooltip title="Display MxGraph Root">
-        <IconButton color="inherit" className={classes.tools} size="small" onClick={ () => dispGraph()}>
-          <CodeIcon fontSize="small" />
-        </IconButton>
-      </Tooltip> */}
     </>
   )
 }

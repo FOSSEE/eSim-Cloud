@@ -5,6 +5,7 @@ esimCloud URL Configuration
 """
 from django.urls import path
 from saveAPI import views as saveAPI_views
+from saveAPI.spice_import import SpiceImportView
 from rest_framework.routers import DefaultRouter
 
 router = DefaultRouter()
@@ -12,6 +13,7 @@ router.register(r'save/search', saveAPI_views.SaveSearchViewSet,
                 basename='SaveSearch')
 
 urlpatterns = [
+    path('save/import-spice', SpiceImportView.as_view(), name='spiceImport'),
     path('save', saveAPI_views.StateSaveView.as_view(),
          name='saveState'),
 
