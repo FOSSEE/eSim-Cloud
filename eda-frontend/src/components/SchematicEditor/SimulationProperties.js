@@ -214,6 +214,7 @@ export default function SimulationProperties (props) {
   const [selectedValue, setSelectedValue] = React.useState([])
   const [selectedValueDCSweep, setSelectedValueDCSweep] = React.useState([])
   const [selectedValueTransientAnal, setSelectedValueTransientAnal] = React.useState([])
+  const [selectedValueAcAnal, setSelectedValueAcAnal] = React.useState([])
   const [selectedValueTFAnal, setSelectedValueTFAnal] = React.useState([])
   const [selectedValueNoiseAnal, setSelectedValueNoiseAnal] = React.useState([])
   const [selectedValueComp, setSelectedValueComp] = React.useState([])
@@ -266,6 +267,27 @@ export default function SimulationProperties (props) {
     })
     setSelectedValueTransientAnal(tmp)
     // console.log(selectedValue)
+  }
+  const handleAddSelectedValueAcAnal = (data) => {
+    let f = 0
+    selectedValueAcAnal.forEach((value, i) => {
+      if (value[i] !== undefined) {
+        if (value[i].key === data) f = 1
+      }
+    })
+    if (f === 0) {
+      const tmp = [...selectedValueAcAnal, data]
+      setSelectedValueAcAnal(tmp)
+    }
+  }
+  const handleRemSelectedValueAcAnal = (data) => {
+    const tmp = []
+    selectedValueAcAnal.forEach((value, i) => {
+      if (value[i] !== undefined) {
+        if (value[i].key !== data) tmp.push(data)
+      }
+    })
+    setSelectedValueAcAnal(tmp)
   }
   const handleAddSelectedValueTFAnal = (data) => {
     let f = 0
@@ -584,6 +606,7 @@ export default function SimulationProperties (props) {
             typeSimulation = 'Ac'
             controlLine = `.ac ${acAnalysisControlLine.input} ${acAnalysisControlLine.pointsBydecade} ${acAnalysisControlLine.start} ${acAnalysisControlLine.stop}`
             dispatch(setResultTitle('AC Analysis Output'))
+            setSelectedValue(selectedValueAcAnal)
           } else {
             setNeedParameters(true)
             return
@@ -639,11 +662,17 @@ export default function SimulationProperties (props) {
       // if either the extra expression field or the nodes multi select
       // drop down list in enabled then atleast one value is made non zero
       // to add add all instead to the print statement.
+
+
       if (selectedValue.length > 0 && selectedValue !== null && skipMultiNodeChk === 0) {
         selectedValue.forEach((value, i) => {
           if (value[i] !== undefined && value[i].key !== 0) {
             atleastOne = 1
-            cblockline = cblockline + ' ' + String(value[i].key)
+            if (typeSimulation === 'Ac') {
+              cblockline = cblockline + ' vdb(' + String(value[i].key) + ') vp(' + String(value[i].key) + ')'
+            } else {
+              cblockline = cblockline + ' ' + String(value[i].key)
+            }
           }
         })
       }
@@ -1187,6 +1216,19 @@ export default function SimulationProperties (props) {
                         onChange={handleAcAnalysisControlLine}
                       />
                       <span style={{ marginLeft: '10px' }}>Hz</span>
+                    </ListItem>
+
+                    <ListItem>
+                      <Multiselect
+                        style={{ width: '100%' }}
+                        id="Nodes"
+                        closeOnSelect="false"
+                        placeholder="Select Node"
+                        onSelect={handleAddSelectedValueAcAnal}
+                        onRemove={handleRemSelectedValueAcAnal}
+                        options={analysisNodeArray} displayValue="key"
+                        avoidHighlightFirstOption="true"
+                      />
                     </ListItem>
 
                     <ListItem>

@@ -35,17 +35,34 @@ class Graph extends Component {
     }
     if (typeof lineGraph !== 'undefined') lineGraph.destroy()
 
+    const isBode = labels[0] === 'frequency'
+    const xValues = x.map(e => Number((e / scales[xscale].value).toFixed(precision)))
     const dataset = () => {
       var arr = []
-
       for (var i = 0; i < y.length; i++) {
         if (labels[0] === labels[i + 1]) continue
-        arr.push({
-          label: labels[i + 1],
-          data: y[i].map(e => (e / scales[yscale].value).toFixed(precision)),
+        const seriesLabel = labels[i + 1]
+        const lowerLabel = String(seriesLabel).toLowerCase()
+        const isPhase = lowerLabel.includes('vp(')
+        const entry = {
+          label: seriesLabel,
+          data: isBode
+            ? y[i].map((e, idx) => {
+                const val = e / scales[yscale].value
+                const converted = isPhase ? val * (180 / Math.PI) : val
+                return {
+                  x: xValues[idx],
+                  y: Number(converted.toFixed(precision))
+                }
+              })
+            : y[i].map(e => (e / scales[yscale].value).toFixed(precision)),
           fill: false
           // borderColor: getRandomColor()
-        })
+        }
+        if (isBode) {
+          entry.yAxisID = lowerLabel.includes('vp(') ? 'y-phase' : 'y-mag'
+        }
+        arr.push(entry)
       }
       return arr
     }
@@ -112,6 +129,7 @@ class Graph extends Component {
         scales: {
           xAxes: [
             {
+              type: isBode ? 'logarithmic' : 'category',
               display: true,
               gridLines: {
                 color: '#67737e'
@@ -122,12 +140,52 @@ class Graph extends Component {
               },
 
               ticks: {
-                maxTicksLimit: scales[xscale].ticks
+                maxTicksLimit: scales[xscale].ticks,
+                callback: isBode ? (value) => {
+                  const log = Math.log10(Number(value))
+                  return Number.isInteger(log) ? value : null
+                } : undefined
               }
             }
           ],
-          yAxes: [
+          yAxes: isBode ? [
             {
+              id: 'y-mag',
+              type: 'linear',
+              position: 'left',
+              display: true,
+              scaleLabel: {
+                display: true,
+                labelString: 'Magnitude ( dB )'
+              },
+              gridLines: {
+                color: '#67737e'
+              },
+              ticks: {
+                fontSize: 15,
+                padding: 25
+              }
+            },
+            {
+              id: 'y-phase',
+              type: 'linear',
+              position: 'right',
+              display: true,
+              scaleLabel: {
+                display: true,
+                labelString: 'Phase ( degrees )'
+              },
+              gridLines: {
+                display: false
+              },
+              ticks: {
+                fontSize: 15,
+                padding: 25
+              }
+            }
+          ] : [
+            {
+              id: 'y-mag',
               display: true,
               scaleLabel: {
                 display: false,
