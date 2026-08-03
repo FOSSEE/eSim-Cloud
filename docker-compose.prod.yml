@@ -112,9 +112,15 @@ services:
   #     - ./mysql_data:/var/lib/mysql
 
   db:
-    image: postgres
+    # Pinned major version — an untagged "postgres" image floats to the
+    # newest major on every pull and breaks the on-disk data directory.
+    # postgres:18+ images mount the volume at /var/lib/postgresql (PGDATA
+    # lives in a version-specific subdirectory, /var/lib/postgresql/18/docker).
+    # Upgrading an existing cluster from <=17 requires pg_dumpall/restore
+    # or pg_upgrade before switching the image tag.
+    image: postgres:18
     volumes:
-      - ./postgres_data:/var/lib/postgresql/data/
+      - ./postgres_data:/var/lib/postgresql
     env_file:
       - .env.prod
 

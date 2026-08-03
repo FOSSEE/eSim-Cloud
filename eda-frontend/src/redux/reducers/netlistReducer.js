@@ -4,6 +4,7 @@ const initialState = {
   title: '* Untitled_Schematic',
   model: '',
   netlist: '',
+  autoRun: false, // one-shot "Send to Simulator" hand-off marker
   controlLine: '',
   controlBlock: ''
 }
@@ -13,7 +14,8 @@ export default function (state = initialState, action) {
     case actions.SET_NETLIST: {
       return {
         ...state,
-        netlist: action.payload.netlist
+        netlist: action.payload.netlist,
+        autoRun: !!action.payload.autoRun
       }
     }
     case actions.SET_TITLE: {

@@ -811,11 +811,14 @@ export default function SimulationProperties (props) {
     setAnchorEl(null)
   }
 
-  // Auto-execute the simulation if it comes directly from "Send to Simulator"
-  // NetlistPreviewPanel appends a generic .control block.
+  // Auto-execute only an explicit "Send to Simulator" hand-off (autoRun flag
+  // set by NetlistPreviewPanel). Every normal simulation also stores its
+  // netlist in redux — auto-running on mere presence of '.control' replayed
+  // the previous circuit's netlist on whatever circuit was opened next.
   React.useEffect(() => {
-    if (!autoRunFired && netfile && netfile.netlist && netfile.netlist.includes('.control')) {
+    if (!autoRunFired && netfile && netfile.autoRun && netfile.netlist) {
       setAutoRunFired(true)
+      dispatch(setNetlist(netfile.netlist, false)) // consume the one-shot flag
       typeSimulation = 'Custom'
       prepareNetlist(netfile.netlist)
     }

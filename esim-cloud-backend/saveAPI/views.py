@@ -485,14 +485,14 @@ class DeleteCircuit(APIView):
                 save_id=save_id,
                 owner=self.request.user
             )
-            if queryset[0].project is None:
-                queryset.delete()
-                return Response(data=None, status=status.HTTP_204_NO_CONTENT)
-            else:
-                return Response(data=None, status=status.HTTP_400_BAD_REQUEST)
-        except StateSave.DoesNotExist:
-            return Response({"error": "circuit not found"},
-                            status=status.HTTP_404_NOT_FOUND)
+            if not queryset.exists():
+                return Response({"error": "circuit not found"},
+                                status=status.HTTP_404_NOT_FOUND)
+            queryset.delete()
+            return Response(data=None, status=status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            return Response({"error": str(e)},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class GalleryView(APIView):

@@ -24,6 +24,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from rest_framework import status
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 logger = logging.getLogger(__name__)
 
@@ -197,6 +199,41 @@ class ChatMessageView(APIView):
     """
     permission_classes = (AllowAny,)
 
+    @swagger_auto_schema(
+        tags=['Chatbot'],
+        operation_summary='Ask the AI assistant a question',
+        operation_description=(
+            'Sends a user message to the embedded circuit-debugging '
+            'assistant. Backend priority: local **Ollama** (if reachable) '
+            '→ **Gemini** (if `GEMINI_API_KEY` configured) → rule-based '
+            'keyword matcher for common ngspice errors (floating node, '
+            'singular matrix, missing ground, ...). Always returns 200 '
+            'with a `reply` — the fallback never fails.'),
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['message'],
+            properties={
+                'message': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    example='ngspice says: singular matrix'),
+                'context': openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    description='Optional UI context',
+                    properties={
+                        'page': openapi.Schema(
+                            type=openapi.TYPE_STRING,
+                            example='schematic-editor'),
+                    }),
+            }),
+        responses={
+            200: openapi.Response(
+                'Assistant reply',
+                openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={'reply': openapi.Schema(
+                        type=openapi.TYPE_STRING)})),
+            400: 'message field is required',
+        })
     def post(self, request, *args, **kwargs):
         message = (request.data.get('message') or '').strip()
         context = request.data.get('context') or {}
@@ -228,6 +265,28 @@ class ChatStatusView(APIView):
     """
     permission_classes = (AllowAny,)
 
+    @swagger_auto_schema(
+        tags=['Chatbot'],
+        operation_summary='Check which chatbot backend is active',
+        operation_description=(
+            'Probes Ollama reachability and Gemini key presence. '
+            '`active_backend` is `ollama`, `gemini` or `fallback` '
+            '(rule-based).'),
+        responses={
+            200: openapi.Response(
+                'Backend availability',
+                openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'ollama': openapi.Schema(
+                            type=openapi.TYPE_BOOLEAN),
+                        'gemini': openapi.Schema(
+                            type=openapi.TYPE_BOOLEAN),
+                        'active_backend': openapi.Schema(
+                            type=openapi.TYPE_STRING,
+                            enum=['ollama', 'gemini', 'fallback']),
+                    }))
+        })
     def get(self, request, *args, **kwargs):
         ollama_host = os.environ.get('OLLAMA_HOST', 'host.docker.internal')
         ollama_reachable = False

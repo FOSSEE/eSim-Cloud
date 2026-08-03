@@ -300,6 +300,13 @@ export function HelpScreen ({ open, close }) {
                   <Typography variant="subtitle1" align='left' style={{ color: '#b3b3b3' }} gutterBottom>
                     Ctrl + V
                   </Typography>
+                  <Divider />
+                  <Typography variant="h6" align='left' gutterBottom>
+                    Toggle MiniMap
+                  </Typography>
+                  <Typography variant="subtitle1" align='left' style={{ color: '#b3b3b3' }} gutterBottom>
+                    M
+                  </Typography>
                 </fieldset>
               </Paper>
             </Grid>
@@ -829,7 +836,7 @@ export function OpenSchDialog (props) {
                   {/* Listing Saved Schematics */}
                   {schematics.length === 0
                     ? <Typography variant="subtitle1" gutterBottom>
-                    Hey {auth.user.username} , You dont have any saved schematics...
+                    Hey {auth.user?.username || ''} , You dont have any saved schematics...
                     </Typography>
                     : <TableContainer component={Paper} style={{ maxHeight: '45vh' }}>
                       <Table stickyHeader size="small" aria-label="simple table">

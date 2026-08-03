@@ -602,22 +602,6 @@ function Header ({ gridRef }) {
                 <MenuItem
                   target='_blank'
                   component={RouterLink}
-                  to="/dashboard/profile"
-                  onClick={handleClose}
-                >
-                  My Profile
-                </MenuItem>
-                <MenuItem
-                  target='_blank'
-                  component={RouterLink}
-                  to="/dashboard/schematics"
-                  onClick={handleClose}
-                >
-                  My Schematics
-                </MenuItem>
-                <MenuItem
-                  target='_blank'
-                  component={RouterLink}
                   to="/account/change_password"
                   onClick={handleClose}
                 >

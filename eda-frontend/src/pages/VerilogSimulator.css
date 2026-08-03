@@ -1,0 +1,512 @@
+/* Verilog Simulator IDE Layout */
+
+.verilog-ide {
+  --bg-main: #eff1f5;
+  --bg-panel: #e6e9ef;
+  --bg-header: #dce0e8;
+  --bg-btn: #ccd0da;
+  --bg-btn-hover: #bcc0cc;
+  --border: #ccd0da;
+  --text-main: #4c4f69;
+  --text-muted: #8c8fa1;
+  --text-header: #6c6f85;
+  --text-timestamp: #9ca0b0;
+  --text-hover: #5c5f77;
+  --accent: #1e66f5;
+  --accent-hover: #209fb5;
+  --success: #40a02b;
+  --success-hover: #179299;
+  --danger: #d20f39;
+  --warning: #df8e1d;
+
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 48px); /* Full viewport minus navbar */
+  overflow: hidden;
+  background: var(--bg-main);
+  color: var(--text-main);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.verilog-ide.dark-mode {
+  --bg-main: #1e1e2e;
+  --bg-panel: #181825;
+  --bg-header: #11111b;
+  --bg-btn: #313244;
+  --bg-btn-hover: #45475a;
+  --border: #313244;
+  --text-main: #cdd6f4;
+  --text-muted: #6c7086;
+  --text-header: #a6adc8;
+  --text-timestamp: #585b70;
+  --text-hover: #bac2de;
+  --accent: #89b4fa;
+  --accent-hover: #74c7ec;
+  --success: #a6e3a1;
+  --success-hover: #94e2d5;
+  --danger: #f38ba8;
+  --warning: #f9e2af;
+}
+
+/* === Top Toolbar === */
+.verilog-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 16px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  min-height: 44px;
+  flex-shrink: 0;
+}
+
+.verilog-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.verilog-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.verilog-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid var(--bg-btn-hover);
+  border-radius: 6px;
+  background: var(--bg-btn);
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.verilog-toolbar-btn:hover {
+  background: var(--bg-btn-hover);
+  border-color: var(--text-muted);
+}
+
+.verilog-toolbar-btn.primary {
+  background: var(--accent);
+  color: var(--bg-main);
+  border-color: var(--accent);
+}
+
+.verilog-toolbar-btn.primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.verilog-toolbar-btn.success {
+  background: var(--success);
+  color: var(--bg-main);
+  border-color: var(--success);
+}
+
+.verilog-toolbar-btn.success:hover {
+  background: var(--success-hover);
+  border-color: var(--success-hover);
+}
+
+.verilog-toolbar-btn.danger {
+  background: transparent;
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.verilog-toolbar-btn.danger:hover {
+  background: var(--danger);
+  color: var(--bg-main);
+}
+
+.verilog-toolbar-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.verilog-toolbar-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-right: 16px;
+}
+
+.verilog-shortcut-hint {
+  font-size: 11px;
+  opacity: 0.5;
+  margin-left: 4px;
+}
+
+/* === Main Content Area === */
+.verilog-main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+/* === Hierarchy Sidebar === */
+.verilog-hierarchy {
+  width: 220px;
+  min-width: 180px;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.verilog-hierarchy.collapsed {
+  width: 0;
+  min-width: 0;
+  border-right: none;
+}
+
+.verilog-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--bg-header);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-header);
+  flex-shrink: 0;
+}
+
+.verilog-panel-header-btn {
+  background: none;
+  border: none;
+  color: var(--text-header);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.verilog-panel-header-btn:hover {
+  background: var(--border);
+  color: var(--text-main);
+}
+
+.verilog-hierarchy-tree {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.verilog-hierarchy-item {
+  padding: 5px 8px;
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-hover);
+}
+
+.verilog-hierarchy-item:hover {
+  background: var(--border);
+}
+
+.verilog-hierarchy-item.active {
+  background: var(--bg-btn-hover);
+  color: var(--accent);
+}
+
+.verilog-hierarchy-item .icon {
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+.verilog-hierarchy-children {
+  padding-left: 16px;
+}
+
+/* === Content Area (right of hierarchy) === */
+.verilog-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* === Editor Panel (top) === */
+.verilog-editor-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 200px;
+}
+
+/* === Tab Bar === */
+.verilog-tabs {
+  display: flex;
+  align-items: center;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.verilog-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.verilog-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.verilog-tab:hover {
+  color: var(--text-hover);
+  background: var(--bg-main);
+}
+
+.verilog-tab.active {
+  color: var(--text-main);
+  border-bottom-color: var(--accent);
+  background: var(--bg-main);
+}
+
+.verilog-tab.testbench {
+  color: var(--warning);
+}
+
+.verilog-tab.testbench.active {
+  border-bottom-color: var(--warning);
+}
+
+.verilog-tab-close {
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+  border-radius: 3px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.verilog-tab:hover .verilog-tab-close {
+  opacity: 0.6;
+}
+
+.verilog-tab-close:hover {
+  opacity: 1 !important;
+  background: var(--bg-btn-hover);
+}
+
+.verilog-tab-add {
+  padding: 8px 12px;
+  font-size: 16px;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.verilog-tab-add:hover {
+  color: var(--accent);
+}
+
+/* === CodeMirror Editor Container === */
+.verilog-editor-container {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.verilog-editor-container .react-codemirror2,
+.verilog-editor-container .CodeMirror {
+  height: 100%;
+  font-size: 14px;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', 'Consolas', monospace;
+}
+
+/* === Resize Handle === */
+.verilog-resize-handle {
+  height: 5px;
+  cursor: row-resize;
+  background: var(--border);
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.verilog-resize-handle:hover {
+  background: var(--accent);
+}
+
+/* === Bottom Panels === */
+.verilog-bottom {
+  display: flex;
+  min-height: 180px;
+  max-height: 60vh;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.verilog-bottom.collapsed {
+  min-height: 0;
+  max-height: 0;
+  border-top: none;
+}
+
+/* === Console Panel === */
+.verilog-console {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--border);
+  min-width: 0;
+}
+
+.verilog-console-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  background: var(--bg-header);
+}
+
+.verilog-console-line {
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.verilog-console-line.error {
+  color: var(--danger);
+}
+
+.verilog-console-line.warning {
+  color: var(--warning);
+}
+
+.verilog-console-line.success {
+  color: var(--success);
+}
+
+.verilog-console-line.info {
+  color: var(--accent);
+}
+
+.verilog-console-line.system {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.verilog-console-timestamp {
+  color: var(--text-timestamp);
+  margin-right: 8px;
+  font-size: 11px;
+}
+
+/* === Waveform Panel === */
+.verilog-waveform {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.verilog-waveform-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  background: var(--bg-header);
+}
+
+.verilog-waveform-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-timestamp);
+  font-size: 13px;
+  font-style: italic;
+}
+
+/* === Fullscreen / Maximized State === */
+.verilog-panel-maximized {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 9999;
+  background: var(--bg-main);
+  border: none !important;
+  max-height: 100vh !important;
+  min-height: 100vh !important;
+}
+
+.verilog-panel-maximized .verilog-editor-container,
+.verilog-panel-maximized .verilog-console-content,
+.verilog-panel-maximized .verilog-waveform-content {
+  flex: 1;
+}
+
+/* === Scrollbars === */
+.verilog-ide ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.verilog-ide ::-webkit-scrollbar-track {
+  background: var(--bg-header);
+}
+
+.verilog-ide ::-webkit-scrollbar-thumb {
+  background: var(--bg-btn-hover);
+  border-radius: 4px;
+}
+
+.verilog-ide ::-webkit-scrollbar-thumb:hover {
+  background: var(--text-timestamp);
+}
+
+/* === Loading Spinner === */
+.verilog-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-radius: 50%;
+  border-top-color: var(--accent);
+  animation: verilog-spin 0.6s linear infinite;
+}
+
+@keyframes verilog-spin {
+  to { transform: rotate(360deg); }
+}
+
+.cm-error-line { background-color: rgba(243, 139, 168, 0.2) !important; }
+

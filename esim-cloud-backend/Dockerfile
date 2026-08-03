@@ -1,3 +1,33 @@
+# ── Stage 1: build Icarus Verilog against the alpine3.13 toolchain ──
+# The prebuilt edge/community iverilog needs a newer libstdc++ than
+# alpine3.13 ships ("Error relocating /usr/lib/ivl/ivl"), and upgrading
+# libstdc++/libgcc from edge conflicts with the build-base packages the
+# main image keeps installed. Compiling from source with the matching
+# GCC-10/musl toolchain sidesteps both problems.
+FROM alpine:3.13 AS iverilog-builder
+RUN apk add --no-cache build-base flex bison gperf zlib-dev autoconf wget
+RUN wget -q -O /tmp/iverilog.tar.gz \
+        https://github.com/steveicarus/iverilog/archive/refs/tags/v12_0.tar.gz \
+    && tar -xzf /tmp/iverilog.tar.gz -C /tmp \
+    && cd /tmp/iverilog-12_0 \
+    && sh autoconf.sh \
+    && ./configure --prefix=/opt/iverilog \
+    && make -j"$(nproc)" \
+    && make install
+
+# ── Stage 2: build NVC (VHDL simulator) against the same toolchain ──
+# --disable-llvm uses NVC's built-in JIT, avoiding an LLVM dependency.
+FROM alpine:3.13 AS nvc-builder
+RUN apk add --no-cache build-base zlib-dev libffi-dev zstd-dev \
+        elfutils-dev pkgconfig flex bison wget
+RUN wget -q -O /tmp/nvc.tar.gz \
+        https://github.com/nickg/nvc/releases/download/r1.11.2/nvc-1.11.2.tar.gz \
+    && tar -xzf /tmp/nvc.tar.gz -C /tmp \
+    && mkdir /tmp/nvc-build && cd /tmp/nvc-build \
+    && /tmp/nvc-1.11.2/configure --disable-llvm --prefix=/opt/nvc \
+    && make -j"$(nproc)" \
+    && make install
+
 FROM python:3.7-alpine3.13
 
 ENV PYTHONUNBUFFERED 1
@@ -72,3 +102,14 @@ RUN apk add --no-cache mariadb-connector-c-dev ;\
     && pip install --upgrade pip\
     && pip install --trusted-host pypi.python.org -r requirements.txt \
     && apk del .build-deps
+
+# Icarus Verilog built in stage 1 against this exact alpine version.
+# libstdc++ from the stock 3.13 repo satisfies its runtime link.
+COPY --from=iverilog-builder /opt/iverilog /opt/iverilog
+RUN apk add --no-cache libstdc++ zlib \
+    && ln -sf /opt/iverilog/bin/* /usr/local/bin/
+# NVC (VHDL) built in stage 2; runtime libs from the stock 3.13 repo.
+COPY --from=nvc-builder /opt/nvc /opt/nvc
+RUN apk add --no-cache elfutils libelf libffi zstd-libs xz-libs libbz2 \
+        fts libgcc \
+    && ln -sf /opt/nvc/bin/nvc /usr/local/bin/nvc

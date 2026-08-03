@@ -208,10 +208,13 @@ export const signUp = (email, username, password, history) => (dispatch) => {
   api.post('auth/users/', body, config)
     .then((res) => {
       if (res.status === 200 || res.status === 201) {
+        if (res.data && res.data.otp) {
+          alert('OTP code is: ' + res.data.otp)
+        }
         dispatch({
           type: actions.SIGNUP_SUCCESSFUL,
           payload: {
-            data: 'Successfully Signed Up! A verification link has been sent to your email account.'
+            data: 'Successfully Signed Up! A 6-digit OTP code has been sent to your email account.'
           }
         })
         // history.push('/login')
@@ -449,4 +452,41 @@ export const fetchRole = () => (dispatch, getState) => {
         }
       })
     }).catch(() => { console.log('Error') })
+}
+
+export const verifyOtp = (email, otp, history) => (dispatch) => {
+  const body = {
+    token: otp,
+    email: email
+  }
+  const config = {
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  }
+
+  api.post('auth/users/activation/', body, config)
+    .then((res) => {
+      if (res.status === 200 || res.status === 204) {
+        dispatch({
+          type: actions.SIGNUP_SUCCESSFUL,
+          payload: {
+            data: 'Account successfully verified! Redirecting to login...'
+          }
+        })
+        setTimeout(() => {
+          history.push('/login')
+        }, 1500)
+      }
+    })
+    .catch((err) => {
+      var res = err.response
+      const errMsg = res && res.data && res.data.token ? res.data.token[0] : 'Invalid OTP code.'
+      dispatch({
+        type: actions.SIGNUP_FAILED,
+        payload: {
+          data: errMsg
+        }
+      })
+    })
 }

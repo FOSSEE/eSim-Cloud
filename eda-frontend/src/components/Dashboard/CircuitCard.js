@@ -32,7 +32,7 @@ import StarBorderIcon from '@material-ui/icons/StarBorder'
 import OpenInBrowserIcon from '@material-ui/icons/OpenInBrowser'
 import { Link as RouterLink } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
-import { deleteSchematic, togglePinSave } from '../../redux/actions/index'
+import { deleteSchematic, togglePinSave, removeFromProject } from '../../redux/actions/index'
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 const useStyles = makeStyles((theme) => ({
@@ -124,7 +124,7 @@ function timeSince (jsonDate) {
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export default function CircuitCard ({ sch, onRefresh }) {
+export default function CircuitCard ({ sch, onRefresh, inProjectFolder = false }) {
   const classes = useStyles()
   const dispatch = useDispatch()
   const auth = useSelector(state => state.authReducer)
@@ -159,6 +159,18 @@ export default function CircuitCard ({ sch, onRefresh }) {
     }
     if (window.confirm(`Delete "${sch.name || sch.save_id}"? This cannot be undone.`)) {
       Promise.resolve(dispatch(deleteSchematic(sch.save_id)))
+        .then(() => { if (onRefresh) onRefresh() })
+        .catch((err) => console.error(err))
+    }
+  }
+
+  const handleRemoveFromProject = () => {
+    if (!hasToken()) {
+      setSnackOpen(true)
+      return
+    }
+    if (window.confirm(`Remove "${sch.name || sch.save_id}" from project?`)) {
+      Promise.resolve(dispatch(removeFromProject(sch.save_id)))
         .then(() => { if (onRefresh) onRefresh() })
         .catch((err) => console.error(err))
     }
@@ -232,31 +244,62 @@ export default function CircuitCard ({ sch, onRefresh }) {
           </Button>
         </Tooltip>
 
-        {/* Pin / Unpin */}
-        <Tooltip title={isPinned ? 'Unpin from top' : 'Pin to top'} arrow>
-          <Button
-            size='small'
-            variant='outlined'
-            color={isPinned ? 'primary' : 'default'}
-            startIcon={isPinned ? <StarIcon /> : <StarBorderIcon />}
-            onClick={handlePin}
-          >
-            {isPinned ? 'Unpin' : 'Pin'}
-          </Button>
-        </Tooltip>
+        {inProjectFolder ? (
+          <>
+            {/* Remove from Project */}
+            <Tooltip title='Remove from project' arrow>
+              <Button
+                size='small'
+                variant='outlined'
+                color='default'
+                onClick={handleRemoveFromProject}
+              >
+                Remove
+              </Button>
+            </Tooltip>
 
-        {/* Delete */}
-        <Tooltip title='Delete circuit' arrow>
-          <Button
-            className={classes.deleteBtn}
-            size='small'
-            variant='outlined'
-            startIcon={<DeleteIcon />}
-            onClick={handleDelete}
-          >
-            Delete
-          </Button>
-        </Tooltip>
+            {/* Delete */}
+            <Tooltip title='Delete circuit' arrow>
+              <Button
+                className={classes.deleteBtn}
+                size='small'
+                variant='outlined'
+                startIcon={<DeleteIcon />}
+                onClick={handleDelete}
+              >
+                Delete
+              </Button>
+            </Tooltip>
+          </>
+        ) : (
+          <>
+            {/* Pin / Unpin */}
+            <Tooltip title={isPinned ? 'Unpin from top' : 'Pin to top'} arrow>
+              <Button
+                size='small'
+                variant='outlined'
+                color={isPinned ? 'primary' : 'default'}
+                startIcon={isPinned ? <StarIcon /> : <StarBorderIcon />}
+                onClick={handlePin}
+              >
+                {isPinned ? 'Unpin' : 'Pin'}
+              </Button>
+            </Tooltip>
+
+            {/* Delete */}
+            <Tooltip title='Delete circuit' arrow>
+              <Button
+                className={classes.deleteBtn}
+                size='small'
+                variant='outlined'
+                startIcon={<DeleteIcon />}
+                onClick={handleDelete}
+              >
+                Delete
+              </Button>
+            </Tooltip>
+          </>
+        )}
 
       </CardActions>
 

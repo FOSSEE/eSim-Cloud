@@ -22,7 +22,7 @@ import LayoutMain from '../components/Shared/LayoutMain'
 import PlayCircleOutlineIcon from '@material-ui/icons/PlayCircleOutline'
 import IconButton from '@material-ui/core/IconButton'
 import CloseIcon from '@material-ui/icons/Close'
-import LoadGrid from '../components/SchematicEditor/Helper/ComponentDrag.js'
+import { SchematicCanvas } from '../components/SchematicEditor/Helper/ComponentDrag.js'
 import '../components/SchematicEditor/Helper/SchematicEditor.css'
 import { fetchSchematic, fetchGallerySchematic, reportProject, makeCopy } from '../redux/actions/index'
 import { useDispatch, useSelector } from 'react-redux'
@@ -145,8 +145,6 @@ export default function ProjectPage (props) {
     console.log(project.details)
   }, [project])
   useEffect(() => {
-    var container = gridRef.current
-    LoadGrid(container, null, null)
     if (props.location.search !== '') {
       const query = new URLSearchParams(props.location.search)
       var saveID = query.get('save_id')
@@ -294,7 +292,9 @@ export default function ProjectPage (props) {
                     <Grid item xs={10}>
                       <LayoutMain>
                         <center>
-                          <div className="grid-container A4-L" ref={gridRef} id="divGrid" />
+                          <div className="grid-container A4-L" ref={gridRef} id="divGrid">
+                            <SchematicCanvas />
+                          </div>
                         </center>
                       </LayoutMain>
                     </Grid>

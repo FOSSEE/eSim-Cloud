@@ -1,0 +1,1 @@
+module main; initial begin $display("SUCCESS"); $finish; end endmodule

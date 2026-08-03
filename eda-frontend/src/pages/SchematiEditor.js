@@ -14,7 +14,7 @@ import RightSidebar from '../components/SchematicEditor/RightSidebar'
 import PropertiesSidebar from '../components/SchematicEditor/PropertiesSidebar'
 import NetlistPreviewPanel from '../components/SchematicEditor/NetlistPreviewPanel'
 import { ClearGrid } from '../components/SchematicEditor/Helper/ToolbarTools'
-import LoadGrid from '../components/SchematicEditor/Helper/ComponentDrag.js'
+import { SchematicCanvas, schematicStore } from '../components/SchematicEditor/Helper/ComponentDrag.js'
 import ComponentProperties from '../components/SchematicEditor/ComponentProperties'
 import SimulationProperties from '../components/SchematicEditor/SimulationProperties'
 import SimulationScreen from '../components/Shared/SimulationScreen'
@@ -38,7 +38,6 @@ export default function SchematiEditor (props) {
   const compRef = React.createRef()
   const gridRef = React.createRef()
   const outlineRef = React.createRef()
-  const minimapRef = React.createRef()
   const dispatch = useDispatch()
   const isSimulate = useSelector(state => state.schematicEditorReducer.isSimulate)
   const [mobileOpen, setMobileOpen] = React.useState(false)
@@ -86,11 +85,11 @@ export default function SchematiEditor (props) {
 
   useEffect(() => {
     document.title = 'Schematic Editor - eSim '
-    const container = gridRef.current
-    const sidebar = compRef.current
-    const outline = outlineRef.current
-    const minimap = minimapRef.current
-    LoadGrid(container, sidebar, outline, minimap)
+    // Compatibility shim: panels that used to reach into the mxGraph
+    // instance via gridRef.current.graph now get the schematic store.
+    if (gridRef.current) {
+      gridRef.current.graph = schematicStore
+    }
 
     if (props.location.search !== '') {
       const query = new URLSearchParams(props.location.search)
@@ -130,30 +129,14 @@ export default function SchematiEditor (props) {
           setLtiSimResult={setLtiSimResult}/>}
       />
 
-      <LayoutMain>
+      <LayoutMain noPadding>
         <div className={classes.toolbar} />
         <div style={{ display: 'flex', height: 'calc(100vh - 80px)' }}>
           <div style={{ flex: isSimulate ? 1 : 'none', width: isSimulate ? '50%' : '100%', borderRight: isSimulate ? '2px solid #ccc' : 'none', overflow: 'hidden', height: '100%', position: 'relative' }}>
-            <div className="grid-container" ref={gridRef} id="divGrid" style={{ width: '100%', height: '100%', margin: 0, border: 'none', borderRadius: 0, boxShadow: 'none' }} />
-            {/* Opaque Floating Dynamic Minimap */}
-            <div
-              className="minimap-container"
-              ref={minimapRef}
-              id="minimapContainer"
-              style={{
-                position: 'absolute',
-                top: '15px',
-                left: '15px',
-                width: '200px',
-                height: '150px',
-                backgroundColor: '#ffffff', // Opaque
-                border: '1px solid #ccc',
-                borderRadius: '5px',
-                pointerEvents: 'none',
-                boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
-                zIndex: 1000
-              }}
-            />
+            <div className="grid-container" ref={gridRef} id="divGrid" style={{ width: '100%', height: '100%', margin: 0, border: 'none', borderRadius: 0, boxShadow: 'none' }}>
+              {/* Declarative React SVG canvas (includes its own minimap layer) */}
+              <SchematicCanvas />
+            </div>
           </div>
           {isSimulate && (
             <div style={{ flex: 1, width: '50%', overflowY: 'auto' }}>

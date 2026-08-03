@@ -1,0 +1,22 @@
+#! /c/Source/iverilog-install/bin/vvp
+:ivl_version "12.0 (devel)" "(s20150603-1539-g2693dd32b)";
+:ivl_delay_selection "TYPICAL";
+:vpi_time_precision + 0;
+:vpi_module "C:\Users\Apple\GEMINI~1\ANTIGR~1\scratch\IVERIL~1\lib\ivl\system.vpi";
+:vpi_module "C:\Users\Apple\GEMINI~1\ANTIGR~1\scratch\IVERIL~1\lib\ivl\vhdl_sys.vpi";
+:vpi_module "C:\Users\Apple\GEMINI~1\ANTIGR~1\scratch\IVERIL~1\lib\ivl\vhdl_textio.vpi";
+:vpi_module "C:\Users\Apple\GEMINI~1\ANTIGR~1\scratch\IVERIL~1\lib\ivl\v2005_math.vpi";
+:vpi_module "C:\Users\Apple\GEMINI~1\ANTIGR~1\scratch\IVERIL~1\lib\ivl\va_math.vpi";
+S_000001aa85126940 .scope module, "main" "main" 2 1;
+ .timescale 0 0;
+    .scope S_000001aa85126940;
+T_0 ;
+    %vpi_call 2 1 "$display", "SUCCESS" {0 0 0};
+    %vpi_call 2 1 "$finish" {0 0 0};
+    %end;
+    .thread T_0;
+# The file index is used to find the file name in the following table.
+:file_names 3;
+    "N/A";
+    "<interactive>";
+    "C:\Users\Apple\.gemini\antigravity\scratch\iverilog_test\test.v";

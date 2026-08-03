@@ -2,24 +2,21 @@
  * @file SchematicsList.js
  * @description User's "My Schematics" dashboard page.
  *
- * Redesigned to show:
+ * Cleaned and unified to show:
  *   1. Quick Actions header bar — New Circuit, Open Gallery, Open Simulator
- *   2. Pinned section  — circuits with pinned === true (always visible)
- *   3. Recent section  — all circuits in save_time desc order (as returned by API)
- *   4. Existing tabbed view (Schematics / Projects / LTI Apps / LTI Submissions)
- *      preserved below the new sections so nothing is removed.
+ *   2. Search & Sort controls alongside a tabbed view
+ *   3. Tabs categorized into: Schematics, Projects, LTI Apps, LTI Submissions
+ *   4. Each category groups Pinned circuits at the top and Recent ones below
+ *   5. Option under "Projects" tab to bundle multiple saved circuits into a new project
  *
- * All existing Redux connections, props, and auth state are kept.
+ * Built using the modern, premium CircuitCard component.
  */
 import React, { useCallback, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import {
-  Card,
   Grid,
   Button,
   Typography,
-  CardActions,
-  CardContent,
   Input,
   IconButton,
   Popover,
@@ -33,30 +30,33 @@ import {
   CircularProgress,
   Box,
   Divider,
-  Paper
+  Paper,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  FormControlLabel,
+  Checkbox,
+  FormGroup,
+  Card,
+  CardContent,
+  CardActionArea
 } from '@material-ui/core'
 import { makeStyles } from '@material-ui/core/styles'
 import { Link as RouterLink } from 'react-router-dom'
-import SchematicCard from './SchematicCard'
 import CircuitCard from './CircuitCard'
 import { useDispatch, useSelector } from 'react-redux'
-import { fetchSchematics } from '../../redux/actions/index'
+import { fetchSchematics, fetchMyProjects } from '../../redux/actions/index'
 import FilterListIcon from '@material-ui/icons/FilterList'
 import AddIcon from '@material-ui/icons/Add'
 import AppsIcon from '@material-ui/icons/Apps'
 import PlayCircleOutlineIcon from '@material-ui/icons/PlayCircleOutline'
+import FolderIcon from '@material-ui/icons/Folder'
 import { Alert } from '@material-ui/lab'
+import api from '../../utils/Api'
 
 const useStyles = makeStyles((theme) => ({
-  mainHead: {
-    width: '100%',
-    backgroundColor: '#404040',
-    color: '#fff'
-  },
-  title: {
-    fontSize: 14,
-    color: '#80ff80'
-  },
   typography: {
     padding: theme.spacing(2)
   },
@@ -87,7 +87,8 @@ const useStyles = makeStyles((theme) => ({
   sectionHeader: {
     display: 'flex',
     alignItems: 'center',
-    marginBottom: theme.spacing(1.5)
+    marginBottom: theme.spacing(1.5),
+    marginTop: theme.spacing(2)
   },
   sectionTitle: {
     fontWeight: 700,
@@ -101,7 +102,8 @@ const useStyles = makeStyles((theme) => ({
   emptyText: {
     color: theme.palette.text.secondary,
     fontSize: '0.875rem',
-    padding: theme.spacing(1.5, 0)
+    padding: theme.spacing(2, 0),
+    textAlign: 'center'
   },
   // ── Loading / error states ─────────────────────────────────────────────────
   centeredSpinner: {
@@ -110,13 +112,11 @@ const useStyles = makeStyles((theme) => ({
     alignItems: 'center',
     minHeight: 180
   },
-  errorBox: {
-    padding: theme.spacing(2),
-    backgroundColor: '#fdecea',
-    border: '1px solid #f44336',
-    borderRadius: 8,
-    color: '#c62828',
-    fontSize: '0.875rem',
+  filterContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
     marginBottom: theme.spacing(2)
   }
 }))
@@ -126,7 +126,7 @@ function TabPanel (props) {
   return (
     <React.Fragment>
       {value === index && (
-        <>{children}</>
+        <Box style={{ width: '100%', marginTop: '16px' }}>{children}</Box>
       )}
     </React.Fragment>
   )
@@ -138,42 +138,79 @@ TabPanel.propTypes = {
   value: PropTypes.any.isRequired
 }
 
-// ── Header card (unchanged from original) ─────────────────────────────────────
-function MainCard () {
-  const classes = useStyles()
+// Helper to render pinned & recent circuits for a given tab's data
+function CircuitListSection ({ circuits, emptyMessage, onRefresh, classes, inProjectFolder = false }) {
+  const pinnedCircuits = circuits.filter(s => s.pinned === true)
+  const recentCircuits = circuits.filter(s => s.pinned !== true)
+
   return (
-    <Card className={classes.mainHead}>
-      <CardContent>
-        <Typography className={classes.title} gutterBottom>
-          All schematics are Listed Below
-        </Typography>
-        <Typography variant='h5' component='h2'>
-          My Schematics
-        </Typography>
-      </CardContent>
-      <CardActions>
-        <Button
-          target='_blank'
-          component={RouterLink}
-          to='/editor'
-          size='small'
-          color='primary'
-        >
-          Create New
-        </Button>
-        <Button size='small' color='secondary'>
-          Load More
-        </Button>
-      </CardActions>
-    </Card>
+    <Grid container spacing={3}>
+      {/* Pinned Section */}
+      {pinnedCircuits.length > 0 && (
+        <Grid item xs={12}>
+          <div className={classes.sectionHeader}>
+            <Typography className={classes.sectionTitle} variant='h6'>
+              ★ Pinned
+            </Typography>
+            <Typography variant='body2' color='textSecondary'>
+              ({pinnedCircuits.length})
+            </Typography>
+          </div>
+          <Grid container spacing={2}>
+            {pinnedCircuits.map((sch) => (
+              <Grid item xs={12} sm={6} md={4} key={sch.save_id}>
+                <CircuitCard sch={sch} onRefresh={onRefresh} inProjectFolder={inProjectFolder} />
+              </Grid>
+            ))}
+          </Grid>
+          <Divider className={classes.sectionDivider} />
+        </Grid>
+      )}
+
+      {/* Recent Section */}
+      <Grid item xs={12}>
+        {pinnedCircuits.length > 0 && recentCircuits.length > 0 && (
+          <div className={classes.sectionHeader}>
+            <Typography className={classes.sectionTitle} variant='h6'>
+              🕒 Recent
+            </Typography>
+            <Typography variant='body2' color='textSecondary'>
+              ({recentCircuits.length})
+            </Typography>
+          </div>
+        )}
+
+        {recentCircuits.length === 0 && pinnedCircuits.length === 0 ? (
+          <Typography className={classes.emptyText}>
+            {emptyMessage}
+          </Typography>
+        ) : (
+          <Grid container spacing={2}>
+            {recentCircuits.map((sch) => (
+              <Grid item xs={12} sm={6} md={4} key={sch.save_id}>
+                <CircuitCard sch={sch} onRefresh={onRefresh} inProjectFolder={inProjectFolder} />
+              </Grid>
+            ))}
+          </Grid>
+        )}
+      </Grid>
+    </Grid>
   )
 }
 
-// ── Main component ─────────────────────────────────────────────────────────────
+CircuitListSection.propTypes = {
+  circuits: PropTypes.array.isRequired,
+  emptyMessage: PropTypes.string.isRequired,
+  onRefresh: PropTypes.func.isRequired,
+  classes: PropTypes.object.isRequired,
+  inProjectFolder: PropTypes.bool
+}
+
 export default function SchematicsList ({ ltiDetails = null }) {
   const classes = useStyles()
   const auth = useSelector(state => state.authReducer)
   const schematics = useSelector(state => state.dashboardReducer.schematics)
+  const myProjects = useSelector(state => state.dashboardReducer.myProjects)
   const [saves, setSaves] = React.useState(schematics)
   const dispatch = useDispatch()
   const [anchorEl, setAnchorEl] = React.useState(null)
@@ -186,7 +223,125 @@ export default function SchematicsList ({ ltiDetails = null }) {
   const [isLoading, setIsLoading] = React.useState(false)
   const [fetchError, setFetchError] = React.useState(null)
 
-  // ── Fetch helper — also used as onRefresh callback for CircuitCard ─────────
+  // Project dialog and create variables
+  const [projectDialogOpen, setProjectDialogOpen] = React.useState(false)
+  const [projectTitle, setProjectTitle] = React.useState('')
+  const [projectDescription, setProjectDescription] = React.useState('')
+  const [selectedCircuitIds, setSelectedCircuitIds] = React.useState([])
+  const [projectError, setProjectError] = React.useState('')
+  const [isSubmittingProject, setIsSubmittingProject] = React.useState(false)
+  const [activeProjectId, setActiveProjectId] = React.useState(null)
+
+  // Edit Project variables
+  const [editProjectDialogOpen, setEditProjectDialogOpen] = React.useState(false)
+  const [editProjectTitle, setEditProjectTitle] = React.useState('')
+  const [editProjectDescription, setEditProjectDescription] = React.useState('')
+  const [editProjectError, setEditProjectError] = React.useState('')
+  const [isSubmittingEditProject, setIsSubmittingEditProject] = React.useState(false)
+
+  // Add Schematic variables
+  const [addSchematicDialogOpen, setAddSchematicDialogOpen] = React.useState(false)
+  const [selectedAddCircuitIds, setSelectedAddCircuitIds] = React.useState([])
+  const [addCircuitError, setAddCircuitError] = React.useState('')
+  const [isSubmittingAddCircuit, setIsSubmittingAddCircuit] = React.useState(false)
+
+  const handleOpenEditProjectDialog = (project) => {
+    setEditProjectTitle(project.title)
+    setEditProjectDescription(project.description || '')
+    setEditProjectError('')
+    setEditProjectDialogOpen(true)
+  }
+
+  const handleCloseEditProjectDialog = () => {
+    setEditProjectDialogOpen(false)
+  }
+
+  const handleEditProject = () => {
+    if (!editProjectTitle.trim()) {
+      setEditProjectError('Project title is required')
+      return
+    }
+
+    setIsSubmittingEditProject(true)
+    setEditProjectError('')
+
+    const token = auth.token || localStorage.getItem('esim_token')
+    const config = {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    }
+    if (token) {
+      config.headers.Authorization = `Token ${token}`
+    }
+
+    api.patch(`/publish/myproject/${activeProjectId}/`, {
+      title: editProjectTitle,
+      description: editProjectDescription
+    }, config)
+      .then(() => {
+        setIsSubmittingEditProject(false)
+        setEditProjectDialogOpen(false)
+        doFetch()
+      })
+      .catch((err) => {
+        setIsSubmittingEditProject(false)
+        setEditProjectError(err.response?.data?.error || 'Failed to update project details')
+      })
+  }
+
+  const handleOpenAddSchematicDialog = (project) => {
+    setSelectedAddCircuitIds([])
+    setAddCircuitError('')
+    setAddSchematicDialogOpen(true)
+  }
+
+  const handleCloseAddSchematicDialog = () => {
+    setAddSchematicDialogOpen(false)
+  }
+
+  const handleToggleAddCircuitSelection = (saveId) => {
+    if (selectedAddCircuitIds.includes(saveId)) {
+      setSelectedAddCircuitIds(selectedAddCircuitIds.filter(id => id !== saveId))
+    } else {
+      setSelectedAddCircuitIds([...selectedAddCircuitIds, saveId])
+    }
+  }
+
+  const handleAddSchematics = () => {
+    if (selectedAddCircuitIds.length === 0) {
+      setAddCircuitError('Please select at least one circuit to add')
+      return
+    }
+
+    setIsSubmittingAddCircuit(true)
+    setAddCircuitError('')
+
+    const token = auth.token || localStorage.getItem('esim_token')
+    const config = {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    }
+    if (token) {
+      config.headers.Authorization = `Token ${token}`
+    }
+
+    api.post('/publish/add_schematic/', {
+      project_id: activeProjectId,
+      save_ids: selectedAddCircuitIds
+    }, config)
+      .then(() => {
+        setIsSubmittingAddCircuit(false)
+        setAddSchematicDialogOpen(false)
+        doFetch()
+      })
+      .catch((err) => {
+        setIsSubmittingAddCircuit(false)
+        setAddCircuitError(err.response?.data?.error || 'Failed to add schematics to project')
+      })
+  }
+
   const doFetch = useCallback(() => {
     const hasToken = auth.token || localStorage.getItem('esim_auth_token')
     if (!hasToken) {
@@ -195,7 +350,10 @@ export default function SchematicsList ({ ltiDetails = null }) {
 
     setIsLoading(true)
     setFetchError(null)
-    Promise.resolve(dispatch(fetchSchematics()))
+    Promise.all([
+      Promise.resolve(dispatch(fetchSchematics())),
+      Promise.resolve(dispatch(fetchMyProjects()))
+    ])
       .catch((err) => {
         if (err.response && err.response.status === 401) {
           localStorage.removeItem('esim_auth_token')
@@ -213,13 +371,6 @@ export default function SchematicsList ({ ltiDetails = null }) {
   useEffect(() => { doFetch() }, [doFetch])
   useEffect(() => { setSaves(schematics) }, [schematics])
 
-  // ── Derive pinned and recent lists from Redux schematics ───────────────────
-  // Treat missing pinned field as false (backwards-compat with old records)
-  const pinnedCircuits = schematics.filter(s => s.pinned === true)
-  // Recent = all circuits that are NOT pinned
-  const recentCircuits = schematics.filter(s => s.pinned !== true)
-
-  // ── Search / sort (unchanged from original) ────────────────────────────────
   const onSearch = (e) => {
     setSaves(schematics.filter((o) =>
       // eslint-disable-next-line
@@ -240,21 +391,22 @@ export default function SchematicsList ({ ltiDetails = null }) {
   }
 
   const sortSaves = (sorting, order) => {
+    const sorted = [...saves]
     if (order === 'ascending') {
       if (sorting === 'name') {
-        setSaves(saves.sort((a, b) => (a.name > b.name) ? 1 : -1))
+        setSaves(sorted.sort((a, b) => (a.name > b.name) ? 1 : -1))
       } else if (sorting === 'created_at') {
-        setSaves(saves.sort((a, b) => (a.create_time > b.create_time) ? 1 : -1))
+        setSaves(sorted.sort((a, b) => (a.create_time > b.create_time) ? 1 : -1))
       } else if (sorting === 'updated_at') {
-        setSaves(saves.sort((a, b) => (a.save_time < b.save_time) ? 1 : -1))
+        setSaves(sorted.sort((a, b) => (a.save_time < b.save_time) ? 1 : -1))
       }
     } else {
       if (sorting === 'name') {
-        setSaves(saves.sort((a, b) => (a.name < b.name) ? 1 : -1))
+        setSaves(sorted.sort((a, b) => (a.name < b.name) ? 1 : -1))
       } else if (sorting === 'created_at') {
-        setSaves(saves.sort((a, b) => (a.create_time < b.create_time) ? 1 : -1))
+        setSaves(sorted.sort((a, b) => (a.create_time < b.create_time) ? 1 : -1))
       } else if (sorting === 'updated_at') {
-        setSaves(saves.sort((a, b) => (a.save_time > b.save_time) ? 1 : -1))
+        setSaves(sorted.sort((a, b) => (a.save_time > b.save_time) ? 1 : -1))
       }
     }
   }
@@ -273,9 +425,68 @@ export default function SchematicsList ({ ltiDetails = null }) {
 
   const handleChange = (event, newValue) => {
     setValue(newValue)
+    setActiveProjectId(null)
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  const handleOpenProjectDialog = () => {
+    setProjectTitle('')
+    setProjectDescription('')
+    setSelectedCircuitIds([])
+    setProjectError('')
+    setProjectDialogOpen(true)
+  }
+
+  const handleCloseProjectDialog = () => {
+    setProjectDialogOpen(false)
+  }
+
+  const handleToggleCircuitSelection = (saveId) => {
+    if (selectedCircuitIds.includes(saveId)) {
+      setSelectedCircuitIds(selectedCircuitIds.filter(id => id !== saveId))
+    } else {
+      setSelectedCircuitIds([...selectedCircuitIds, saveId])
+    }
+  }
+
+  const handleCreateProject = () => {
+    if (!projectTitle.trim()) {
+      setProjectError('Project title is required')
+      return
+    }
+    if (selectedCircuitIds.length === 0) {
+      setProjectError('Please select at least one circuit to bundle')
+      return
+    }
+
+    setIsSubmittingProject(true)
+    setProjectError('')
+
+    const token = auth.token || localStorage.getItem('esim_token')
+    const config = {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    }
+    if (token) {
+      config.headers.Authorization = `Token ${token}`
+    }
+
+    api.post('/publish/create_project/', {
+      title: projectTitle,
+      description: projectDescription,
+      save_ids: selectedCircuitIds
+    }, config)
+      .then(() => {
+        setIsSubmittingProject(false)
+        setProjectDialogOpen(false)
+        doFetch()
+      })
+      .catch((err) => {
+        setIsSubmittingProject(false)
+        setProjectError(err.response?.data?.error || 'Failed to create project')
+      })
+  }
+
   return (
     <>
       <Grid
@@ -286,7 +497,7 @@ export default function SchematicsList ({ ltiDetails = null }) {
         alignContent='center'
         spacing={3}
       >
-        {/* ── Quick Actions bar ─────────────────────────────────────────────── */}
+        {/* Quick Actions Bar */}
         <Grid item xs={12}>
           <Paper className={classes.quickActionsBar} elevation={0}>
             <Typography className={classes.quickActionsTitle}>
@@ -332,237 +543,413 @@ export default function SchematicsList ({ ltiDetails = null }) {
           </Grid>
         ) : (
           <>
-            {/* ── Error state ───────────────────────────────────────────────────── */}
+            {/* Error view */}
             {fetchError && (
               <Grid item xs={12}>
                 <Alert severity="error">{fetchError}</Alert>
               </Grid>
             )}
 
-            {/* ── Loading state ─────────────────────────────────────────────────── */}
-            {isLoading
-              ? (
-                <Grid item xs={12}>
-                  <Box className={classes.centeredSpinner}>
-                    <CircularProgress />
-                  </Box>
-                </Grid>
-              )
-              : (
-                <>
-                  {/* ── PINNED section ─────────────────────────────────────────────── */}
-                  <Grid item xs={12}>
-                    <div className={classes.sectionHeader}>
-                      <Typography className={classes.sectionTitle} variant='h6'>
-                  ★ Pinned
-                      </Typography>
-                      <Typography variant='body2' color='textSecondary'>
-                  ({pinnedCircuits.length})
-                      </Typography>
-                    </div>
+            {/* Filter and Tab Options */}
+            <Grid item xs={12}>
+              <Box className={classes.filterContainer}>
+                <Typography variant='h5' style={{ fontWeight: 600 }}>
+                  Welcome, {auth.user ? auth.user.username : ''}
+                </Typography>
+                <Box display="flex" alignItems="center">
+                  <Input onChange={(e) => onSearch(e)} placeholder='Search circuits...' />
+                  {schematics && (
+                    <IconButton onClick={handleFilterOpen}>
+                      <FilterListIcon />
+                    </IconButton>
+                  )}
+                </Box>
+              </Box>
 
-                    {pinnedCircuits.length === 0
-                      ? (
-                        <Typography className={classes.emptyText}>
-                  No pinned circuits yet. Click <strong>Pin</strong> on any circuit card to pin it here.
-                        </Typography>
+              <Popover
+                open={open}
+                onClose={handleFilterOpen}
+                anchorOrigin={{
+                  vertical: 'bottom',
+                  horizontal: 'center'
+                }}
+                transformOrigin={{
+                  vertical: 'top',
+                  horizontal: 'center'
+                }}
+                anchorEl={anchorEl}
+              >
+                <FormControl style={{ width: '200px', padding: '10px' }}>
+                  <InputLabel style={{ marginLeft: '10px' }}>Select Sort</InputLabel>
+                  <Select className={classes.popover} value={sort} onChange={handleSort}>
+                    <MenuItem key='name' value='name'>Name</MenuItem>
+                    <MenuItem key='created_at' value='created_at'>Created</MenuItem>
+                    <MenuItem key='updated_at' value='updated_at'>Updated</MenuItem>
+                  </Select>
+                </FormControl>
+                <FormControl style={{ width: '200px', padding: '10px' }}>
+                  <InputLabel style={{ marginLeft: '10px' }}>Select Order</InputLabel>
+                  <Select className={classes.popover} value={order} onChange={handleOrder}>
+                    <MenuItem key='ascending' value='ascending'>Ascending</MenuItem>
+                    <MenuItem key='descending' value='descending'>Descending</MenuItem>
+                  </Select>
+                </FormControl>
+              </Popover>
+
+              <AppBar position='static' color='default' elevation={0} style={{ borderBottom: '1px solid rgba(0,0,0,0.12)' }}>
+                <Tabs value={value} onChange={handleChange} indicatorColor="primary" textColor="primary">
+                  <Tab label='Schematics' />
+                  <Tab label='Projects' />
+                  <Tab label='LTI Apps' />
+                  <Tab label='LTI Submissions' />
+                </Tabs>
+              </AppBar>
+            </Grid>
+
+            {/* Loading / Results display */}
+            {isLoading ? (
+              <Grid item xs={12}>
+                <Box className={classes.centeredSpinner}>
+                  <CircularProgress />
+                </Box>
+              </Grid>
+            ) : (
+              <Grid item xs={12}>
+                {/* TabPanel 0: Schematics */}
+                <TabPanel value={value} index={0}>
+                  <CircuitListSection
+                    circuits={saves.filter(x => x.lti_id == null && x.is_submission == null)}
+                    emptyMessage={`Hey ${auth.user?.username || ''}, you don't have any saved schematics...`}
+                    onRefresh={doFetch}
+                    classes={classes}
+                  />
+                </TabPanel>
+
+                {/* TabPanel 1: Projects */}
+                <TabPanel value={value} index={1}>
+                  {activeProjectId && myProjects.find(p => p.project_id === activeProjectId) ? (
+                    (() => {
+                      const activeProject = myProjects.find(p => p.project_id === activeProjectId)
+                      return (
+                        <div>
+                          <Box display="flex" alignItems="center" justifyContent="space-between" mb={2} flexWrap="wrap">
+                            <Box display="flex" alignItems="center">
+                              <Button
+                                variant="outlined"
+                                color="default"
+                                size="small"
+                                onClick={() => setActiveProjectId(null)}
+                                style={{ marginRight: '16px' }}
+                              >
+                                ← Back to Projects
+                              </Button>
+                              <Typography variant="h5" style={{ fontWeight: 600, marginRight: '16px' }}>
+                                {activeProject.title}
+                              </Typography>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                color="primary"
+                                onClick={() => handleOpenEditProjectDialog(activeProject)}
+                              >
+                                Edit Details
+                              </Button>
+                            </Box>
+                            <Button
+                              variant="contained"
+                              color="primary"
+                              size="small"
+                              onClick={() => handleOpenAddSchematicDialog(activeProject)}
+                            >
+                              + Add Schematic
+                            </Button>
+                          </Box>
+                          <Typography variant="body1" color="textSecondary" style={{ marginBottom: '20px' }}>
+                            {activeProject.description || 'No description provided.'}
+                          </Typography>
+                          <Divider style={{ marginBottom: '24px' }} />
+                          <CircuitListSection
+                            circuits={activeProject.schematics || []}
+                            emptyMessage="This project bundle is empty."
+                            onRefresh={doFetch}
+                            classes={classes}
+                            inProjectFolder={true}
+                          />
+                        </div>
                       )
-                      : (
-                        <Grid container spacing={2}>
-                          {pinnedCircuits.map((sch) => (
-                            <Grid item xs={12} sm={6} md={4} key={sch.save_id}>
-                              <CircuitCard sch={sch} onRefresh={doFetch} />
+                    })()
+                  ) : (
+                    <div>
+                      <Box display="flex" justifyContent="flex-end" mb={2}>
+                        <Button
+                          variant="contained"
+                          color="primary"
+                          onClick={handleOpenProjectDialog}
+                        >
+                          Create Project
+                        </Button>
+                      </Box>
+                      {myProjects.length === 0 ? (
+                        <Typography className={classes.emptyText}>
+                          Hey {auth.user?.username || ''}, you don't have any saved projects...
+                        </Typography>
+                      ) : (
+                        <Grid container spacing={3}>
+                          {myProjects.map((proj) => (
+                            <Grid item xs={12} sm={6} md={4} key={proj.project_id}>
+                              <Card style={{ display: 'flex', flexDirection: 'column', height: '100%', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                                <CardActionArea onClick={() => setActiveProjectId(proj.project_id)} style={{ flexGrow: 1 }}>
+                                  <CardContent>
+                                    <Box display="flex" alignItems="center" mb={1.5}>
+                                      <FolderIcon style={{ color: '#ffca28', fontSize: '2.5rem', marginRight: '12px' }} />
+                                      <div>
+                                        <Typography variant="h6" style={{ fontWeight: 600, lineHeight: 1.2 }}>
+                                          {proj.title}
+                                        </Typography>
+                                        <Typography variant="caption" color="textSecondary">
+                                          {(proj.schematics || []).length} {(proj.schematics || []).length === 1 ? 'circuit' : 'circuits'}
+                                        </Typography>
+                                      </div>
+                                    </Box>
+                                    <Typography variant="body2" color="textSecondary" style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: '40px' }}>
+                                      {proj.description || 'No description provided.'}
+                                    </Typography>
+                                  </CardContent>
+                                </CardActionArea>
+                                <Box p={1.5} display="flex" justifyContent="flex-end" style={{ borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+                                  <Button size="small" color="primary" onClick={() => setActiveProjectId(proj.project_id)}>
+                                    Open Group
+                                  </Button>
+                                </Box>
+                              </Card>
                             </Grid>
                           ))}
                         </Grid>
                       )}
-                  </Grid>
-
-                  <Grid item xs={12}>
-                    <Divider className={classes.sectionDivider} />
-                  </Grid>
-
-                  {/* ── RECENT section ─────────────────────────────────────────────── */}
-                  <Grid item xs={12}>
-                    <div className={classes.sectionHeader}>
-                      <Typography className={classes.sectionTitle} variant='h6'>
-                  🕒 Recent
-                      </Typography>
-                      <Typography variant='body2' color='textSecondary'>
-                  ({recentCircuits.length} total)
-                      </Typography>
                     </div>
+                  )}
+                </TabPanel>
 
-                    {recentCircuits.length === 0
-                      ? (
-                        <Typography className={classes.emptyText}>
-                  No saved circuits yet. Create your first circuit above!
-                        </Typography>
-                      )
-                      : (
-                        <Grid container spacing={2}>
-                          {recentCircuits.map((sch) => (
-                            <Grid item xs={12} sm={6} md={4} key={sch.save_id}>
-                              <CircuitCard sch={sch} onRefresh={doFetch} />
-                            </Grid>
-                          ))}
-                        </Grid>
-                      )}
-                  </Grid>
-                </>
-              )}
+                {/* TabPanel 2: LTI Apps */}
+                <TabPanel value={value} index={2}>
+                  <CircuitListSection
+                    circuits={saves.filter(x => x.lti_id != null)}
+                    emptyMessage={`Hey ${auth.user?.username || ''}, you don't have any saved LTI apps...`}
+                    onRefresh={doFetch}
+                    classes={classes}
+                  />
+                </TabPanel>
+
+                {/* TabPanel 3: LTI Submissions */}
+                <TabPanel value={value} index={3}>
+                  <CircuitListSection
+                    circuits={saves.filter(x => x.is_submission != null)}
+                    emptyMessage={`Hey ${auth.user?.username || ''}, you don't have any saved submissions...`}
+                    onRefresh={doFetch}
+                    classes={classes}
+                  />
+                </TabPanel>
+              </Grid>
+            )}
           </>
         )}
-
-        {/* ════════════════════════════════════════════════════════════════════
-            Everything below this line is the ORIGINAL SchematicsList content,
-            preserved exactly as it was — no existing functionality removed.
-            ════════════════════════════════════════════════════════════════════ */}
-
-        {/* User Dashboard My Schematic Header */}
-        <Grid item xs={12}>
-          <Divider />
-          <Box mt={3}>
-            <MainCard />
-          </Box>
-        </Grid>
-
-        <Grid item xs={12}>
-          {schematics && <IconButton onClick={handleFilterOpen} style={{ float: 'right' }}><FilterListIcon /></IconButton>}
-          {schematics && <Input style={{ float: 'right' }} onChange={(e) => onSearch(e)} placeholder='Search' />}
-          <Popover
-            open={open}
-            onClose={handleFilterOpen}
-            anchorOrigin={{
-              vertical: 'bottom',
-              horizontal: 'center'
-            }}
-            transformOrigin={{
-              vertical: 'top',
-              horizontal: 'center'
-            }}
-            anchorEl={anchorEl}
-          >
-            <FormControl style={{ width: ' 200px', padding: '2%' }}>
-              <InputLabel>Select Sort</InputLabel>
-              <Select className={classes.popover} value={sort} onChange={handleSort}>
-                <MenuItem key='name' value='name'>Name</MenuItem>
-                <MenuItem key='created_at' value='created_at'>Created</MenuItem>
-                <MenuItem key='updated_at' value='updated_at'>Updated</MenuItem>
-              </Select>
-            </FormControl>
-            <FormControl style={{ width: ' 200px', padding: '2%' }}>
-              <InputLabel>Select Order</InputLabel>
-              <Select className={classes.popover} value={order} onChange={handleOrder}>
-                <MenuItem key='ascending' value='ascending'>Ascending</MenuItem>
-                <MenuItem key='descending' value='descending'>Descending</MenuItem>
-              </Select>
-            </FormControl>
-          </Popover>
-        </Grid>
-
-        <AppBar position='static'>
-          <Tabs value={value} onChange={handleChange}>
-            <Tab label='Schematics' />
-            <Tab label='Projects' />
-            <Tab label='LTI Apps' />
-            <Tab label='LTI Submissions' />
-          </Tabs>
-        </AppBar>
-
-        <TabPanel style={{ width: '100%' }} value={value} index={0}>
-          {saves.filter(x => { return (x.project_id == null && x.lti_id == null && x.is_submission == null) }).length !== 0
-            ? <>
-              {saves.filter(x => { return (x.project_id == null && x.lti_id == null && x.is_submission == null) }).map(
-                (sch) => {
-                  return (
-                    <Grid item xs={12} sm={6} lg={3} key={sch.save_id}>
-                      <SchematicCard sch={sch} />
-                    </Grid>
-                  )
-                }
-              )}
-            </>
-            : <Grid item xs={12}>
-              <Card style={{ padding: '7px 15px' }} className={classes.mainHead}>
-                <Typography variant='subtitle1' gutterBottom>
-                  Hey {auth.user.username} , You dont have any saved schematics...
-                </Typography>
-              </Card>
-            </Grid>
-          }
-        </TabPanel>
-
-        <TabPanel style={{ width: '100%' }} value={value} index={1}>
-          {saves.filter(x => { return x.project_id }).length !== 0
-            ? <>
-              {saves.filter(x => { return x.project_id }).map(
-                (sch) => {
-                  return (
-                    <Grid item xs={12} sm={6} lg={3} key={sch.save_id}>
-                      <SchematicCard sch={sch} />
-                    </Grid>
-                  )
-                }
-              )}
-            </>
-            : <Grid item xs={12}>
-              <Card style={{ padding: '7px 15px' }} className={classes.mainHead}>
-                <Typography variant='subtitle1' gutterBottom>
-                  Hey {auth.user.username} , You dont have any saved projects...
-                </Typography>
-              </Card>
-            </Grid>
-          }
-        </TabPanel>
-
-        <TabPanel style={{ width: '100%' }} value={value} index={2}>
-          {saves.filter(x => { return x.lti_id }).length !== 0
-            ? <>
-              {saves.filter(x => { return x.lti_id }).map(
-                (sch) => {
-                  return (
-                    <Grid item xs={12} sm={6} lg={3} key={sch.save_id}>
-                      <SchematicCard sch={sch} />
-                    </Grid>
-                  )
-                }
-              )}
-            </>
-            : <Grid item xs={12}>
-              <Card style={{ padding: '7px 15px' }} className={classes.mainHead}>
-                <Typography variant='subtitle1' gutterBottom>
-                  Hey {auth.user.username} , You dont have any saved projects...
-                </Typography>
-              </Card>
-            </Grid>
-          }
-        </TabPanel>
-
-        <TabPanel style={{ width: '100%' }} value={value} index={3}>
-          {saves.filter(x => { return x.is_submission }).length !== 0
-            ? <>
-              {saves.filter(x => { return x.is_submission }).map(
-                (sch) => {
-                  return (
-                    <Grid item xs={12} sm={6} lg={3} key={sch.save_id}>
-                      <SchematicCard sch={sch} />
-                    </Grid>
-                  )
-                }
-              )}
-            </>
-            : <Grid item xs={12}>
-              <Card style={{ padding: '7px 15px' }} className={classes.mainHead}>
-                <Typography variant='subtitle1' gutterBottom>
-                  Hey {auth.user.username} , You dont have any saved projects...
-                </Typography>
-              </Card>
-            </Grid>
-          }
-        </TabPanel>
-
       </Grid>
+
+      {/* Create Project Bundle Dialog */}
+      <Dialog
+        open={projectDialogOpen}
+        onClose={handleCloseProjectDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Create New Project Bundle</DialogTitle>
+        <DialogContent dividers>
+          {projectError && (
+            <Box mb={2}>
+              <Alert severity="error">{projectError}</Alert>
+            </Box>
+          )}
+
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Project Title"
+            type="text"
+            fullWidth
+            variant="outlined"
+            value={projectTitle}
+            onChange={(e) => setProjectTitle(e.target.value)}
+            style={{ marginBottom: '16px' }}
+          />
+
+          <TextField
+            margin="dense"
+            label="Project Description"
+            type="text"
+            fullWidth
+            multiline
+            rows={3}
+            variant="outlined"
+            value={projectDescription}
+            onChange={(e) => setProjectDescription(e.target.value)}
+            style={{ marginBottom: '20px' }}
+          />
+
+          <Typography variant="subtitle2" gutterBottom style={{ fontWeight: 600 }}>
+            Select Saved Circuits to Bundle:
+          </Typography>
+
+          <Box style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid rgba(0,0,0,0.12)', borderRadius: '4px', padding: '8px' }}>
+            {saves.filter(x => x.lti_id == null && x.is_submission == null).length === 0 ? (
+              <Typography variant="body2" color="textSecondary" style={{ textAlign: 'center', padding: '16px 0' }}>
+                No saved circuits available.
+              </Typography>
+            ) : (
+              <FormGroup>
+                {saves.filter(x => x.lti_id == null && x.is_submission == null).map((sch) => (
+                  <FormControlLabel
+                    key={sch.save_id}
+                    control={
+                      <Checkbox
+                        checked={selectedCircuitIds.includes(sch.save_id)}
+                        onChange={() => handleToggleCircuitSelection(sch.save_id)}
+                        color="primary"
+                      />
+                    }
+                    label={sch.name || String(sch.save_id).slice(0, 8)}
+                  />
+                ))}
+              </FormGroup>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseProjectDialog} color="default" disabled={isSubmittingProject}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleCreateProject}
+            color="primary"
+            variant="contained"
+            disabled={isSubmittingProject}
+          >
+            {isSubmittingProject ? 'Creating...' : 'Create'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Project Dialog */}
+      <Dialog
+        open={editProjectDialogOpen}
+        onClose={handleCloseEditProjectDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Edit Project Details</DialogTitle>
+        <DialogContent dividers>
+          {editProjectError && (
+            <Box mb={2}>
+              <Alert severity="error">{editProjectError}</Alert>
+            </Box>
+          )}
+
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Project Title"
+            type="text"
+            fullWidth
+            variant="outlined"
+            value={editProjectTitle}
+            onChange={(e) => setEditProjectTitle(e.target.value)}
+            style={{ marginBottom: '16px' }}
+          />
+
+          <TextField
+            margin="dense"
+            label="Project Description"
+            type="text"
+            fullWidth
+            multiline
+            rows={3}
+            variant="outlined"
+            value={editProjectDescription}
+            onChange={(e) => setEditProjectDescription(e.target.value)}
+            style={{ marginBottom: '20px' }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseEditProjectDialog} color="default" disabled={isSubmittingEditProject}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleEditProject}
+            color="primary"
+            variant="contained"
+            disabled={isSubmittingEditProject}
+          >
+            {isSubmittingEditProject ? 'Saving...' : 'Save'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Add Schematic Dialog */}
+      <Dialog
+        open={addSchematicDialogOpen}
+        onClose={handleCloseAddSchematicDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Add Schematics to Project</DialogTitle>
+        <DialogContent dividers>
+          {addCircuitError && (
+            <Box mb={2}>
+              <Alert severity="error">{addCircuitError}</Alert>
+            </Box>
+          )}
+
+          <Typography variant="subtitle2" gutterBottom style={{ fontWeight: 600 }}>
+            Select Saved Circuits to Add:
+          </Typography>
+
+          <Box style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid rgba(0,0,0,0.12)', borderRadius: '4px', padding: '8px' }}>
+            {saves.filter(x => x.lti_id == null && x.is_submission == null && x.project_id !== activeProjectId).length === 0 ? (
+              <Typography variant="body2" color="textSecondary" style={{ textAlign: 'center', padding: '16px 0' }}>
+                No additional saved circuits available.
+              </Typography>
+            ) : (
+              <FormGroup>
+                {saves.filter(x => x.lti_id == null && x.is_submission == null && x.project_id !== activeProjectId).map((sch) => (
+                  <FormControlLabel
+                    key={sch.save_id}
+                    control={
+                      <Checkbox
+                        checked={selectedAddCircuitIds.includes(sch.save_id)}
+                        onChange={() => handleToggleAddCircuitSelection(sch.save_id)}
+                        color="primary"
+                      />
+                    }
+                    label={sch.name || String(sch.save_id).slice(0, 8)}
+                  />
+                ))}
+              </FormGroup>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseAddSchematicDialog} color="default" disabled={isSubmittingAddCircuit}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleAddSchematics}
+            color="primary"
+            variant="contained"
+            disabled={isSubmittingAddCircuit}
+          >
+            {isSubmittingAddCircuit ? 'Adding...' : 'Add'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   )
 }

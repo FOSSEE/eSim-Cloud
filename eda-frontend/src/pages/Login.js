@@ -40,9 +40,7 @@ const useStyles = makeStyles((theme) => ({
     flexDirection: 'column',
     alignItems: 'center',
     padding: theme.spacing(4),
-    backgroundColor: '#ffffff',
-    borderRadius: '8px',
-    boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+    border: `1px solid ${theme.palette.divider}`
   },
   avatar: {
     margin: theme.spacing(1),
@@ -51,8 +49,8 @@ const useStyles = makeStyles((theme) => ({
     height: theme.spacing(6)
   },
   title: {
-    fontWeight: 600,
-    color: '#333',
+    fontWeight: 700,
+    letterSpacing: '-0.02em',
     marginBottom: theme.spacing(1)
   },
   form: {
@@ -61,41 +59,19 @@ const useStyles = makeStyles((theme) => ({
   },
   submit: {
     margin: theme.spacing(3, 0, 2),
-    padding: theme.spacing(1.2),
-    borderRadius: '8px',
-    background: 'linear-gradient(to right, #667eea, #764ba2)',
-    color: 'white',
-    fontWeight: 'bold',
-    transition: 'transform 0.2s',
-    '&:hover': {
-      transform: 'translateY(-2px)',
-      boxShadow: '0 6px 20px rgba(118, 75, 162, 0.4)'
-    }
+    padding: theme.spacing(1.2)
   },
   googleBtn: {
     margin: theme.spacing(0, 0, 2),
     padding: theme.spacing(1),
-    borderRadius: '8px',
-    backgroundColor: 'white',
-    color: '#555',
-    fontWeight: 600,
-    border: '1px solid #ddd',
-    textTransform: 'none',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-    transition: 'all 0.2s',
+    color: theme.palette.text.primary,
+    borderColor: theme.palette.divider,
     '&:hover': {
-      backgroundColor: '#f9f9f9',
-      boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
-    }
-  },
-  textField: {
-    '& .MuiOutlinedInput-root': {
-      borderRadius: '8px'
+      backgroundColor: '#f1f5f9'
     }
   },
   link: {
-    fontWeight: 500,
-    color: '#667eea'
+    fontWeight: 500
   }
 }))
 
@@ -196,7 +172,6 @@ export default function SignIn (props) {
 
           <form className={classes.form} onSubmit={handleLogin} noValidate>
             <TextField
-              className={classes.textField}
               variant="outlined"
               margin="normal"
               required
@@ -210,7 +185,6 @@ export default function SignIn (props) {
               autoFocus
             />
             <TextField
-              className={classes.textField}
               variant="outlined"
               margin="normal"
               required
@@ -252,7 +226,7 @@ export default function SignIn (props) {
                 />
               </Grid>
               <Grid item>
-                <Link component={RouterLink} to="/reset-password" variant="body2" className={classes.link}>
+                <Link component={RouterLink} to="/reset-password" variant="body2" color="primary" className={classes.link}>
                   Forgot password?
                 </Link>
               </Grid>
@@ -262,6 +236,8 @@ export default function SignIn (props) {
               type="submit"
               fullWidth
               variant="contained"
+              color="primary"
+              disableElevation
               className={classes.submit}
             >
               Sign In
@@ -281,7 +257,7 @@ export default function SignIn (props) {
               <Grid item>
                 <Typography variant="body2" color="textSecondary">
                   Don&apos;t have an account?{' '}
-                  <Link component={RouterLink} to="/signup" className={classes.link}>
+                  <Link component={RouterLink} to="/signup" color="primary" className={classes.link}>
                     Sign Up
                   </Link>
                 </Typography>

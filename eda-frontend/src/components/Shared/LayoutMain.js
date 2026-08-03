@@ -13,12 +13,12 @@ const useStyles = makeStyles((theme) => ({
 }))
 
 // Display main content of layout
-export default function LayoutMain ({ children }) {
+export default function LayoutMain ({ children, noPadding = false }) {
   const classes = useStyles()
 
   return (
     <>
-      <main className={classes.content}>
+      <main className={classes.content} style={noPadding ? { padding: 0, overflow: 'hidden' } : {}}>
         {children}
       </main>
     </>
@@ -26,5 +26,6 @@ export default function LayoutMain ({ children }) {
 }
 
 LayoutMain.propTypes = {
-  children: PropTypes.array.isRequired
+  children: PropTypes.node.isRequired,
+  noPadding: PropTypes.bool
 }

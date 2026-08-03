@@ -194,7 +194,7 @@ function DashboardOtherProjects () {
             : <Grid item xs={12}>
               <Card style={{ padding: '7px 15px' }} className={classes.mainHead}>
                 <Typography variant="subtitle1" gutterBottom>
-                  Hey {auth.user.username} , You don&apos;t have any projects to review...
+                  Hey {auth.user?.username || ''} , You don&apos;t have any projects to review...
                 </Typography>
               </Card>
             </Grid>
@@ -216,7 +216,7 @@ function DashboardOtherProjects () {
             : <Grid item xs={12}>
               <Card style={{ padding: '7px 15px' }} className={classes.mainHead}>
                 <Typography variant="subtitle1" gutterBottom>
-                  Hey {auth.user.username} , You dont have any reported projects to review...
+                  Hey {auth.user?.username || ''} , You dont have any reported projects to review...
                 </Typography>
               </Card>
             </Grid>

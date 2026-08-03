@@ -7,6 +7,7 @@ import api from '../../utils/Api'
 import Popover from '@material-ui/core/Popover'
 import Typography from '@material-ui/core/Typography'
 import { makeStyles } from '@material-ui/core/styles'
+import queryString from 'query-string'
 
 const useStyles = makeStyles((theme) => ({
   typography: {
@@ -33,6 +34,14 @@ export default function VersionComponent ({
 
   const [popoverOpen, setPopoverOpen] = React.useState(false)
 
+  const getQueryParams = () => {
+    const hashIndex = window.location.href.indexOf('#')
+    const searchString = hashIndex !== -1 
+      ? window.location.href.slice(hashIndex).split('?')[1] 
+      : window.location.href.split('?')[1]
+    return searchString ? queryString.parse(searchString) : {}
+  }
+
   const handleClickPopover = (e) => {
     setAnchorEl(e.currentTarget)
     setPopoverOpen(true)
@@ -54,7 +63,10 @@ export default function VersionComponent ({
   }
 
   const checkActiveVersionOrProject = (version, branch) => {
-    if (version === window.location.href.split('version=')[1].substr(0, 20) && branch === decodeURI(window.location.href.split('branch=')[1])) return false
+    const query = getQueryParams()
+    const currentVersion = query.version || ''
+    const currentBranch = query.branch ? decodeURI(query.branch) : 'master'
+    if (version === currentVersion && branch === currentBranch) return false
     if (version === projectVersion && branch === projectBranch) return false
     return true
   }
@@ -70,10 +82,11 @@ export default function VersionComponent ({
       config.headers.Authorization = `Token ${token}`
     }
     api.delete(`/save/${save_id}/${version}/${branch}`, config).then(resp => {
+      const query = getQueryParams()
+      const saveId = query.id || ''
       api
         .get(
-          'save/versions/' +
-          window.location.href.split('?id=')[1].substring(0, 36),
+          'save/versions/' + saveId,
           config
         )
         .then((resp) => {
@@ -91,9 +104,10 @@ export default function VersionComponent ({
           })
           setVersions(Object.entries(versionsAccordingFreq).reverse())
           const temp = []
+          const currentBranch = query.branch ? decodeURI(query.branch) : 'master'
           for (let i = 0; i < Object.entries(versionsAccordingFreq).length; i++) {
             console.log(Object.entries(versionsAccordingFreq)[0])
-            if (decodeURI(window.location.href.split('branch=')[1]) === Object.entries(versionsAccordingFreq)[i][0]) { temp.push(true) } else { temp.push(false) }
+            if (currentBranch === Object.entries(versionsAccordingFreq)[i][0]) { temp.push(true) } else { temp.push(false) }
           }
           setBranchOpen(temp.reverse())
         })
@@ -111,7 +125,12 @@ export default function VersionComponent ({
         style={{ overflowX: 'hidden', width: '77%' }}
         size="small"
         color="primary"
-        disabled={((version === window.location.href.split('version=')[1].substr(0, 20)) && (branch === decodeURI(window.location.href.split('branch=')[1])))}
+        disabled={(() => {
+          const query = getQueryParams()
+          const currentVersion = query.version || ''
+          const currentBranch = query.branch ? decodeURI(query.branch) : 'master'
+          return version === currentVersion && branch === currentBranch
+        })()}
         onClick={handleClick}
       >
         <p>

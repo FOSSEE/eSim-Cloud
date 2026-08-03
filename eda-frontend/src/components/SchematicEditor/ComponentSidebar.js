@@ -19,8 +19,10 @@ import { makeStyles } from '@material-ui/core/styles'
 
 // Custom EDA Category icons
 import {
+  SourceIcon,
   PassiveIcon,
   AnalogIcon,
+  DiodeIcon,
   TransistorIcon,
   IndicatorIcon,
   SwitchIcon,
@@ -196,9 +198,40 @@ const UI_CATEGORIES = [
     )
   },
   {
+    id: 'sources',
+    name: 'Sources & Ground',
+    icon: <SourceIcon />,
+    common: [
+      'PWR-GND-1-A',
+      'v-DC-1-A',
+      'v-eSim_AC-1-A',
+      'v-sine-1-A',
+      'v-pulse-1-A',
+      'I-dc-1-A'
+    ],
+    matchFn: (comp) => {
+      const n = (comp.full_name || comp.name || '').toLowerCase()
+      const svgPath = (comp.svg_path || '').toLowerCase()
+      const prefix = (comp.symbol_prefix || '').toUpperCase()
+      return svgPath.includes('esim_sources') ||
+        n.includes('vsource') || n.includes('isource') ||
+        prefix === 'GND' ||
+        (prefix === 'PWR' && (n.includes('gnd') || n.includes('earth')))
+    }
+  },
+  {
     id: 'passive',
     name: 'Passive',
     icon: <PassiveIcon />,
+    common: [
+      'R-R-1-A',
+      'C-C-1-A',
+      'C-CP-1-A',
+      'L-L-1-A',
+      'RV-R_POT-1-A',
+      'TH-Thermistor_NTC-1-A',
+      'FB-Ferrite_Bead-1-A'
+    ],
     matchFn: (comp) => {
       const n = (comp.full_name || comp.name || '').toLowerCase()
       const kw = (comp.keyword || '').toLowerCase()
@@ -213,12 +246,55 @@ const UI_CATEGORIES = [
     }
   },
   {
-    id: 'analog', name: 'Analog', icon: <AnalogIcon />, matchFn: (comp) => { const n = (comp.full_name || comp.name || '').toLowerCase(); const kw = (comp.keyword || '').toLowerCase(); const svgPath = (comp.svg_path || '').toLowerCase(); return svgPath.includes('analog') || svgPath.includes('opamp') || n.includes('analog') || n.includes('opamp') || kw.includes('analog') || kw.includes('opamp') }
+    id: 'diodes',
+    name: 'Diodes',
+    icon: <DiodeIcon />,
+    common: [
+      'D-D-1-A',
+      'D-1N4148-1-A',
+      'D-1N4001-1-A',
+      'D-D_Zener-1-A',
+      'D-D_Schottky-1-A',
+      'D-D_Bridge_+-AA-1-A'
+    ],
+    matchFn: (comp) => {
+      const n = (comp.full_name || comp.name || '').toLowerCase()
+      const svgPath = (comp.svg_path || '').toLowerCase()
+      const prefix = (comp.symbol_prefix || '').toUpperCase()
+      const isLed = svgPath.includes('led') || n.includes('led') || n.includes('neopixel')
+      const isSwitchLike = n.includes('triac') || n.includes('_scr') ||
+        svgPath.includes('triac') || svgPath.includes('thyristor')
+      return !isLed && !isSwitchLike &&
+        (prefix === 'D' || svgPath.includes('/diode/'))
+    }
+  },
+  {
+    id: 'analog',
+    name: 'Analog',
+    icon: <AnalogIcon />,
+    common: [
+      'U-OPAMP-1-A',
+      'U-Opamp_Dual_Generic-1-A',
+      'U-Opamp_Quad_Generic-1-A',
+      'U-LF398H-1-A'
+    ],
+    matchFn: (comp) => { const n = (comp.full_name || comp.name || '').toLowerCase(); const kw = (comp.keyword || '').toLowerCase(); const svgPath = (comp.svg_path || '').toLowerCase(); return svgPath.includes('analog') || svgPath.includes('opamp') || n.includes('analog') || n.includes('opamp') || kw.includes('analog') || kw.includes('opamp') }
   },
   {
     id: 'transistors',
     name: 'Transistors',
     icon: <TransistorIcon />,
+    common: [
+      'Q-QNPN-1-A',
+      'Q-QPNP-1-A',
+      'M-MNMOS-1-A',
+      'M-MPMOS-1-A',
+      'Q-2N3904-1-A',
+      'Q-2N3906-1-A',
+      'Q-BC547-1-A',
+      'Q-2N7000-1-A',
+      'Q-IRF9540N-1-A'
+    ],
     matchFn: (comp) => {
       const n = (comp.full_name || comp.name || '').toLowerCase()
       const kw = (comp.keyword || '').toLowerCase()
@@ -239,21 +315,39 @@ const UI_CATEGORIES = [
     id: 'indicators',
     name: 'Indicators',
     icon: <IndicatorIcon />,
+    common: [
+      'D-LED-1-A',
+      'D-LED_RGB-1-A',
+      'D-NeoPixel_THT-1-A',
+      'LA-Lamp-1-A',
+      'BAR-HLCP-J100-1-A'
+    ],
     matchFn: (comp) => {
       const n = (comp.full_name || comp.name || '').toLowerCase()
       const kw = (comp.keyword || '').toLowerCase()
       const svgPath = (comp.svg_path || '').toLowerCase()
-      return svgPath.includes('led') ||
-        n.includes('led') || n.includes('lamp') || n.includes('display') ||
+      // 'coupled' contains 'led' — keep coupled inductors out of this category
+      const hasLed = (n.includes('led') && !n.includes('coupled')) ||
+        (svgPath.includes('led') && !svgPath.includes('coupled')) ||
+        (kw.includes('led') && !kw.includes('coupled'))
+      return hasLed ||
+        n.includes('lamp') || n.includes('display') ||
         n.includes('indicator') || n.includes('neopixel') ||
         n.startsWith('bar') ||
-        kw.includes('led') || kw.includes('lamp') || kw.includes('neopixel')
+        kw.includes('lamp') || kw.includes('neopixel')
     }
   },
   {
     id: 'switches',
     name: 'Switches',
     icon: <SwitchIcon />,
+    common: [
+      'SW-Rotary_Encoder-1-A',
+      'U-4016-1-A',
+      'Q-TIC106-1-A',
+      'Q-TIC226-1-A',
+      'CB-CircuitBreaker_1P-1-A'
+    ],
     matchFn: (comp) => {
       const n = (comp.full_name || comp.name || '').toLowerCase()
       const kw = (comp.keyword || '').toLowerCase()
@@ -276,6 +370,10 @@ const UI_CATEGORIES = [
     id: 'modelling_block',
     name: 'Modelling Block',
     icon: <ModellingBlockIcon />,
+    common: [
+      'U-adc_bridge_1-1-A',
+      'U-dac_bridge_1-1-A'
+    ],
     matchFn: (comp) => {
       const n = (comp.full_name || comp.name || '').toLowerCase()
       const svgPath = (comp.svg_path || '').toLowerCase()
@@ -287,6 +385,17 @@ const UI_CATEGORIES = [
     id: 'electromechanical',
     name: 'Electromechanical',
     icon: <ElectromechanicalIcon />,
+    common: [
+      'M-Motor_DC-1-A',
+      'M-Motor_AC-1-A',
+      'M-Motor_Servo-1-A',
+      'M-Stepper_Motor_bipolar-1-A',
+      'M-Fan-1-A',
+      'BZ-Buzzer-1-A',
+      'LS-Speaker-1-A',
+      'MK-Microphone-1-A',
+      'BT-Battery-1-A'
+    ],
     matchFn: (comp) => {
       const n = (comp.full_name || comp.name || '').toLowerCase()
       const kw = (comp.keyword || '').toLowerCase()
@@ -294,31 +403,53 @@ const UI_CATEGORIES = [
       const prefix = (comp.symbol_prefix || '').toUpperCase()
       return svgPath.includes('motor') ||
         (prefix === 'M' && !n.includes('mos') && !svgPath.includes('transistor')) ||
-        prefix === 'BZ' || prefix === 'LS' || prefix === 'SC' ||
+        prefix === 'BZ' || prefix === 'LS' || prefix === 'SC' || prefix === 'BT' ||
         n.includes('motor') || n.includes('fan') || n.includes('buzzer') ||
         n.includes('speaker') || n.includes('microphone') || n.includes('solar') ||
-        (n.includes('battery') && !n.includes('+batt') && !n.includes('-batt')) || n.includes('earphone') ||
+        n.includes('battery') || n.includes('earphone') ||
         kw.includes('motor') || kw.includes('speaker') || kw.includes('buzzer') ||
-        (kw.includes('battery') && !n.includes('+batt') && !n.includes('-batt')) || kw.includes('solar')
+        kw.includes('battery') || kw.includes('solar')
     }
   },
   {
     id: 'power',
     name: 'Power',
     icon: <PowerIcon />,
+    common: [
+      'PWR-GND-1-A',
+      'FLG-PWR_FLAG-1-A',
+      'PWR-VCC-1-A',
+      'PWR-VDD-1-A',
+      'PWR-VSS-1-A',
+      'PWR-+5V-1-A',
+      'PWR-+3V3-1-A',
+      'PWR-+12V-1-A',
+      'PWR--12V-1-A'
+    ],
     matchFn: (comp) => {
-      const n = (comp.full_name || comp.name || '').toLowerCase()
       const kw = (comp.keyword || '').toLowerCase()
       const svgPath = (comp.svg_path || '').toLowerCase()
       const prefix = (comp.symbol_prefix || '').toUpperCase()
+      // NOTE: no name-based +batt/-batt matching — 'BT-Battery' contains '-batt'
+      // and the physical battery belongs in Electromechanical, not here.
       return svgPath.includes('power.lib') || prefix === 'PWR' || prefix === 'FLG' ||
-        kw.includes('power-flag') || n.includes('+batt') || n.includes('-batt')
+        kw.includes('power-flag')
     }
   },
   {
     id: 'digital',
     name: 'Digital',
     icon: <DigitalIcon />,
+    common: [
+      'U-4081-1-A',
+      'U-4071-1-A',
+      'U-4069-1-A',
+      'U-4011-1-A',
+      'U-4001-1-A',
+      'U-4070-1-A',
+      'U-4013-1-A',
+      'U-4017-1-A'
+    ],
     matchFn: (comp) => {
       const n = (comp.full_name || comp.name || '').toLowerCase()
       const kw = (comp.keyword || '').toLowerCase()
@@ -570,14 +701,38 @@ export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResu
   }, [components])
 
   const activeComponents = React.useMemo(() => {
-    if (!activeCategory || activeCategory.id === 'search') return []
+    if (!activeCategory || activeCategory.id === 'search' || !activeCategory.matchFn) return []
 
-    if (activeCategory.matchFn) {
-      return allComponents.filter(comp => activeCategory.matchFn(comp))
-    }
+    // The backend can hold duplicate library sets — dedupe by full_name
+    const seen = new Set()
+    const matched = allComponents.filter(comp => {
+      if (!activeCategory.matchFn(comp)) return false
+      const key = comp.full_name || comp.name
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
 
-    return []
+    // Curated everyday components first (in curated order), the rest alphabetical
+    const commonRank = new Map((activeCategory.common || []).map((name, i) => [name, i]))
+    return matched.sort((a, b) => {
+      const ra = commonRank.has(a.full_name) ? commonRank.get(a.full_name) : Infinity
+      const rb = commonRank.has(b.full_name) ? commonRank.get(b.full_name) : Infinity
+      if (ra !== rb) return ra - rb
+      return (a.full_name || '').localeCompare(b.full_name || '')
+    })
   }, [activeCategory, allComponents])
+
+  // How many tiles to show before "+ more variants": the curated common set if
+  // the category defines one (and any of it is loaded), else the first 9.
+  const defaultCount = React.useMemo(() => {
+    if (activeCategory && activeCategory.common) {
+      const names = new Set(activeCategory.common)
+      const loadedCommons = activeComponents.filter(c => names.has(c.full_name)).length
+      if (loadedCommons > 0) return loadedCommons
+    }
+    return 9
+  }, [activeCategory, activeComponents])
 
   const open = Boolean(anchorEl)
 
@@ -747,7 +902,7 @@ export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResu
                           <Typography variant="body2">No components loaded in this category.</Typography>
                         </div>
                       ) : (
-                        (showAdvanced ? activeComponents : activeComponents.slice(0, 9)).map((comp) => (
+                        (showAdvanced ? activeComponents : activeComponents.slice(0, defaultCount)).map((comp) => (
                           <Grid item xs={showAdvanced ? 3 : 4} key={comp.full_name} style={{ display: 'flex', padding: '4px' }}>
                             <SideComp component={comp} setFavourite={setFavourites} favourite={favourites} />
                           </Grid>
@@ -755,14 +910,14 @@ export default function ComponentSidebar ({ compRef, ltiSimResult, setLtiSimResu
                       )
                     )}
 
-                    {activeCategory?.id !== 'search' && activeComponents.length > 9 && !showAdvanced && (
+                    {activeCategory?.id !== 'search' && activeComponents.length > defaultCount && !showAdvanced && (
                       <div style={{ width: '100%', textAlign: 'center', marginTop: '8px' }}>
                         <Typography
                           variant="caption"
                           style={{ color: '#1976d2', cursor: 'pointer', fontWeight: 'bold' }}
                           onClick={() => setShowAdvanced(true)}
                         >
-                          + {activeComponents.length - 9} More Variants
+                          + {activeComponents.length - defaultCount} More Variants
                         </Typography>
                       </div>
                     )}

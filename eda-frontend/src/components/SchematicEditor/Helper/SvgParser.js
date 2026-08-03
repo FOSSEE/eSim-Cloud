@@ -1,229 +1,134 @@
-/* eslint-disable new-cap */
-/* eslint-disable no-unused-vars */
 /* eslint-disable camelcase */
-import mxGraphFactory from 'mxgraph'
-import ComponentParameters from './ComponentParametersData'
-import { rotateCell } from './ToolbarTools'
-const {
-  mxConstants
-} = new mxGraphFactory()
+/**
+ * SvgParser.js — KiCad symbol SVG metadata parser.
+ *
+ * Fetches a component's symbol SVG, reads the embedded <metadata> block and
+ * returns pin configurations, offsets and orientation as a plain JSON schema
+ * ready to be pushed into the React canvas state. No mxGraph, no DOM writes.
+ *
+ * @typedef {Object} SymbolPin
+ * @property {string} number       pin number ('1', '2', ...)
+ * @property {string} name         pin name from the library
+ * @property {string} type         'Input' | 'Output'
+ * @property {string} orientation  'L' | 'R' | 'U' | 'D'
+ * @property {number} length       pin length in library units
+ * @property {string} shape        pin shape identifier
+ * @property {number} dx           x offset from the component's top-left (canvas px)
+ * @property {number} dy           y offset from the component's top-left (canvas px)
+ *
+ * @typedef {Object} SymbolSchema
+ * @property {number} width        display width  (library width / 5)
+ * @property {number} height       display height (library height / 5)
+ * @property {string} symbolName
+ * @property {string} svgPath      repo-relative symbol path
+ * @property {SymbolPin[]} pins    connectable pins (NC pins excluded)
+ */
 
-let pinData, metadata, pinList, pinName, pinOrientation, pinLength, pinShape
-let currentPin, x_pos, y_pos
-let width, height, symbolName
+// Divide raw svg dimensions to keep the legacy on-canvas size
+const DEFAULT_SCALE = 5
 
-// we need to divide the svg width and height by the same number in order to maintain the aspect ratio.
-const default_scale = 5
-
-// --- SVG Data Cache ---
-// Caches parsed SVG metadata (dimensions, pin data) keyed by svg_path.
-// First drag of a component fetches from network; all subsequent drags are instant.
+// Parsed-schema cache keyed by svg path: first drag fetches, rest are instant
 const svgCache = {}
 
 /**
- * Pre-fetch and cache the SVG metadata for a component.
- * Call this on hover/mount so the data is ready before the user clicks.
+ * Pre-fetch and cache the symbol schema for a component.
+ * Call on hover/mount so data is ready before the user drags.
  */
 export function prefetchSvg (component) {
   if (!component || !component.svg_path) return
-  var path = '../' + component.svg_path
-  if (svgCache[path]) return // already cached
-
+  const path = '../' + component.svg_path
+  if (svgCache[path]) return
   fetch(path)
-    .then(function (response) { return response.text() })
-    .then(function (text) {
-      const parser = new DOMParser()
-      const xml = parser.parseFromString(text, 'text/xml')
-      svgCache[path] = extractData(xml)
+    .then((response) => response.text())
+    .then((text) => {
+      svgCache[path] = extractSchema(text, component.svg_path)
     })
-    .catch(function () { /* silently ignore prefetch failures */ })
+    .catch(() => { /* ignore prefetch failures */ })
 }
 
-function extractData (xml) {
-  // extracting metadata from the svg file.
+/** Parse the raw SVG text into a SymbolSchema */
+function extractSchema (svgText, svgPath) {
+  const xml = new DOMParser().parseFromString(svgText, 'text/xml')
+  const metadata = xml.getElementsByTagName('metadata')[0]
+  const rawWidth = parseFloat(metadata.attributes[0].nodeValue)
+  const rawHeight = parseFloat(metadata.attributes[1].nodeValue)
+  const symbolName = metadata.attributes[4].nodeValue
 
-  pinData = []
-  metadata = xml.getElementsByTagName('metadata')
-  const width = metadata[0].attributes[0].nodeValue
-  const height = metadata[0].attributes[1].nodeValue
-  const symbolName = metadata[0].attributes[4].nodeValue
-  pinList = metadata[0].childNodes
-  // console.log(metadata)
-  // console.log(xmlDoc)
-  // console.log(width,height)
-  pinList.forEach(function (pin) {
-    const pinNumber = pin.tagName.split('-').pop()
-    const pinX = pin.getElementsByTagName('x')[0].innerHTML
-    const pinY = pin.getElementsByTagName('y')[0].innerHTML
-    const pinType = pin.getElementsByTagName('type')[0].innerHTML.trim()
-    const pinName = pin.getElementsByTagName('name')[0].innerHTML.trim()
-    const pinOrientation = pin.getElementsByTagName('orientation')[0].innerHTML.trim()
-    const pinLength = pin.getElementsByTagName('length')[0].innerHTML.trim()
-    const pinShape = pin.getElementsByTagName('pinShape')[0].innerHTML.trim()
+  const width = rawWidth / DEFAULT_SCALE
+  const height = rawHeight / DEFAULT_SCALE
 
-    pinData.push({
-      pinNumber: pinNumber,
-      pinX: pinX,
-      pinY: pinY,
-      type: pinType,
-      pinName: pinName,
-      pinOrientation: pinOrientation,
-      pinLength: pinLength,
-      pinShape: pinShape
+  const pins = []
+  const pinList = metadata.childNodes
+  pinList.forEach((pin) => {
+    if (!pin.tagName) return
+    const number = pin.tagName.split('-').pop()
+    const read = (tag) => {
+      const el = pin.getElementsByTagName(tag)[0]
+      return el ? el.innerHTML.trim() : ''
+    }
+    const name = read('name')
+    if (name === 'NC') return // not connectable
+    const pinX = parseFloat(read('x')) || 0
+    const pinY = parseFloat(read('y')) || 0
+    pins.push({
+      number,
+      name,
+      type: read('type') === 'I' ? 'Input' : 'Output',
+      orientation: read('orientation'),
+      length: parseFloat(read('length')) || 0,
+      shape: read('pinShape'),
+      // Same offset maths as the legacy mxGraph pin placement
+      dx: width / 2 + pinX / DEFAULT_SCALE,
+      dy: height / 2 - pinY / DEFAULT_SCALE - 1
     })
-    // console.log(pinNumber, pinX, pinY, pinType)
   })
-  return {
-    width: width,
-    height: height,
-    symbolName: symbolName,
-    pinData: pinData
-  }
+
+  return { width, height, symbolName, svgPath, pins }
 }
 
-export function getSvgMetadata (graph, parent, evt, target, x, y, component, rotation = 0, centerCoords = false) {
-  // calls extractData and other MXGRAPH functions
-  // initialize information from the svg meta
-  // plots pinnumbers and component labels.
+/**
+ * Resolve the symbol schema for a library component (cached).
+ * @param {Object} component library descriptor with `svg_path`
+ * @returns {Promise<SymbolSchema>}
+ */
+export function fetchSymbolSchema (component) {
+  const path = '../' + component.svg_path
+  if (svgCache[path]) return Promise.resolve(svgCache[path])
+  return fetch(path)
+    .then((response) => response.text())
+    .then((text) => {
+      const schema = extractSchema(text, component.svg_path)
+      svgCache[path] = schema
+      return schema
+    })
+}
 
-  var path = '../' + component.svg_path
+/**
+ * The default BJT MODEL card is PNP; flip its polarity when the symbol's
+ * name states it (QNPN, eSim_NPN, ...). Mutates and returns props.
+ */
+export function adjustModelPolarity (props, name) {
+  if (!props.MODEL) return props
+  if (/NPN/i.test(name)) props.MODEL = props.MODEL.replace(/\bPNP\b/i, 'NPN')
+  else if (/PNP/i.test(name)) props.MODEL = props.MODEL.replace(/\bNPN\b/i, 'PNP')
+  return props
+}
 
-  // Use cached data if available, otherwise fetch and cache
-  var dataPromise
-  if (svgCache[path]) {
-    dataPromise = Promise.resolve(svgCache[path])
+/**
+ * Build the initial simulation properties for a component, mirroring the
+ * legacy ComponentParameters lookup (special-cased V and I sources).
+ */
+export function initialProperties (component, ComponentParameters) {
+  const symbol = (component.symbol_prefix || '').toUpperCase()
+  const name = (component.name || '').toUpperCase()
+  let props = {}
+  if (symbol === 'V') {
+    props = Object.assign({}, ComponentParameters.V[name] || ComponentParameters.V.VSOURCE)
+  } else if (symbol === 'I') {
+    props = Object.assign({}, ComponentParameters.I[name] || ComponentParameters.I.ISOURCE)
   } else {
-    dataPromise = fetch(path)
-      .then(function (response) { return response.text() })
-      .then(function (text) {
-        const parser = new DOMParser()
-        const xml = parser.parseFromString(text, 'text/xml')
-        var parsed = extractData(xml)
-        svgCache[path] = parsed
-        return parsed
-      })
+    props = Object.assign({}, ComponentParameters[symbol])
   }
-
-  return dataPromise.then(function (data) {
-    const pins = []
-    width = data.width
-    height = data.height
-    pinData = data.pinData
-
-    // console.log(pinData)
-
-    // Disables moving of vertex labels
-    graph.vertexLabelsMovable = false
-
-    // Creates a style with an indicator
-    var style = graph.getStylesheet().getDefaultVertexStyle()
-
-    style[mxConstants.STYLE_SHAPE] = 'label'
-    style[mxConstants.STYLE_VERTICAL_ALIGN] = 'bottom'
-    // style[mxConstants.STYLE_INDICATOR_SHAPE] = 'ellipse'
-    // style[mxConstants.STYLE_INDICATOR_WIDTH] = 34
-    // style[mxConstants.STYLE_INDICATOR_HEIGHT] = 34
-    style[mxConstants.STYLE_IMAGE_VERTICAL_ALIGN] = 'bottom' // indicator v-alignment
-    style[mxConstants.STYLE_IMAGE_ALIGN] = 'bottom'
-    style[mxConstants.STYLE_INDICATOR_COLOR] = 'green'
-    style[mxConstants.STYLE_FONTCOLOR] = 'red'
-    style[mxConstants.STYLE_FONTSIZE] = '10'
-    delete style[mxConstants.STYLE_STROKECOLOR] // transparent
-    // delete style[mxConstants.STYLE_FILLCOLOR] // transparent
-
-    // make the component images larger by reducing the denominator and smaller by increasing the denominator
-    width = width / default_scale
-    height = height / default_scale
-
-    if (centerCoords) {
-      if (rotation !== 0 && (rotation / 90) % 2 !== 0) {
-        x = x - height / 2
-        y = y - width / 2
-      } else {
-        x = x - width / 2
-        y = y - height / 2
-      }
-    }
-
-    const v1 = graph.insertVertex(
-      parent,
-      null,
-      component.name,
-      x,
-      y,
-      width,
-      height,
-      'shape=image;fontColor=blue;image=' + path + ';imageVerticalAlign=bottom;verticalAlign=bottom;imageAlign=bottom;align=bottom;spacingLeft=25;'
-    )
-    v1.Component = true
-    /* var newsource = path
-      var prefix = newsource.split('/')
-      var symboltype = prefix[3].split('') */
-    v1.CellType = 'Component'
-    v1.symbol = component.symbol_prefix.toUpperCase()
-    v1.CompObject = component
-
-    component.name = component.name.toUpperCase()
-    var props = {}
-    if (v1.symbol === 'V') {
-      // console.log('voltage')
-
-      if (ComponentParameters[v1.symbol][component.name] === undefined) {
-        props = Object.assign({}, ComponentParameters[v1.symbol].VSOURCE)
-      } else {
-        props = Object.assign({}, ComponentParameters[v1.symbol][component.name])
-      }
-    } else if (v1.symbol === 'I') {
-      // console.log('CURRENT')
-      if (ComponentParameters[v1.symbol][component.name] === undefined) {
-        props = Object.assign({}, ComponentParameters[v1.symbol].ISOURCE)
-      } else {
-        props = Object.assign({}, ComponentParameters[v1.symbol][component.name])
-      }
-    } else {
-      // console.log('other')
-
-      props = Object.assign({}, ComponentParameters[v1.symbol])
-    }
-    props.NAME = component.name
-    v1.properties = props
-    // console.log('component', component)
-    // console.log('v1.properties', v1.properties)
-
-    v1.setConnectable(false)
-    let i = 0
-    for (i = 0; i < pinData.length; i++) {
-      currentPin = pinData[i]
-      if (currentPin.pinName === 'NC') continue
-      // move this to another file
-      x_pos = (parseInt(width) / 2 + parseInt(currentPin.pinX) / default_scale)
-      y_pos = (parseInt(height) / 2 - parseInt(currentPin.pinY) / default_scale) - 1
-
-      // move this to another file
-      // eslint-disable-next-line
-
-      if (currentPin.pinOrientation === 'L') {
-        pins[i] = graph.insertVertex(v1, null, currentPin.pinNumber, x_pos, y_pos, 0.5, 0.5, 'align=right;verticalAlign=bottom;rotation=0')
-      } else if (currentPin.pinOrientation === 'R') {
-        pins[i] = graph.insertVertex(v1, null, currentPin.pinNumber, x_pos, y_pos, 0.5, 0.5, 'align=left;verticalAlign=bottom;rotation=0')
-      } else if (currentPin.pinOrientation === 'U') {
-        pins[i] = graph.insertVertex(v1, null, currentPin.pinNumber, x_pos, y_pos, 0.5, 0.5, 'align=right;verticalAlign=bottom;rotation=0')
-      } else {
-        pins[i] = graph.insertVertex(v1, null, currentPin.pinNumber, x_pos, y_pos, 0.5, 0.5, 'align=right;verticalAlign=up;rotation=0')
-      }
-      pins[i].geometry.relative = false
-      pins[i].Pin = true
-      if (currentPin.type === 'I') {
-        pins[i].pinType = 'Input'
-      } else {
-        pins[i].pinType = 'Output'
-      }
-      // pins[i].pinType = currentPin['type']
-      pins[i].ParentComponent = v1
-      pins[i].PinNumber = currentPin.pinNumber
-    }
-    if (rotation !== 0) { rotateCell(v1, rotation) }
-
-    return v1
-  })
+  props.NAME = name
+  return adjustModelPolarity(props, name)
 }

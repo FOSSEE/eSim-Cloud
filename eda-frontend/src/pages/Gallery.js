@@ -23,14 +23,18 @@ import { fetchRole, deleteGallerySch, fetchGallery } from '../redux/actions/inde
 import SimpleSnackbar from '../components/Shared/Snackbar'
 
 const useStyles = makeStyles((theme) => ({
-  mainHead: {
-    width: '100%',
-    backgroundColor: '#404040',
-    color: '#fff'
+  pageTitle: {
+    fontWeight: 700,
+    letterSpacing: '-0.02em'
   },
-  title: {
-    fontSize: 18,
-    color: '#80ff80'
+  pageSubtitle: {
+    color: theme.palette.text.secondary,
+    marginTop: theme.spacing(0.5)
+  },
+  pageHeader: {
+    paddingBottom: theme.spacing(3),
+    marginBottom: theme.spacing(1),
+    borderBottom: `1px solid ${theme.palette.divider}`
   },
   header: {
     padding: theme.spacing(5, 0, 6, 0)
@@ -38,11 +42,11 @@ const useStyles = makeStyles((theme) => ({
   root: {
     display: 'flex',
     minHeight: '100vh',
-    backgroundColor: '#f4f6f8'
+    backgroundColor: theme.palette.background.default
   },
   media: {
-    marginTop: theme.spacing(3),
-    height: 170
+    height: 170,
+    borderBottom: `1px solid ${theme.palette.divider}`
   }
 }))
 
@@ -68,7 +72,7 @@ function SchematicCard ({ sch }) {
 
   return (
     <>
-      <Card>
+      <Card variant="outlined">
         <ButtonBase
           target="_blank"
           component={RouterLink}
@@ -82,10 +86,10 @@ function SchematicCard ({ sch }) {
               title={sch.name}
             />
             <CardContent>
-              <Typography gutterBottom variant="h5" component="h2">
+              <Typography gutterBottom variant="subtitle1" component="h2" style={{ fontWeight: 600 }}>
                 {sch.name}
               </Typography>
-              <Typography variant="body2" component="p">
+              <Typography variant="body2" color="textSecondary" component="p">
                 {sch.description}
               </Typography>
             </CardContent>
@@ -102,7 +106,6 @@ function SchematicCard ({ sch }) {
           >
             Launch in Editor
           </Button>
-          {console.log(auth.roles)}
           {auth.roles && auth.roles.is_esim_staff &&
             <Button onClick={() => { handleSnacClick() }}>
               <Tooltip title="Delete" placement="bottom" arrow>
@@ -130,16 +133,14 @@ function MainCard () {
   })
 
   return (
-    <Card className={classes.mainHead}>
-      <CardContent>
-        <Typography variant="h2" align="center" gutterBottom>
-        eSim Gallery
-        </Typography>
-        <Typography className={classes.title} align="center" gutterBottom>
-        Sample schematics are listed below...
-        </Typography>
-      </CardContent>
-    </Card>
+    <div className={classes.pageHeader}>
+      <Typography variant="h4" component="h1" className={classes.pageTitle}>
+        Gallery
+      </Typography>
+      <Typography variant="body1" className={classes.pageSubtitle}>
+        Curated sample schematics — open any of them in the editor to explore.
+      </Typography>
+    </div>
   )
 }
 
@@ -170,7 +171,6 @@ export default function Gallery () {
           </Grid>
 
           {/* Listing Gallery Schematics */}
-          {console.log(gallerySchSample)}
           {gallerySchSample.map(
             (sch) => {
               return (

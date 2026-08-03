@@ -22,4 +22,10 @@ urlpatterns = [
     url(r'^', include(router.urls)),
     path('publish/project/<uuid:circuit_id>',
          publishAPI_views.ProjectViewSet.as_view(), name='create'),
+    path('publish/create_project/',
+         publishAPI_views.CreateBundleProjectView.as_view(), name='create_bundle'),
+    path('publish/remove_from_project/',
+         publishAPI_views.RemoveFromProjectView.as_view(), name='remove_from_project'),
+    path('publish/add_schematic/',
+         publishAPI_views.AddSchematicToProjectView.as_view(), name='add_schematic'),
 ]

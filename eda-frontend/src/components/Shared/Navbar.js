@@ -1,63 +1,111 @@
 import React, { useEffect } from 'react'
-import { useHistory, Link as RouterLink } from 'react-router-dom'
+import { useHistory, useLocation, Link as RouterLink } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import {
   AppBar,
-  Button,
-  Toolbar,
-  Typography,
-  Link,
-  IconButton,
   Avatar,
-  Menu,
-  ListItemText,
+  Button,
+  Divider,
   Fade,
-  MenuItem
+  IconButton,
+  ListItemText,
+  Menu,
+  MenuItem,
+  Toolbar,
+  Typography
 } from '@material-ui/core'
 import { makeStyles } from '@material-ui/core/styles'
-import { deepPurple } from '@material-ui/core/colors'
 import logo from '../../static/logo.png'
 import store from '../../redux/store'
 import { authDefault, loadUser, logout } from '../../redux/actions/index'
 
 const useStyles = makeStyles((theme) => ({
   appBar: {
-    borderBottom: `1px solid ${theme.palette.divider}`
-  },
-  root: {
-    width: 500
+    borderBottom: `1px solid ${theme.palette.divider}`,
+    backgroundColor: theme.palette.background.paper
   },
   toolbar: {
-    flexWrap: 'wrap'
+    minHeight: 60,
+    paddingLeft: theme.spacing(3),
+    paddingRight: theme.spacing(3)
   },
-  toolbarTitle: {
-    flexGrow: 1
+  brand: {
+    display: 'flex',
+    alignItems: 'center',
+    textDecoration: 'none',
+    color: theme.palette.text.primary,
+    marginRight: theme.spacing(4)
   },
-  link: {
-    margin: theme.spacing(1, 1.5)
+  brandLogo: {
+    width: 28,
+    height: 28,
+    marginRight: theme.spacing(1.25)
   },
-  button: {
-    marginRight: theme.spacing(0.7)
+  brandName: {
+    fontWeight: 700,
+    fontSize: '1.05rem',
+    letterSpacing: '-0.01em'
   },
-  small: {
-    width: theme.spacing(3.7),
-    height: theme.spacing(3.7)
+  nav: {
+    display: 'flex',
+    alignItems: 'center',
+    flexGrow: 1,
+    gap: theme.spacing(0.5),
+    overflowX: 'auto'
   },
-  purple: {
-    width: theme.spacing(3.75),
-    height: theme.spacing(3.75),
-    color: theme.palette.getContrastText(deepPurple[500]),
-    backgroundColor: deepPurple[500],
-    fontSize: '17px'
+  navLink: {
+    padding: theme.spacing(0.75, 1.5),
+    borderRadius: theme.shape.borderRadius,
+    fontSize: '0.875rem',
+    fontWeight: 500,
+    color: theme.palette.text.secondary,
+    textDecoration: 'none',
+    whiteSpace: 'nowrap',
+    transition: 'background-color 120ms ease, color 120ms ease',
+    '&:hover': {
+      color: theme.palette.text.primary,
+      backgroundColor: '#f1f5f9',
+      textDecoration: 'none'
+    }
   },
-  typography: {
-    padding: theme.spacing(2)
+  navLinkActive: {
+    color: theme.palette.primary.main,
+    backgroundColor: '#eff6ff',
+    '&:hover': {
+      color: theme.palette.primary.main,
+      backgroundColor: '#eff6ff'
+    }
+  },
+  actions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(1.5)
+  },
+  avatar: {
+    width: 32,
+    height: 32,
+    fontSize: '0.875rem',
+    fontWeight: 600,
+    color: theme.palette.common.white,
+    backgroundColor: theme.palette.primary.main
+  },
+  menuHeader: {
+    pointerEvents: 'none'
   }
 }))
+
+const navItems = [
+  { label: 'Editor', to: '/editor' },
+  { label: 'Simulator', to: '/simulator/ngspice' },
+  { label: 'HDL Simulator', to: '/simulator/hdl' },
+  { label: 'Gallery', to: '/gallery' },
+  { label: 'Projects', to: '/projects' }
+]
 
 // Common navbar for Dashboard, Home, Simulator, Gallery, etc.
 export function Header () {
   const history = useHistory()
+  const location = useLocation()
   const classes = useStyles()
   const [anchorEl, setAnchorEl] = React.useState(null)
   const auth = useSelector(state => state.authReducer)
@@ -70,7 +118,7 @@ export function Header () {
   const handleClose = () => {
     setAnchorEl(null)
   }
-  var homeURL = `${window.location.protocol}\\\\${window.location.host}/`
+
   useEffect(() => {
     function checkUserData () {
       const userToken = localStorage.getItem('esim_auth_token')
@@ -88,198 +136,94 @@ export function Header () {
     }
   }, [dispatch, history])
 
+  const items = auth.isAuthenticated
+    ? [...navItems, { label: 'Dashboard', to: '/dashboard' }]
+    : navItems
+
   return (
     <>
-      {/* Display logo */}
-      <IconButton edge="start" className={classes.button} color="primary">
-        <Avatar alt="esim logo" src={logo} className={classes.small} />
-      </IconButton>
-      <Typography
-        variant="h6"
-        color="inherit"
-        noWrap
-        className={classes.toolbarTitle}
-      >
-        <Link color="inherit" to="/" component={RouterLink}>
-          eSim
-        </Link>
-      </Typography>
+      <RouterLink to="/" className={classes.brand}>
+        <img src={logo} alt="eSim logo" className={classes.brandLogo} />
+        <Typography component="span" className={classes.brandName}>
+          eSim Cloud
+        </Typography>
+      </RouterLink>
 
-      {/* Display relative link to other pages */}
-      <nav>
-        {
-          (auth.isAuthenticated
-            ? (<>
-              <Link
-                variant="button"
-                color="textPrimary"
-                onClick={() => { window.open(homeURL, '_self') }}
-                component={RouterLink}
-                className={classes.link}
-                // style={{ marginLeft: '65%' }}
-              >
-                Home
-              </Link>
-
-              <Link
-                variant="button"
-                color="textPrimary"
-                to="/editor"
-                component={RouterLink}
-                className={classes.link}
-              >
-                Editor
-              </Link>
-
-              <Link
-                variant="button"
-                color="textPrimary"
-                to="/gallery"
-                component={RouterLink}
-                className={classes.link}
-              >
-                Gallery
-              </Link>
-              <Link
-                variant="button"
-                color="textPrimary"
-                to="/projects"
-                component={RouterLink}
-                className={classes.link}
-              >
-                Projects
-              </Link>
-
-              <Link
-                variant="button"
-                color="textPrimary"
-                to="/simulator/ngspice"
-                component={RouterLink}
-                className={classes.link}
-              >
-                Simulator
-              </Link>
-
-              <Link
-                variant="button"
-                color="textPrimary"
-                to="/dashboard"
-                component={RouterLink}
-                className={classes.link}
-              >
-                Dashboard
-              </Link>
-            </>)
-            : (<>
-              <Link
-                variant="button"
-                color="textPrimary"
-                onClick={() => { window.open(homeURL, '_self') }}
-                component={RouterLink}
-                // className={classes.link}
-                style={{ marginRight: '20px' }}
-              >
-                Home
-              </Link>
-
-              <Link
-                variant="button"
-                color="textPrimary"
-                to="/editor"
-                component={RouterLink}
-                style={{ marginRight: '20px' }}
-              >
-                Editor
-              </Link>
-
-              <Link
-                variant="button"
-                color="textPrimary"
-                to="/gallery"
-                component={RouterLink}
-                style={{ marginRight: '20px' }}
-              >
-                Gallery
-              </Link>
-              <Link
-                variant="button"
-                color="textPrimary"
-                to="/projects"
-                component={RouterLink}
-                className={classes.link}
-                style={{ marginRight: '20px' }}
-              >
-                Projects
-              </Link>
-              <Link
-                variant="button"
-                color="textPrimary"
-                to="/simulator/ngspice"
-                component={RouterLink}
-                style={{ marginRight: '20px' }}
-              >
-                Simulator
-              </Link>
-            </>
-            )
-          )
-        }
+      <nav className={classes.nav}>
+        {items.map((item) => (
+          <RouterLink
+            key={item.to}
+            to={item.to}
+            className={
+              location.pathname.startsWith(item.to)
+                ? `${classes.navLink} ${classes.navLinkActive}`
+                : classes.navLink
+            }
+          >
+            {item.label}
+          </RouterLink>
+        ))}
       </nav>
 
       {/* Display login option or user menu as per authenticated status */}
-      {
-        (!auth.isAuthenticated ? (<Button
-          size="small"
-          component={RouterLink}
-          to="/login?close=close"
-          color="primary"
-          variant="outlined"
-          target="_blank"
-        >
-          Login
-        </Button>)
+      <div className={classes.actions}>
+        {!auth.isAuthenticated
+          ? (<>
+            <Button
+              size="small"
+              component={RouterLink}
+              to="/login?close=close"
+              color="primary"
+              target="_blank"
+            >
+              Sign in
+            </Button>
+            <Button
+              size="small"
+              component={RouterLink}
+              to="/signup"
+              color="primary"
+              variant="contained"
+              disableElevation
+            >
+              Get started
+            </Button>
+          </>)
           : (<>
             <IconButton
-              edge="start"
-              style={{ marginLeft: 'auto' }}
-              color="primary"
-              aria-controls="simple-menu"
+              size="small"
+              aria-controls="user-menu"
               aria-haspopup="true"
               onClick={handleClick}
             >
-              <Avatar className={classes.purple}>
+              <Avatar className={classes.avatar}>
                 {auth.user && auth.user.username ? auth.user.username.charAt(0).toUpperCase() : ''}
               </Avatar>
             </IconButton>
             <Menu
-              id="simple-menu"
+              id="user-menu"
               anchorEl={anchorEl}
               keepMounted
               open={Boolean(anchorEl)}
               onClose={handleClose}
               TransitionComponent={Fade}
-              style={{ marginTop: '25px' }}
+              getContentAnchorEl={null}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
             >
+              <MenuItem className={classes.menuHeader}>
+                <ListItemText
+                  primary={auth.user ? auth.user.username : ''}
+                  secondary={auth.user ? auth.user.email : ''}
+                />
+              </MenuItem>
+              <Divider />
               <MenuItem
                 component={RouterLink}
                 to="/dashboard"
                 onClick={handleClose}
               >
-                <ListItemText primary={auth.user ? auth.user.username : ''} secondary={auth.user ? auth.user.email : ''} />
-              </MenuItem>
-              <MenuItem
-                component={RouterLink}
-                to="/dashboard/profile"
-                onClick={handleClose}
-              >
-                My Profile
-              </MenuItem>
-              <MenuItem
-                component={RouterLink}
-                to="/dashboard/schematics"
-                onClick={handleClose}
-              >
-                My Schematics
+                Dashboard
               </MenuItem>
               <MenuItem
                 component={RouterLink}
@@ -288,16 +232,16 @@ export function Header () {
               >
                 Change password
               </MenuItem>
+              <Divider />
               <MenuItem onClick={() => {
                 store.dispatch(logout(history))
               }}>
-                Logout
+                Sign out
               </MenuItem>
             </Menu>
-          </>
-          )
-        )
-      }
+          </>)
+        }
+      </div>
     </>
   )
 }
@@ -307,13 +251,12 @@ export default function Navbar () {
 
   return (
     <AppBar
-      position="static"
+      position="sticky"
       color="default"
       elevation={0}
       className={classes.appBar}
     >
-      <Toolbar variant="dense" color="default" className={classes.toolbar}>
-
+      <Toolbar variant="dense" className={classes.toolbar}>
         <Header />
       </Toolbar>
     </AppBar>

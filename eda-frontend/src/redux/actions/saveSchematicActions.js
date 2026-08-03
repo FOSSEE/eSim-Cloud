@@ -72,7 +72,12 @@ export const saveSchematic = (title, description, xml, base64, newBranch = false
     if (schSave.isSaved && !ltiExists) {
       //  Updating saved schemaic
       body.save_id = schSave.details.save_id
-      body.branch = decodeURI(window.location.href.split('branch=')[1])
+      const hashIndex = window.location.href.indexOf('#')
+      const searchString = hashIndex !== -1
+        ? window.location.href.slice(hashIndex).split('?')[1]
+        : window.location.href.split('?')[1]
+      const query = searchString ? queryString.parse(searchString) : {}
+      body.branch = query.branch ? decodeURI(query.branch) : 'master'
       api
         .post('save', queryString.stringify(body), config)
         .then((res) => {

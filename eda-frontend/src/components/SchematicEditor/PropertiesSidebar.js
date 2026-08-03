@@ -11,6 +11,7 @@ import { setSchDescription, saveSchematic } from '../../redux/actions/index'
 import api from '../../utils/Api'
 import VersionComponent from './VersionComponent'
 import Canvg from 'canvg'
+import queryString from 'query-string'
 
 import './Helper/SchematicEditor.css'
 
@@ -142,6 +143,14 @@ export default function PropertiesSidebar ({ gridRef, outlineRef }) {
 
   const [popoverOpen, setPopoverOpen] = React.useState(null)
 
+  const getQueryParams = () => {
+    const hashIndex = window.location.href.indexOf('#')
+    const searchString = hashIndex !== -1 
+      ? window.location.href.slice(hashIndex).split('?')[1] 
+      : window.location.href.split('?')[1]
+    return searchString ? queryString.parse(searchString) : {}
+  }
+
   React.useEffect(() => {
     const config = {
       headers: {
@@ -153,11 +162,11 @@ export default function PropertiesSidebar ({ gridRef, outlineRef }) {
     if (token) {
       config.headers.Authorization = `Token ${token}`
     }
-    if (window.location.href.split('?id=')[1] && !window.location.href.split('?id=')[1].includes('gallery')) {
+    const query = getQueryParams()
+    if (query.id && !query.id.includes('gallery')) {
       api
         .get(
-          'save/versions/' +
-          window.location.href.split('?id=')[1].substring(0, 36),
+          'save/versions/' + query.id,
           config
         )
         .then((resp) => {
@@ -188,8 +197,9 @@ export default function PropertiesSidebar ({ gridRef, outlineRef }) {
           })
           setVersions(versionsArray)
           const temp = []
+          const currentBranch = query.branch ? decodeURI(query.branch) : 'master'
           for (let j = 0; j < versionsArray.length; j++) {
-            if (decodeURI(window.location.href.split('branch=')[1]) === versionsArray[j][0]) { temp.push(true) } else { temp.push(false) }
+            if (currentBranch === versionsArray[j][0]) { temp.push(true) } else { temp.push(false) }
           }
           const popoverTemp = new Array(versionsArray.length)
           popoverTemp.fill(false)
@@ -301,7 +311,8 @@ export default function PropertiesSidebar ({ gridRef, outlineRef }) {
     if (token) {
       config.headers.Authorization = `Token ${token}`
     }
-    const saveId = window.location.href.split('id=')[1].substr(0, 36)
+    const query = getQueryParams()
+    const saveId = query.id || ''
     api.delete(`/save/versions/${saveId}/${branchName}`, config).then(resp => {
       const temp = versions.filter(version => version[0] !== branchName)
       const tempBranch = branchOpen
@@ -336,7 +347,9 @@ export default function PropertiesSidebar ({ gridRef, outlineRef }) {
   }
 
   const checkActiveOrProject = (branch) => {
-    if (decodeURI(window.location.href.split('branch=')[1]) === branch) return false
+    const query = getQueryParams()
+    const currentBranch = query.branch ? decodeURI(query.branch) : 'master'
+    if (currentBranch === branch) return false
     if (branch === projectBranch) return false
     return true
   }

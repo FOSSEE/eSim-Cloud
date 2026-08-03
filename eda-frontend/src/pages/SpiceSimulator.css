@@ -1,0 +1,52 @@
+/* === SPICE Simulator split workspace ===
+   Left half: editor + console. Right half: waveform viewer (hideable).
+   Inherits the design tokens from VerilogSimulator.css (.verilog-ide root). */
+
+.spice-workspace {
+  flex: 1;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.spice-left {
+  flex: 1 1 50%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.spice-right {
+  flex: 1 1 50%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border-left: 1px solid var(--border);
+}
+
+.spice-right.hidden {
+  display: none;
+}
+
+.spice-right .verilog-waveform {
+  flex: 1;
+  min-height: 0;
+}
+
+.spice-left .verilog-console {
+  border-right: none;
+}
+
+/* Chart.js in Shared/Graph is styled for light backgrounds — keep the
+   chart on a light card in both themes, like the schematic editor's
+   simulation screen. */
+.spice-graph-card {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px;
+  margin-bottom: 8px;
+}

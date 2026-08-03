@@ -1,0 +1,22 @@
+{% extends "admin_gate.html" %}
+
+{% block title %}Admin Sign In{% endblock %}
+
+{% block content %}
+<h1>Admin Access</h1>
+<p class="subtitle">Enter the panel password to manage accounts.</p>
+
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+<form method="POST" autocomplete="off">
+    {% csrf_token %}
+    <label for="password">Password</label>
+    <input type="password" id="password" name="password" autocomplete="current-password" autofocus required>
+    <button type="submit">Sign in</button>
+</form>
+
+<p class="hint">
+    Lost the password? Reset it from a shell on the server with
+    <code>python manage.py set_admin_password</code>.
+</p>
+{% endblock %}

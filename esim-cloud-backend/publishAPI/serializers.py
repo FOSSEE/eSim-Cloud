@@ -7,7 +7,7 @@ import base64
 import six
 import uuid
 import imghdr
-from saveAPI.serializers import StateSaveSerializer
+from saveAPI.serializers import StateSaveSerializer, SaveListSerializer
 from workflowAPI.models import Transition
 
 
@@ -100,6 +100,7 @@ class ProjectSerializer(serializers.ModelSerializer):
     status_name = serializers.CharField(read_only=True, source='state.name')
     author_name = serializers.CharField(
         read_only=True, source='author.username')
+    description = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     fields = FieldSerializer(many=True)
     save_id = serializers.SerializerMethodField()
     active_save = serializers.SerializerMethodField()
@@ -107,6 +108,7 @@ class ProjectSerializer(serializers.ModelSerializer):
     transient_analysis = TransientAnalysisSerializer()
     tf_analysis = TFAnalysisSerializer()
     ac_analysis = ACAnalysisSerializer()
+    schematics = serializers.SerializerMethodField()
 
     class Meta:
         model = Project
@@ -125,16 +127,28 @@ class ProjectSerializer(serializers.ModelSerializer):
                   'transient_analysis',
                   'tf_analysis',
                   'ac_analysis',
+                  'schematics',
                   )
 
     def get_save_id(self, obj):
-        return obj.statesave_set.first().save_id
+        first_save = obj.statesave_set.first()
+        return first_save.save_id if first_save else None
 
     def get_active_save(self, obj):
-        return StateSaveSerializer(
-            obj.statesave_set.get(save_id=obj.statesave_set.first().save_id,
-                                  branch=obj.active_branch,
-                                  version=obj.active_version)).data
+        first_save = obj.statesave_set.first()
+        if not first_save:
+            return None
+        try:
+            return StateSaveSerializer(
+                obj.statesave_set.get(save_id=first_save.save_id,
+                                      branch=obj.active_branch,
+                                      version=obj.active_version)).data
+        except Exception:
+            return StateSaveSerializer(first_save).data
+
+    def get_schematics(self, obj):
+        saves = obj.statesave_set.order_by('save_id', '-save_time').distinct('save_id')
+        return SaveListSerializer(saves, many=True).data
 
 
 class ReportSerializer(serializers.ModelSerializer):

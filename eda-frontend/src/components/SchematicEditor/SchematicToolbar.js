@@ -87,6 +87,7 @@ import {
 import CreateProject from '../Project/CreateProject'
 import api from '../../utils/Api'
 import { importSCHFile } from './Helper/KiCadFileUtils'
+import { importKicadSchFile } from './TranslationLayer/importKicadSch'
 import SubmitResults from '../LTI/SubmitResults'
 
 // Req for Development
@@ -270,13 +271,14 @@ export default function SchematicToolbar ({
 
   const handleSave = (version, newSave, save_id) => {
     if (!newSave) {
-      window.location =
-        '#/editor?id=' +
-        window.location.href.split('id=')[1].substr(0, 36) +
-        '&version=' +
-        version +
-        '&branch=' +
-        window.location.href.split('branch=')[1].substr(0)
+      const hashIndex = window.location.href.indexOf('#')
+      const searchString = hashIndex !== -1 
+        ? window.location.href.slice(hashIndex).split('?')[1] 
+        : window.location.href.split('?')[1]
+      const query = searchString ? queryString.parse(searchString) : {}
+      const id = query.id || ''
+      const branch = query.branch ? decodeURI(query.branch) : 'master'
+      window.location = `#/editor?id=${id}&version=${version}&branch=${branch}`
       window.location.reload()
     } else {
       window.location =
@@ -487,17 +489,17 @@ export default function SchematicToolbar ({
       console.warn('[exportImage] Grid container or SVG not available — skipping thumbnail export.')
       return null
     }
-    const svg = rawSvg.cloneNode(true)
-    svg.removeAttribute('style')
-    svg.setAttribute('width', gridRef.current.scrollWidth)
-    svg.setAttribute('height', gridRef.current.scrollHeight)
-    const canvas = document.createElement('canvas')
-    canvas.width = gridRef.current.scrollWidth
-    canvas.height = gridRef.current.scrollHeight
-    canvas.style.width = canvas.width + 'px'
-    canvas.style.height = canvas.height + 'px'
-    const images = svg.getElementsByTagName('image')
     try {
+      const svg = rawSvg.cloneNode(true)
+      svg.removeAttribute('style')
+      svg.setAttribute('width', gridRef.current.scrollWidth)
+      svg.setAttribute('height', gridRef.current.scrollHeight)
+      const canvas = document.createElement('canvas')
+      canvas.width = gridRef.current.scrollWidth
+      canvas.height = gridRef.current.scrollHeight
+      canvas.style.width = canvas.width + 'px'
+      canvas.style.height = canvas.height + 'px'
+      const images = svg.getElementsByTagName('image')
       for (const image of images) {
         const href = image.getAttribute('xlink:href') || image.getAttribute('href')
         if (!href) continue
@@ -506,58 +508,75 @@ export default function SchematicToolbar ({
           image.setAttribute('href', href)
           continue
         }
-        const data = await fetch(href).then((v) => v.text())
-        image.removeAttribute('xlink:href')
-        image.setAttribute(
-          'href',
-          'data:image/svg+xml;base64,' + window.btoa(unescape(encodeURIComponent(data)))
-        )
+        try {
+          const data = await fetch(href).then((v) => v.text())
+          image.removeAttribute('xlink:href')
+          image.setAttribute(
+            'href',
+            'data:image/svg+xml;base64,' + window.btoa(unescape(encodeURIComponent(data)))
+          )
+        } catch (e) {
+          console.warn('Failed to fetch/encode image element:', href, e)
+        }
       }
-    } catch (err) {
-      console.warn('[exportImage] Failed to inline images:', err)
-    }
-    const ctx = canvas.getContext('2d')
-    ctx.mozImageSmoothingEnabled = true
-    ctx.webkitImageSmoothingEnabled = true
-    ctx.msImageSmoothingEnabled = true
-    ctx.imageSmoothingEnabled = true
-    const pixelRatio = window.devicePixelRatio || 1
-    ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0)
-    return new Promise((resolve) => {
-      if (type === 'SVG') {
-        const svgdata = new XMLSerializer().serializeToString(svg)
-        resolve('<?xml version="1.0" encoding="UTF-8"?>' + svgdata)
-        return
-      }
-      try {
-        const v = Canvg.fromString(ctx, svg.outerHTML)
-        v.render().then(() => {
-          let image = ''
-          if (type === 'JPG') {
-            const imgdata = ctx.getImageData(0, 0, canvas.width, canvas.height)
-            for (let i = 0; i < imgdata.data.length; i += 4) {
-              if (imgdata.data[i + 3] === 0) {
-                imgdata.data[i] = 255
-                imgdata.data[i + 1] = 255
-                imgdata.data[i + 2] = 255
-                imgdata.data[i + 3] = 255
-              }
-            }
-            ctx.putImageData(imgdata, 0, 0)
-            image = canvas.toDataURL('image/jpeg', 1.0)
-          } else if (type === 'PNG') {
-            image = canvas.toDataURL('image/png')
+      const ctx = canvas.getContext('2d')
+      ctx.mozImageSmoothingEnabled = true
+      ctx.webkitImageSmoothingEnabled = true
+      ctx.msImageSmoothingEnabled = true
+      ctx.imageSmoothingEnabled = true
+      const pixelRatio = window.devicePixelRatio || 1
+      ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0)
+
+      return new Promise((resolve) => {
+        if (type === 'SVG') {
+          try {
+            const svgdata = new XMLSerializer().serializeToString(svg)
+            resolve('<?xml version="1.0" encoding="UTF-8"?>' + svgdata)
+          } catch (err) {
+            resolve('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=')
           }
-          resolve(image)
-        }).catch((err) => {
-          console.warn('[exportImage] Canvg render error:', err)
-          resolve(canvas.toDataURL('image/png'))
-        })
-      } catch (err) {
-        console.warn('[exportImage] Canvg fromString error:', err)
-        resolve(canvas.toDataURL('image/png'))
-      }
-    })
+          return
+        }
+        try {
+          const v = Canvg.fromString(ctx, svg.outerHTML)
+          v.render().then(() => {
+            try {
+              let image = ''
+              if (type === 'JPG') {
+                const imgdata = ctx.getImageData(0, 0, canvas.width, canvas.height)
+                for (let i = 0; i < imgdata.data.length; i += 4) {
+                  if (imgdata.data[i + 3] === 0) {
+                    imgdata.data[i] = 255
+                    imgdata.data[i + 1] = 255
+                    imgdata.data[i + 2] = 255
+                    imgdata.data[i + 3] = 255
+                  }
+                }
+                ctx.putImageData(imgdata, 0, 0)
+                image = canvas.toDataURL('image/jpeg', 1.0)
+              } else {
+                if (type === 'PNG') {
+                  image = canvas.toDataURL('image/png')
+                }
+              }
+              resolve(image)
+            } catch (innerErr) {
+              console.error('Inner Canvg render error:', innerErr)
+              resolve('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=')
+            }
+          }).catch((renderErr) => {
+            console.error('Canvg render promise rejected:', renderErr)
+            resolve('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=')
+          })
+        } catch (err) {
+          console.error('Canvg initialization error:', err)
+          resolve('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=')
+        }
+      })
+    } catch (err) {
+      console.error('Global exportImage error:', err)
+      return Promise.resolve('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=')
+    }
   }
 
   // Download JPEG, PNG exported Image
@@ -724,17 +743,49 @@ export default function SchematicToolbar ({
   const handleKicadFileUpload = () => {
     const fileSelector = document.createElement('input')
     fileSelector.setAttribute('type', 'file')
-    fileSelector.setAttribute('accept', '.sch')
+    // Legacy .sch may bring its -cache.lib along for exact pins/placeholders
+    fileSelector.setAttribute('accept', '.sch,.kicad_sch,.lib')
+    fileSelector.setAttribute('multiple', 'multiple')
     fileSelector.click()
-    fileSelector.addEventListener('change', function (event) {
-      var reader = new FileReader()
-      var filename = event.target.files[0].name
-      if (filename.slice(filename.length - 3) === 'sch') {
-        reader.onload = async (e) => {
-          importSCHFile(e.target.result)
+    fileSelector.addEventListener('change', async function (event) {
+      const files = [...event.target.files]
+      const readText = (f) => new Promise((resolve, reject) => {
+        const r = new FileReader()
+        r.onload = (e) => resolve(e.target.result)
+        r.onerror = reject
+        r.readAsText(f)
+      })
+      const schV6 = files.find((f) => f.name.endsWith('.kicad_sch'))
+      const schLegacy = files.find((f) => f.name.endsWith('.sch'))
+      const cacheLib = files.find((f) => f.name.endsWith('.lib'))
+      try {
+        let summary = null
+        if (schV6) {
+          summary = await importKicadSchFile(await readText(schV6))
+        } else if (schLegacy) {
+          summary = await importSCHFile(
+            await readText(schLegacy),
+            cacheLib ? await readText(cacheLib) : undefined
+          )
+        } else {
+          return
         }
-        reader.readAsText(event.target.files[0])
+        let msg = `Imported ${summary.placed} components, ${summary.wired} wires (${summary.nets} nets).`
+        if (summary.placeholders && summary.placeholders.length) {
+          msg += ` Placeholders (not in library): ${summary.placeholders.join(', ')}.`
+        }
+        if (summary.skipped.length) {
+          msg += ` Skipped: ${summary.skipped.join(', ')}.`
+          if (schLegacy && !cacheLib) {
+            msg += ' Tip: select the project\'s -cache.lib together with the .sch to import these as placeholders.'
+          }
+        }
+        setMessage(msg)
+      } catch (err) {
+        console.error('KiCad import failed', err)
+        setMessage('Could not import KiCad schematic: ' + err.message)
       }
+      handleSnacClick()
     })
   }
 

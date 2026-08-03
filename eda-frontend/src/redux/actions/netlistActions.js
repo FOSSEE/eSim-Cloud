@@ -1,11 +1,15 @@
 import * as actions from './actions'
 
-// Action to update netlist with component nodes and parameters
-export const setNetlist = (netlist) => (dispatch) => {
+// Action to update netlist with component nodes and parameters.
+// autoRun marks a one-shot "Send to Simulator" hand-off; the simulation
+// panel consumes it (and only it) to auto-execute — a plain SET_NETLIST
+// must never auto-run, or stale netlists replay on other circuits.
+export const setNetlist = (netlist, autoRun = false) => (dispatch) => {
   dispatch({
     type: actions.SET_NETLIST,
     payload: {
-      netlist: netlist
+      netlist: netlist,
+      autoRun: autoRun
     }
   })
 }

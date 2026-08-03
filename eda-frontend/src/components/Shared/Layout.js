@@ -42,25 +42,29 @@ function Layout ({ header, resToolbar, sidebar, isDashboard }) {
         {header}
 
         <Toolbar variant="dense" color="default">
-          <IconButton
-            color="inherit"
-            aria-label="open drawer"
-            edge="start"
-            size="small"
-            onClick={handleDrawerToggle}
-            className={classes.menuButton}
-          >
-            <MenuIcon fontSize="small" />
-          </IconButton>
+          {sidebar && (
+            <IconButton
+              color="inherit"
+              aria-label="open drawer"
+              edge="start"
+              size="small"
+              onClick={handleDrawerToggle}
+              className={classes.menuButton}
+            >
+              <MenuIcon fontSize="small" />
+            </IconButton>
+          )}
 
           {resToolbar}
         </Toolbar>
       </AppBar>
 
       {/* Left Sidebar for Layout */}
-      <LayoutSidebar mobileOpen={mobileOpen} mobileClose={handleDrawerToggle} isDashboard={isDashboard}>
-        {sidebar}
-      </LayoutSidebar>
+      {sidebar && (
+        <LayoutSidebar mobileOpen={mobileOpen} mobileClose={handleDrawerToggle} isDashboard={isDashboard}>
+          {sidebar}
+        </LayoutSidebar>
+      )}
     </>
   )
 }

@@ -2,7 +2,7 @@ redis_data/
 mysql_data/
 .vscode
 venv
-env
+
 *.sqlite3
 .env.prod
 mongo_data/
@@ -14,3 +14,4 @@ symbol_svgs
 postgres_data
 file_storage
 node_modules
+.claude

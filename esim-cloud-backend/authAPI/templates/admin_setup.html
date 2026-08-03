@@ -1,0 +1,33 @@
+{% extends "admin_gate.html" %}
+
+{% block title %}Admin First-Time Setup{% endblock %}
+
+{% block content %}
+<h1>First-Time Setup</h1>
+<p class="subtitle">
+    No admin password is set yet. Paste the bootstrap token from the server
+    log to choose one. This page disappears once setup completes.
+</p>
+
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+<form method="POST" autocomplete="off">
+    {% csrf_token %}
+    <label for="setup_token">Bootstrap token</label>
+    <input type="password" id="setup_token" name="setup_token" autocomplete="off" autofocus required>
+
+    <label for="password">New password</label>
+    <input type="password" id="password" name="password" autocomplete="new-password" required>
+
+    <label for="confirm_password">Confirm password</label>
+    <input type="password" id="confirm_password" name="confirm_password" autocomplete="new-password" required>
+
+    <button type="submit">Set password</button>
+</form>
+
+<p class="hint">
+    Print the token on the server with
+    <code>python manage.py admin_setup_token</code>, or read it from the
+    Django container log. It is never shown in the browser.
+</p>
+{% endblock %}

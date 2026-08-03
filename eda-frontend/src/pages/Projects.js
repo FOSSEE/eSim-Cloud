@@ -1,9 +1,7 @@
 import {
-  Card,
   Grid,
   Container,
   CssBaseline,
-  CardContent,
   Typography,
   Select,
   MenuItem,
@@ -21,14 +19,18 @@ import { fetchPublicProjects } from '../redux/actions/index'
 import FilterListIcon from '@material-ui/icons/FilterList'
 
 const useStyles = makeStyles((theme) => ({
-  mainHead: {
-    width: '100%',
-    backgroundColor: '#404040',
-    color: '#fff'
+  pageTitle: {
+    fontWeight: 700,
+    letterSpacing: '-0.02em'
   },
-  title: {
-    fontSize: 18,
-    color: '#80ff80'
+  pageSubtitle: {
+    color: theme.palette.text.secondary,
+    marginTop: theme.spacing(0.5)
+  },
+  pageHeader: {
+    paddingBottom: theme.spacing(3),
+    marginBottom: theme.spacing(1),
+    borderBottom: `1px solid ${theme.palette.divider}`
   },
   header: {
     padding: theme.spacing(5, 0, 6, 0)
@@ -36,29 +38,23 @@ const useStyles = makeStyles((theme) => ({
   root: {
     display: 'flex',
     minHeight: '100vh',
-    backgroundColor: '#f4f6f8'
-  },
-  media: {
-    marginTop: theme.spacing(3),
-    height: 170
+    backgroundColor: theme.palette.background.default
   }
 }))
 
-// Card displaying eSim gallery page header.
+// eSim published projects page header.
 function MainCard () {
   const classes = useStyles()
 
   return (
-    <Card className={classes.mainHead}>
-      <CardContent>
-        <Typography variant="h2" align="center" gutterBottom>
-          eSim Published Projects
-        </Typography>
-        <Typography className={classes.title} align="center" gutterBottom>
-          Published Projects are listed below...
-        </Typography>
-      </CardContent>
-    </Card>
+    <div className={classes.pageHeader}>
+      <Typography variant="h4" component="h1" className={classes.pageTitle}>
+        Published Projects
+      </Typography>
+      <Typography variant="body1" className={classes.pageSubtitle}>
+        Circuits published by the eSim community.
+      </Typography>
+    </div>
   )
 }
 
@@ -177,7 +173,6 @@ function PublicProjects (props) {
           {/* Listing Gallery Schematics */}
           {filteredProjects.map(
             (pub) => {
-              console.log(pub)
               return (
                 <Grid item xs={12} sm={6} lg={4} key={pub.save_id}>
                   <ProjectCard pub={pub} is_review={true} />

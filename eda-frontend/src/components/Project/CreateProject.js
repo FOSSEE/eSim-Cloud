@@ -35,6 +35,7 @@ import { changeStatus, createProject, deleteProject, getStatus } from '../../red
 import api from '../../utils/Api'
 import ProjectTimeline from './ProjectTimeline'
 import ProjectSimulationParameters from './ProjectSimulationParameters'
+import queryString from 'query-string'
 
 const useStyles = makeStyles((theme) => ({
   appBar: {
@@ -122,6 +123,15 @@ function CreateProject () {
     inputVoltageSource: ''
   })
   const [selectedSimulation, setSelectedSimulation] = useState('')
+
+  const getQueryParams = () => {
+    const hashIndex = window.location.href.indexOf('#')
+    const searchString = hashIndex !== -1 
+      ? window.location.href.slice(hashIndex).split('?')[1] 
+      : window.location.href.split('?')[1]
+    return searchString ? queryString.parse(searchString) : {}
+  }
+
   useEffect(() => {
     if (open && project.details?.project_id) {
       dispatch(getStatus(project.details?.project_id))
@@ -166,11 +176,11 @@ function CreateProject () {
     if (token) {
       config.headers.Authorization = `Token ${token}`
     }
-    if (window.location.href.split('?id=')[1]) {
+    const query = getQueryParams()
+    if (query.id) {
       api
         .get(
-          'save/versions/' +
-          window.location.href.split('?id=')[1].substring(0, 36),
+          'save/versions/' + query.id,
           config
         )
         .then((resp) => {
@@ -338,7 +348,7 @@ function CreateProject () {
   }
   return (
     <div>
-      {(window.location.href.split('?id=')[1] && auth.user?.username === owner) &&
+      {(getQueryParams().id && auth.user?.username === owner) &&
         <IconButton
           color='inherit'
           aria-label='open drawer'

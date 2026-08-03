@@ -11,6 +11,7 @@ import SchematicEditor from './pages/SchematiEditor'
 import CircuitViewer from './pages/CircuitViewer'
 
 import Simulator from './pages/Simulator'
+import VerilogSimulator from './pages/VerilogSimulator'
 import Gallery from './pages/Gallery'
 import PublicProjects from './pages/Projects'
 import Dashboard from './pages/Dashboard'
@@ -117,6 +118,7 @@ function App () {
           <PublicRoute exact path="/view/:saveId/:version/:branch" restricted={false} nav={false} component={CircuitViewer} />
           <PublicRoute exact path="/project" restricted={false} nav={true} component={ProjectPage} />
           <PublicRoute exact path="/simulator/ngspice" restricted={false} nav={true} component={Simulator} />
+          <PublicRoute exact path="/simulator/hdl" restricted={false} nav={true} component={VerilogSimulator} />
           <PublicRoute exact path="/gallery" restricted={false} nav={true} component={Gallery} />
           <PublicRoute exact path="/projects" restricted={false} nav={true} component={PublicProjects} />
           <PrivateRoute path="/dashboard" component={Dashboard} />

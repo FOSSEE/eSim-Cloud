@@ -155,3 +155,26 @@ export const togglePinSave = (saveId, version, branch, pinned) => (dispatch, get
     )
     .catch((err) => { console.error('[togglePinSave] error:', err); throw err })
 }
+
+export const removeFromProject = (saveId) => (dispatch, getState) => {
+  const token = getState().authReducer.token
+  const config = {
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  }
+
+  if (token) {
+    config.headers.Authorization = `Token ${token}`
+  }
+
+  return api.post('publish/remove_from_project/', { save_id: saveId }, config)
+    .then(() => {
+      dispatch(fetchSchematics())
+      dispatch(fetchMyProjects())
+    })
+    .catch((err) => {
+      console.error(err)
+      throw err
+    })
+}

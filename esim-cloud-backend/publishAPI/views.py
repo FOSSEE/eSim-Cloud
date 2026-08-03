@@ -273,13 +273,15 @@ class MyProjectViewSet(viewsets.ModelViewSet):
     parser_classes = (FormParser, JSONParser)
     permission_classes = (IsAuthenticated,)
     serializer_class = ProjectSerializer
-    queryset = Project.objects.none()
+    lookup_field = 'project_id'
+
+    def get_queryset(self):
+        return Project.objects.filter(author=self.request.user)
 
     @swagger_auto_schema(response={200: ProjectSerializer})
     def list(self, request):
         try:
-            queryset = Project.objects.filter(
-                author=self.request.user, is_arduino=False)
+            queryset = self.get_queryset().filter(is_arduino=False)
         except Project.DoesNotExist:
             return Response({'error': 'No circuit there'},
                             status=status.HTTP_404_NOT_FOUND)
@@ -304,3 +306,91 @@ class PublicProjectViewSet(viewsets.ModelViewSet):
             return Response(status=status.HTTP_404_NOT_FOUND)
         serialized = ProjectSerializer(queryset, many=True)
         return Response(serialized.data)
+
+
+class CreateBundleProjectView(APIView):
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request):
+        title = request.data.get('title')
+        description = request.data.get('description', '')
+        save_ids = request.data.get('save_ids', [])
+
+        if not title:
+            return Response({'error': 'Title is required'}, status=status.HTTP_400_BAD_REQUEST)
+        if not save_ids:
+            return Response({'error': 'Please select at least one circuit to bundle'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Retrieve the state save objects
+        save_states = StateSave.objects.filter(save_id__in=save_ids, owner=request.user)
+        if not save_states.exists():
+            return Response({'error': 'No matching circuits found'}, status=status.HTTP_404_NOT_FOUND)
+
+        first_save = save_states.first()
+        project = Project(
+            title=title,
+            description=description,
+            author=request.user,
+            is_arduino=first_save.is_arduino,
+            active_branch=first_save.branch,
+            active_version=first_save.version
+        )
+        project.save()
+
+        # Update all selected saves to point to the new project
+        for save_state in save_states:
+            save_state.project = project
+            save_state.save(update_fields=['project'])
+
+        return Response({
+            'project_id': str(project.project_id),
+            'title': project.title,
+            'description': project.description
+        }, status=status.HTTP_201_CREATED)
+
+
+class RemoveFromProjectView(APIView):
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request):
+        save_id = request.data.get('save_id')
+        if not save_id:
+            return Response({'error': 'save_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        save_states = StateSave.objects.filter(save_id=save_id, owner=request.user)
+        if not save_states.exists():
+            return Response({'error': 'No matching circuits found'}, status=status.HTTP_404_NOT_FOUND)
+
+        for save_state in save_states:
+            save_state.project = None
+            save_state.save(update_fields=['project'])
+
+        return Response({'success': True}, status=status.HTTP_200_OK)
+
+
+class AddSchematicToProjectView(APIView):
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request):
+        project_id = request.data.get('project_id')
+        save_ids = request.data.get('save_ids', [])
+
+        if not project_id:
+            return Response({'error': 'project_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        if not save_ids:
+            return Response({'error': 'save_ids is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            project = Project.objects.get(project_id=project_id, author=request.user)
+        except Project.DoesNotExist:
+            return Response({'error': 'Project not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        save_states = StateSave.objects.filter(save_id__in=save_ids, owner=request.user)
+        for save_state in save_states:
+            save_state.project = project
+            save_state.save(update_fields=['project'])
+
+        return Response({'success': True}, status=status.HTTP_200_OK)
+
+
+
