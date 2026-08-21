@@ -774,3 +774,26 @@ function XMLWireConnections() {
   }
 
 }
+
+export function UpdateComponentValuesDirectly(bestParams) {
+  if (!graph) return false
+  var model = graph.getModel()
+  var cells = model.cells
+  model.beginUpdate()
+  try {
+    for (var id in cells) {
+      var cell = cells[id]
+      if (cell && cell.Component === true && cell.properties && cell.properties.PREFIX) {
+        var prefix = cell.properties.PREFIX
+        if (bestParams[prefix] !== undefined) {
+          cell.properties.VALUE = String(bestParams[prefix])
+        }
+      }
+    }
+  } finally {
+    model.endUpdate()
+  }
+  graph.view.refresh()
+  return true
+}
+

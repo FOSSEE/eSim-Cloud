@@ -25,7 +25,7 @@ import MuiAlert from '@material-ui/lab/Alert'
 import { makeStyles } from '@material-ui/core/styles'
 import { useSelector, useDispatch } from 'react-redux'
 import { setControlLine, setControlBlock, setResultTitle, setResultGraph, setResultText, setNetlist, toggleSimulate } from '../../redux/actions/index'
-import { GenerateNetList, GenerateNodeList, GenerateCompList, ErcCheckNets, Save, renderGalleryXML } from './Helper/ToolbarTools'
+import { GenerateNetList, GenerateNodeList, GenerateCompList, ErcCheckNets, Save, renderGalleryXML, UpdateComponentValuesDirectly } from './Helper/ToolbarTools'
 import SimulationScreen from '../Shared/SimulationScreen'
 import { Multiselect } from 'multiselect-react-dropdown'
 import Notice from '../Shared/Notice'
@@ -164,6 +164,196 @@ export default function SimulationProperties (props) {
   const handleControlBlockParam = (evt) => {
     setControlBlockParam(evt.target.value)
   }
+
+  // Autotuning state configuration
+  const [autotuneConfig, setAutotuneConfig] = useState({
+    analysisType: 'ac',
+    maxTrials: 20,
+    targetMetric: 'cutoff_frequency',
+    targetValue: ''
+  })
+  const [autotuneParams, setAutotuneParams] = useState([])
+  const [tempParam, setTempParam] = useState({
+    name: '',
+    min: '',
+    max: '',
+    scale: 'linear'
+  })
+  const [autotuneProgress, setAutotuneProgress] = useState(null)
+  const [isAutotuning, setIsAutotuning] = useState(false)
+
+  const handleAutotuneConfigChange = (field, value) => {
+    setAutotuneConfig(prev => {
+      let metric = prev.targetMetric
+      if (field === 'analysisType') {
+        metric = value === 'ac' ? 'cutoff_frequency' : 'slew_rate'
+      }
+      return {
+        ...prev,
+        [field]: value,
+        targetMetric: metric
+      }
+    })
+  }
+
+  const handleTempParamChange = (field, value) => {
+    setTempParam(prev => ({
+      ...prev,
+      [field]: value
+    }))
+  }
+
+  const addAutotuneParam = () => {
+    if (!tempParam.name || !tempParam.min || !tempParam.max) {
+      setErrMsg('Please fill out all parameter fields (Name, Min, Max).')
+      setErr(true)
+      return
+    }
+    if (autotuneParams.some(p => p.name === tempParam.name)) {
+      setErrMsg('Component already added to parameter tuning list.')
+      setErr(true)
+      return
+    }
+    setAutotuneParams(prev => [...prev, { ...tempParam }])
+    setTempParam({
+      name: '',
+      min: '',
+      max: '',
+      scale: 'linear'
+    })
+  }
+
+  const removeAutotuneParam = (index) => {
+    setAutotuneParams(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const createNetlistTemplate = (netlist, params) => {
+    let template = netlist
+    params.forEach(param => {
+      const regex = new RegExp('^(' + param.name + '\\s+\\S+\\s+\\S+\\s+)(\\S+)', 'mi')
+      template = template.replace(regex, `$1{${param.name}}`)
+    })
+    return template
+  }
+
+  const startAutotune = () => {
+    if (autotuneParams.length === 0) {
+      setErrMsg('Please add at least one component parameter to tune.')
+      setErr(true)
+      return
+    }
+    if (!autotuneConfig.targetValue) {
+      setErrMsg('Please enter a target value.')
+      setErr(true)
+      return
+    }
+    if (ErcCheckNets() && componentsList.length > 0) {
+      let compNetlist
+      try {
+        compNetlist = GenerateNetList()
+      } catch {
+        setError(true)
+        return
+      }
+
+      const netlistBase = netfile.title + '\n\n' +
+        compNetlist.models + '\n' +
+        compNetlist.main + '\n'
+
+      const netlistTemplate = createNetlistTemplate(netlistBase, autotuneParams)
+      
+      const titleA = netfile.title.split(' ')[1]
+      const myblob = new Blob([netlistTemplate], { type: 'text/plain' })
+      const file = new File([myblob], `${titleA}_template.cir`, { type: 'text/plain', lastModified: Date.now() })
+      
+      setIsAutotuning(true)
+      setAutotuneProgress({ current_process: 'Initializing...' })
+      
+      autotuneConfigApi(file)
+        .then((response) => {
+          const res = response.data
+          const getUrl = 'simulation/status/'.concat(res.task_id)
+          setTaskId(res.task_id)
+          autotuneResult(getUrl)
+        })
+        .catch(function (error) {
+          console.log(error)
+          setIsAutotuning(false)
+          setErrMsg('Failed to initiate autotuning. Check backend logs.')
+          setErr(true)
+        })
+    }
+  }
+
+  function autotuneConfigApi (file) {
+    const token = localStorage.getItem('esim_auth_token')
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('analysis_type', autotuneConfig.analysisType)
+    formData.append('max_trials', autotuneConfig.maxTrials)
+    formData.append('params_config', JSON.stringify(autotuneParams))
+    
+    const targets_config = {
+      metric: autotuneConfig.targetMetric,
+      target_value: parseFloat(autotuneConfig.targetValue)
+    }
+    formData.append('targets_config', JSON.stringify(targets_config))
+
+    const config = {
+      headers: {
+        'content-type': 'multipart/form-data'
+      }
+    }
+    if (token) {
+      config.headers.Authorization = `Token ${token}`
+    }
+    return api.post('simulation/autotune', formData, config)
+  }
+
+  function autotuneResult (url) {
+    api
+      .get(url)
+      .then((res) => {
+        if (res.data.state === 'PROGRESS' || res.data.state === 'PENDING') {
+          setIsAutotuning(true)
+          if (res.data.details) {
+            setAutotuneProgress(res.data.details)
+          }
+          setTimeout(() => autotuneResult(url), 1500)
+        } else if (res.data.state === 'SUCCESS') {
+          setIsAutotuning(false)
+          setAutotuneProgress({
+            status: 'SUCCESS',
+            best_params: res.data.details.best_params,
+            best_value: res.data.details.best_value
+          })
+        } else {
+          setIsAutotuning(false)
+          setErrMsg('Autotuning task failed.')
+          setErr(true)
+        }
+      })
+      .catch(function (error) {
+        console.log(error)
+        setIsAutotuning(false)
+        setErrMsg('Error retrieving autotune progress.')
+        setErr(true)
+      })
+  }
+
+  const applyTunedParams = () => {
+    if (autotuneProgress && autotuneProgress.best_params) {
+      const success = UpdateComponentValuesDirectly(autotuneProgress.best_params)
+      if (success) {
+        setErrMsg('Tuned parameters applied to schematic successfully!')
+        setErr(true) // Reuses the Snackbar notification alert
+      } else {
+        setErrMsg('Failed to apply parameters. Schematic editor not ready.')
+        setErr(true)
+      }
+    }
+  }
+
   const analysisNodeArray = []
   const analysisCompArray = []
   const nodeArray = []
@@ -1791,6 +1981,223 @@ export default function SimulationProperties (props) {
               </ExpansionPanelDetails>
             </ExpansionPanel>
           </ListItem>
+
+          {/* Autotune Optimization */}
+          <ListItem className={classes.simulationOptions} divider>
+            <ExpansionPanel onClick={onTabExpand}>
+              <ExpansionPanelSummary
+                expandIcon={<ExpandMoreIcon />}
+                aria-controls="panel1a-content"
+                id="panel-autotune-header"
+                style={{ width: '100%' }}
+              >
+                <Typography className={classes.heading}>Autotune Optimization</Typography>
+              </ExpansionPanelSummary>
+              <ExpansionPanelDetails>
+                <form className={classes.propertiesBox} noValidate autoComplete="off">
+                  <List>
+                    
+                    {/* Analysis Type */}
+                    <ListItem>
+                      <TextField
+                        style={{ width: '100%' }}
+                        id="autotune-analysis-type"
+                        size='small'
+                        variant="outlined"
+                        select
+                        label="Analysis Type"
+                        value={autotuneConfig.analysisType}
+                        onChange={(e) => handleAutotuneConfigChange('analysisType', e.target.value)}
+                        SelectProps={{
+                          native: true
+                        }}
+                        InputLabelProps={{
+                          shrink: true
+                        }}
+                      >
+                        <option value="ac">AC Analysis</option>
+                        <option value="trans">Transient Analysis</option>
+                      </TextField>
+                    </ListItem>
+
+                    {/* Parameter Tuning Bounds */}
+                    <ListItem style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                      <Typography variant="subtitle2" style={{ marginBottom: '8px' }}>Tuning Parameters</Typography>
+                      {autotuneParams.length > 0 && (
+                        <div style={{ marginBottom: '8px', border: '1px solid #ccc', borderRadius: '4px', padding: '4px' }}>
+                          {autotuneParams.map((p, idx) => (
+                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', padding: '4px 0' }}>
+                              <span>{p.name}: [{p.min}, {p.max}] ({p.scale})</span>
+                              <Button size="small" color="secondary" onClick={() => removeAutotuneParam(idx)}>Remove</Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* Add parameter form */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <TextField
+                          size="small"
+                          select
+                          variant="outlined"
+                          label="Component Name"
+                          value={tempParam.name}
+                          onChange={(e) => handleTempParamChange('name', e.target.value)}
+                          SelectProps={{ native: true }}
+                          InputLabelProps={{
+                            shrink: true
+                          }}
+                        >
+                          <option value="">Select component...</option>
+                          {componentsList.filter(c => c && (c.startsWith('R') || c.startsWith('C') || c.startsWith('L') || c.startsWith('r') || c.startsWith('c') || c.startsWith('l'))).map((comp, i) => (
+                            <option key={i} value={comp}>{comp}</option>
+                          ))}
+                        </TextField>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <TextField
+                            size="small"
+                            variant="outlined"
+                            label="Min"
+                            value={tempParam.min}
+                            onChange={(e) => handleTempParamChange('min', e.target.value)}
+                          />
+                          <TextField
+                            size="small"
+                            variant="outlined"
+                            label="Max"
+                            value={tempParam.max}
+                            onChange={(e) => handleTempParamChange('max', e.target.value)}
+                          />
+                        </div>
+                        <TextField
+                          size="small"
+                          select
+                          variant="outlined"
+                          label="Scale"
+                          value={tempParam.scale}
+                          onChange={(e) => handleTempParamChange('scale', e.target.value)}
+                          SelectProps={{ native: true }}
+                          InputLabelProps={{
+                            shrink: true
+                          }}
+                        >
+                          <option value="linear">linear</option>
+                          <option value="log">log</option>
+                        </TextField>
+                        <Button size="small" variant="outlined" color="primary" onClick={addAutotuneParam}>
+                          Add Component
+                        </Button>
+                      </div>
+                    </ListItem>
+
+                    {/* Optimization Target */}
+                    <ListItem>
+                      <TextField
+                        style={{ width: '100%' }}
+                        size="small"
+                        select
+                        variant="outlined"
+                        label="Target Metric"
+                        value={autotuneConfig.targetMetric}
+                        onChange={(e) => handleAutotuneConfigChange('targetMetric', e.target.value)}
+                        SelectProps={{ native: true }}
+                        InputLabelProps={{
+                          shrink: true
+                        }}
+                      >
+                        {autotuneConfig.analysisType === 'ac' ? (
+                          <>
+                            <option value="cutoff_frequency">Cutoff Frequency (Hz)</option>
+                            <option value="gain">Peak Gain (dB)</option>
+                            <option value="phase_margin">Phase Margin (deg)</option>
+                          </>
+                        ) : (
+                          <>
+                            <option value="slew_rate">Slew Rate (V/s)</option>
+                            <option value="rise_time">Rise Time (s)</option>
+                            <option value="overshoot">Overshoot (%)</option>
+                            <option value="peak_voltage">Peak Voltage (V)</option>
+                          </>
+                        )}
+                      </TextField>
+                    </ListItem>
+
+
+                    {/* Target Value */}
+                    <ListItem>
+                      <TextField
+                        style={{ width: '100%' }}
+                        size="small"
+                        variant="outlined"
+                        label="Target Numerical Value"
+                        value={autotuneConfig.targetValue}
+                        onChange={(e) => handleAutotuneConfigChange('targetValue', e.target.value)}
+                      />
+                    </ListItem>
+
+                    {/* Max Trials */}
+                    <ListItem>
+                      <TextField
+                        style={{ width: '100%' }}
+                        size="small"
+                        variant="outlined"
+                        label="Max Trials"
+                        type="number"
+                        value={autotuneConfig.maxTrials}
+                        onChange={(e) => handleAutotuneConfigChange('maxTrials', e.target.value)}
+                      />
+                    </ListItem>
+
+                    {/* Run Action */}
+                    <ListItem>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        color="primary"
+                        disabled={isAutotuning}
+                        onClick={startAutotune}
+                      >
+                        {isAutotuning ? 'Optimizing...' : 'Run Autotune'}
+                      </Button>
+                    </ListItem>
+
+                    {/* Real-time progress display */}
+                    {autotuneProgress && (
+                      <ListItem style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                        <Divider style={{ margin: '8px 0' }} />
+                        <Typography variant="body2" style={{ fontWeight: 'bold' }}>
+                          {autotuneProgress.current_process || (autotuneProgress.status === 'SUCCESS' ? 'Optimization Complete!' : '')}
+                        </Typography>
+                        {autotuneProgress.best_value !== undefined && (
+                          <div style={{ fontSize: '11px', marginTop: '4px' }}>
+                            <div>Best Loss: {autotuneProgress.best_value.toFixed(6)}</div>
+                            {autotuneProgress.best_params && (
+                              <div>
+                                Best Params: {Object.entries(autotuneProgress.best_params).map(([k, v]) => `${k}=${parseFloat(v).toFixed(2)}`).join(', ')}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {autotuneProgress.status === 'SUCCESS' && (
+                          <Button
+                            size="small"
+                            variant="contained"
+                            color="secondary"
+                            style={{ marginTop: '8px' }}
+                            onClick={applyTunedParams}
+                          >
+                            Apply to Schematic
+                          </Button>
+                        )}
+                      </ListItem>
+                    )}
+
+                  </List>
+                </form>
+              </ExpansionPanelDetails>
+            </ExpansionPanel>
+          </ListItem>
+
 
           <ListItem style={isSimRes ? {} : { display: 'none' }} onClick={handlesimulateOpen} >
             <Button size='small' variant="contained" color="primary" style={{ margin: '10px auto' }} onClick={handlesimulateOpen}>
