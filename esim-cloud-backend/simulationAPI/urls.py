@@ -11,6 +11,9 @@ urlpatterns = [
     path('upload', simulationAPI_views.NetlistUploader.as_view(),
          name='netlistUploader'),
 
+    path('autotune', simulationAPI_views.AutotuneUploader.as_view(),
+         name='autotuneUploader'),
+
     path('status/<uuid:task_id>',
          simulationAPI_views.CeleryResultView.as_view(), name='celery_status'),
 

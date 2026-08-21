@@ -11,7 +11,7 @@ from rest_framework.exceptions import ValidationError
 from celery.result import AsyncResult
 from saveAPI.models import StateSave
 import uuid
-from .models import runtimeStat, Limit, simulation
+from .models import runtimeStat, Limit, simulation, spiceFile
 from ltiAPI.models import ltiSession
 import celery.signals
 from celery import current_task
@@ -19,6 +19,7 @@ import time
 import math
 import os
 import logging
+import json
 
 
 logger = logging.getLogger(__name__)
@@ -211,3 +212,85 @@ def statsd_task_postrun(task_id, **kwargs):
     statObj, created = runtimeStat.objects.get_or_create(exec_time=runtime)
     statObj.qty += 1
     statObj.save()
+
+
+class AutotuneUploader(APIView):
+    permission_classes = (AllowAny,)
+    parser_classes = (MultiPartParser, FormParser,)
+
+    def post(self, request, *args, **kwargs):
+        logger.info('Got POST for autotune upload')
+        serializer = TaskSerializer(data=request.data, context={'view': self})
+
+        if serializer.is_valid():
+            serializer.save()
+            saveNetlistDB(
+                serializer.data['task_id'], serializer.data['file'][0]['file'],
+                request)
+            task_id = serializer.data['task_id']
+
+            try:
+                # 1. Read the uploaded netlist file
+                file_obj = spiceFile.objects.filter(task__task_id=task_id).first()
+                if not file_obj:
+                    return Response({'error': 'Uploaded file not found'}, status=status.HTTP_400_BAD_REQUEST)
+                
+                with open(file_obj.file.path, 'r') as f:
+                    netlist_template = f.read()
+
+                # 2. Parse autotuning configurations
+                params_config = request.data.get('params_config', '[]')
+                if isinstance(params_config, str):
+                    params_config = json.loads(params_config)
+
+                targets_config = request.data.get('targets_config', '{}')
+                if isinstance(targets_config, str):
+                    targets_config = json.loads(targets_config)
+
+                if isinstance(targets_config, dict) and 'metric' in targets_config and 'target_value' in targets_config:
+                    metric = targets_config.get('metric')
+                    target_value = targets_config.get('target_value')
+                    metric_mapping = {
+                        'cutoff_frequency': 'cutoff_freq',
+                        'gain': 'dc_gain',
+                        'phase_margin': 'phase_margin',
+                        'slew_rate': 'slew_rate'
+                    }
+                    mapped_metric = metric_mapping.get(metric, metric)
+                    targets_config = {
+                        mapped_metric: {
+                            'target': float(target_value),
+                            'weight': 1.0
+                        }
+                    }
+
+                max_trials = int(request.data.get('max_trials', 20))
+                analysis_type = request.data.get('analysis_type', 'ac')
+
+                # 3. Enqueue the autotuning task
+                from simulationAPI.tasks import process_autotune_task
+                celery_task = process_autotune_task.apply_async(
+                    kwargs={
+                        'task_id': str(task_id),
+                        'netlist_template': netlist_template,
+                        'params_config': params_config,
+                        'targets_config': targets_config,
+                        'max_trials': max_trials,
+                        'analysis_type': analysis_type
+                    },
+                    task_id=str(task_id)
+                )
+
+                response_data = {
+                    'state': celery_task.state,
+                    'task_id': str(task_id),
+                    'details': serializer.data,
+                }
+                return Response(response_data, status=status.HTTP_202_ACCEPTED)
+
+            except Exception as e:
+                logger.error(f"Failed to initiate autotuning: {e}")
+                return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
