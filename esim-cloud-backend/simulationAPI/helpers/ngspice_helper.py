@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 from django.conf import settings
 from .parse import extract_data_from_ngspice_output
+from .error_simplifier import simplify_error
 from simulationAPI.helpers.error_parser import parse_ngspice_error
 logger = logging.getLogger(__name__)
 
