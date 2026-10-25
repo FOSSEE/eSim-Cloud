@@ -575,8 +575,8 @@ export default function SchematicToolbar ({
     a.dispatchEvent(evt)
   }
 
-  // Download SVG image
-  function downloadText (data, options) {
+/// Download text-based file (SVG, SPICE netlist, etc.)
+  function downloadText (data, options, ext = '.svg') {
     const blob = new Blob(data, options)
     const evt = new MouseEvent('click', {
       view: window,
@@ -584,11 +584,95 @@ export default function SchematicToolbar ({
       cancelable: true
     })
     const a = document.createElement('a')
-    a.setAttribute('download', schSave.title + '_eSim_on_cloud.svg')
+    a.setAttribute('download', schSave.title + '_eSim_on_cloud' + ext)
     a.href = URL.createObjectURL(blob)
     a.target = '_blank'
     a.setAttribute('target', '_blank')
     a.dispatchEvent(evt)
+  } 
+  // LTspice .asc symbol mapping (eSim component name -> LTspice symbol)
+  const ltspiceSymbolMap = {
+    Resistor: 'res',
+    Capacitor: 'cap',
+    Inductor: 'ind',
+    VoltageSource: 'voltage',
+    Vdc: 'voltage',
+    Vac: 'voltage',
+    Vsource: 'voltage',
+    CurrentSource: 'current',
+    Idc: 'current',
+    Ground: '',
+    GND: '',
+    Diode: 'diode',
+    NPN: 'npn',
+    PNP: 'pnp',
+    NMOS: 'nmos',
+    PMOS: 'pmos',
+    OpAmp: 'OpAmps\\\\opamp'
+  }
+
+  // Convert eSim schematic to LTspice .asc format
+  function generateLTspiceAsc () {
+    const output = []
+    output.push('Version 4')
+    output.push('SHEET 1 880 680')
+
+    if (!window.graph) {
+      return output.join('\n')
+    }
+    const model = window.graph.getModel()
+    const cells = model.cells
+
+    let sequence = 1
+    for (const cellId in cells) {
+      const cell = cells[cellId]
+      if (!cell || !cell.Component) continue
+
+      const compType = cell.symbol || cell.name || 'Resistor'
+      const ltSymbol = ltspiceSymbolMap[compType] !== undefined
+        ? ltspiceSymbolMap[compType]
+        : 'res'
+
+      if (ltSymbol === '') {
+        // Ground: emit as flag
+        const geo = cell.getGeometry ? cell.getGeometry() : { x: 0, y: 0 }
+        const x = Math.round((geo.x || 0) / 8) * 16
+        const y = Math.round((geo.y || 0) / 8) * 16
+        output.push(`FLAG ${x} ${y} 0`)
+        continue
+      }
+
+      const geo = cell.getGeometry ? cell.getGeometry() : { x: 0, y: 0 }
+      const x = Math.round((geo.x || 0) / 8) * 16
+      const y = Math.round((geo.y || 0) / 8) * 16
+      output.push(`SYMBOL ${ltSymbol} ${x} ${y} R0`)
+
+      const refName = cell.reference || (compType.charAt(0).toUpperCase() + sequence)
+      output.push(`SYMATTR InstName ${refName}`)
+
+      const value = cell.value || cell.componentValue || ''
+      if (value) {
+        output.push(`SYMATTR Value ${value}`)
+      }
+      sequence++
+    }
+
+    // Wires (edges)
+    for (const cellId in cells) {
+      const cell = cells[cellId]
+      if (!cell || !cell.edge) continue
+      const source = cell.source && cell.source.geometry ? cell.source.geometry : null
+      const target = cell.target && cell.target.geometry ? cell.target.geometry : null
+      if (source && target) {
+        const x1 = Math.round(source.x / 8) * 16
+        const y1 = Math.round(source.y / 8) * 16
+        const x2 = Math.round(target.x / 8) * 16
+        const y2 = Math.round(target.y / 8) * 16
+        output.push(`WIRE ${x1} ${y1} ${x2} ${y2}`)
+      }
+    }
+
+    return output.join('\n')
   }
 
   const [imgopen, setImgOpen] = React.useState(false)
@@ -613,7 +697,156 @@ export default function SchematicToolbar ({
       exportImage('JPG').then((v) => {
         downloadImage(v, 'JPG')
       })
+} else if (value === 'SPICE') {
+      // Generate SPICE netlist and download as .cir file (allows partial circuits)
+      let compNetlist
+      try {
+        compNetlist = GenerateNetList()
+      } catch (e) {
+        compNetlist = { models: '', main: '' }
+      }
+      if (!compNetlist) compNetlist = { models: '', main: '' }
+
+      let printToPlotControlBlock = ''
+      const ctrlblk = (netfile && netfile.controlBlock ? netfile.controlBlock : '').split('\n')
+      for (let line = 0; line < ctrlblk.length; line++) {
+        if (ctrlblk[line].includes('print')) {
+          printToPlotControlBlock += 'plot '
+          let cleanCode = ctrlblk[line].split('print ')[1]
+          cleanCode = cleanCode.split('>')[0]
+          printToPlotControlBlock += cleanCode + '\n'
+        } else {
+          printToPlotControlBlock += ctrlblk[line] + '\n'
+        }
+      }
+      const netlist =
+        ((netfile && netfile.title) || 'Untitled') + '\n\n' +
+        (compNetlist.models || '') + '\n' +
+        (compNetlist.main || '') + '\n' +
+        ((netfile && netfile.controlLine) || '') + '\n' +
+        printToPlotControlBlock + '\n'
+
+      downloadText([netlist], { type: 'text/plain;charset=utf-8;' }, '.cir')
+    } else if (value === 'PDF') {
+      // Generate PDF report (schematic + SPICE netlist)
+      exportImage('SVG').then((svgData) => {
+        const { jsPDF } = window.jspdf
+        const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' })
+        const pageWidth = doc.internal.pageSize.getWidth()
+        const pageHeight = doc.internal.pageSize.getHeight()
+
+        // Header
+        doc.setFontSize(18)
+        doc.setFont('helvetica', 'bold')
+        const title = (netfile && netfile.title) || 'Untitled Circuit'
+        doc.text(title, 40, 40)
+
+        doc.setFontSize(10)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(100)
+        const now = new Date().toLocaleString()
+        doc.text('Generated by eSim-Cloud   |   ' + now, 40, 58)
+        doc.setTextColor(0)
+
+        // Divider line
+        doc.setDrawColor(200)
+        doc.line(40, 68, pageWidth - 40, 68)
+
+        // Schematic image (SVG converted to image via canvas)
+        doc.setFontSize(12)
+        doc.setFont('helvetica', 'bold')
+        doc.text('Schematic', 40, 90)
+
+        // Convert SVG string to data URL
+        const svgBlob = new Blob([svgData], { type: 'image/svg+xml' })
+        const svgUrl = URL.createObjectURL(svgBlob)
+        const img = new Image()
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          canvas.width = 1200
+          canvas.height = 700
+          const ctx = canvas.getContext('2d')
+          ctx.fillStyle = '#ffffff'
+          ctx.fillRect(0, 0, canvas.width, canvas.height)
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+          const pngData = canvas.toDataURL('image/png')
+
+          const imgWidth = pageWidth - 80
+          const imgHeight = 350
+          doc.addImage(pngData, 'PNG', 40, 100, imgWidth, imgHeight)
+
+          // Netlist section on next page
+          doc.addPage()
+          doc.setFontSize(14)
+          doc.setFont('helvetica', 'bold')
+          doc.text('SPICE Netlist', 40, 40)
+
+          doc.setDrawColor(200)
+          doc.line(40, 50, pageWidth - 40, 50)
+
+          // Build netlist text (same logic as SPICE export)
+          let compNetlist
+          try {
+            compNetlist = GenerateNetList()
+          } catch (e) {
+            compNetlist = { models: '', main: '' }
+          }
+          if (!compNetlist) compNetlist = { models: '', main: '' }
+
+          let printToPlotControlBlock = ''
+          const ctrlblk = (netfile && netfile.controlBlock ? netfile.controlBlock : '').split('\n')
+          for (let line = 0; line < ctrlblk.length; line++) {
+            if (ctrlblk[line].includes('print')) {
+              printToPlotControlBlock += 'plot '
+              let cleanCode = ctrlblk[line].split('print ')[1]
+              cleanCode = cleanCode.split('>')[0]
+              printToPlotControlBlock += cleanCode + '\n'
+            } else {
+              printToPlotControlBlock += ctrlblk[line] + '\n'
+            }
+          }
+          const netlist =
+            title + '\n\n' +
+            (compNetlist.models || '') + '\n' +
+            (compNetlist.main || '') + '\n' +
+            ((netfile && netfile.controlLine) || '') + '\n' +
+            printToPlotControlBlock + '\n'
+
+          doc.setFontSize(9)
+          doc.setFont('courier', 'normal')
+          const netlistLines = doc.splitTextToSize(netlist, pageWidth - 80)
+          doc.text(netlistLines, 40, 70)
+
+          // Footer on each page
+          const totalPages = doc.internal.getNumberOfPages()
+          for (let p = 1; p <= totalPages; p++) {
+            doc.setPage(p)
+            doc.setFontSize(8)
+            doc.setFont('helvetica', 'normal')
+            doc.setTextColor(150)
+            doc.text('eSim-Cloud   |   Page ' + p + ' of ' + totalPages, pageWidth - 40, pageHeight - 20, { align: 'right' })
+            doc.setTextColor(0)
+          }
+
+          doc.save(title + '_eSim_on_cloud.pdf')
+          URL.revokeObjectURL(svgUrl)
+        }
+        img.src = svgUrl
+      }).catch((e) => {
+        console.error('PDF export error:', e)
+        alert('Failed to generate PDF: ' + e.message)
+      })
+    } else if (value === 'LTSPICE') {
+      // Generate LTspice .asc file
+      try {
+        const ascText = generateLTspiceAsc()
+        downloadText([ascText], { type: 'text/plain;charset=utf-8;' }, '.asc')
+      } catch (e) {
+        console.error('LTspice export error:', e)
+        alert('Failed to generate LTspice file: ' + e.message)
+      }
     }
+    
   }
 
   // handle Save Schematic onCloud

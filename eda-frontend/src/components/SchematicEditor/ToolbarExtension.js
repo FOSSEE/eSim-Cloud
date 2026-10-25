@@ -444,7 +444,7 @@ HelpScreen.propTypes = {
 }
 
 // Image Export Dialog box
-const ImgTypes = ['PNG', 'JPG', 'SVG']
+const ImgTypes = ['PNG', 'JPG', 'SVG', 'SPICE', 'PDF', 'LTSPICE']
 export function ImageExportDialog (props) {
   const classes = useStyles()
   const { onClose, open } = props
