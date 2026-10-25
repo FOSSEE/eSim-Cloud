@@ -11,6 +11,7 @@ import DashboardHome from '../components/Dashboard/DashboardHome'
 import SchematicsList from '../components/Dashboard/SchematicsList'
 import DashboardOtherProjects from '../components/Dashboard/DashboardOtherProjects'
 import api from '../utils/Api'
+import UserProfile from '../components/Dashboard/UserProfile'
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -62,7 +63,7 @@ export default function Dashboard () {
         {/* Subroutes under dashboard section */}
         {ltiDetails !== null && <Switch>
           <Route exact path="/dashboard" component={() => <DashboardHome ltiDetails={ltiDetails}/>} />
-          <Route exact path="/dashboard/profile" />
+          <Route exact path="/dashboard/profile" component={UserProfile} />
           <Route
             exact
             path="/dashboard/schematics"

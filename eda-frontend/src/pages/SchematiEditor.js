@@ -97,7 +97,7 @@ export default function SchematiEditor (props) {
       console.log(props.location.search)
       const cktid = query.get('id')
       const version = query.get('version')
-      const branch = query.get('branch')
+      const branch = query.get('branch') || 'master'
       console.log(cktid)
       if (cktid.substr(0, 7) === 'gallery') {
         // Loading Gallery schemaic.

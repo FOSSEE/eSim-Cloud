@@ -780,7 +780,7 @@ export default function SimulationProperties (props) {
       if (typeSimulation !== 'noiseAnalysis') {
         controlBlock = `\n.control \nrun \nprint ${cblockline} > data.txt \n.endc \n.end`
       } else {
-        controlBlock = `\n.control \nrun \n${noiseMode} \nprint ${cblockline} > data.txt \n.endc \n.end`
+        controlBlock = `\n.control \nrun \n${noiseMode}\nprint all > data.txt \n.endc \n.end`
       }
       // console.log(controlLine)
 

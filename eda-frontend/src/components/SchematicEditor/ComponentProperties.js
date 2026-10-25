@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { setCompProperties } from '../../redux/actions/index'
+import { getGraph } from './Helper/ComponentDrag'
+import { buildComponentCanvasLabel } from './Helper/NetlistExporter'
 import Draggable from 'react-draggable'
 import { List, ListItem, ListItemText, Button, TextField, TextareaAutosize, Paper } from '@material-ui/core'
 
@@ -58,6 +60,22 @@ export default function ComponentProperties () {
 
   const setProps = () => {
     dispatch(setCompProperties(id, val))
+    const graph = getGraph()
+    if (graph) {
+      const model = graph.getModel()
+      const cell = model.cells[id]
+      if (cell && cell.vertex && cell.CellType === 'Component') {
+        const currentLabel = (cell.value || '').toString()
+        const baseName = currentLabel.split('\n')[0]
+        const newLabel = buildComponentCanvasLabel(baseName, val)
+        model.beginUpdate()
+        try {
+          model.setValue(cell, newLabel)
+        } finally {
+          model.endUpdate()
+        }
+      }
+    }
   }
 
   return (

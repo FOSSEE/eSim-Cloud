@@ -97,8 +97,8 @@ export default function (state = InitialState, action) {
 
     case actions.UPLOAD_LIBRARIES: {
       if (action.payload === 201) {
-        return { ...state, uploadSuccess: true }
-      } else { return { ...state, uploadSuccess: false } }
+        return { ...state, uploadSuccess: true, uploadError: null }
+      } else { return { ...state, uploadSuccess: false, uploadError: action.payload } }
     }
 
     case actions.RESET_UPLOAD_SUCCESS: {

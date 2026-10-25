@@ -56,6 +56,8 @@ class StateSaveSerializer(serializers.ModelSerializer):
                   'id', 'lti_id', 'is_submission', 'pinned')
 
     def get_lti_id(self, obj):
+        if isinstance(obj, dict):
+            return None
         save_id = obj.save_id
         ltis = lticonsumer.objects.filter(model_schematic__save_id=save_id)
         arduinoLTIs = ArduinLTIConsumer.objects.filter(
@@ -95,6 +97,8 @@ class SaveListSerializer(serializers.ModelSerializer):
                   'is_submission', 'pinned')
 
     def get_lti_id(self, obj):
+        if isinstance(obj, dict):
+            return None
         save_id = obj.save_id
         ltis = lticonsumer.objects.filter(model_schematic__save_id=save_id)
         arduinoLTIs = ArduinLTIConsumer.objects.filter(

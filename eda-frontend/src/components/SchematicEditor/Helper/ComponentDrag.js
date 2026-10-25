@@ -15,6 +15,7 @@ import { SideBar, magneticSnap } from './SideBar.js'
 import KiCadFileUtils from './KiCadFileUtils'
 
 var graph
+export function getGraph () { return graph }
 
 const {
   mxGraph,

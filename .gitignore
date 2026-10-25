@@ -9,7 +9,6 @@ mongo_data/
 sample_lib/
 symbols/*
 .DS_Store
-migrations
 symbol_svgs
 postgres_data
 file_storage

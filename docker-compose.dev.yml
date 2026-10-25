@@ -42,7 +42,7 @@ services:
     build: ./ArduinoFrontend/
     command: >
       sh -c "npm install &&
-             npm start"
+             npx ng serve --disableHostCheck --base-href /arduino/ --serve-path /arduino/"
 
     ports:
       - "4200:4200"

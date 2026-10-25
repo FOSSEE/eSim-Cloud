@@ -497,9 +497,9 @@ export function HomeDialog ({ open, gridRef, routeVal, onClose, schSave }) {
   }, [dispatch])
   var homeURL = ''
   if (routeVal === 'home') {
-    homeURL = `${window.location.protocol}\\\\${window.location.host}/`
+    homeURL = `${window.location.protocol}//${window.location.host}/`
   } else {
-    homeURL = `${window.location.protocol}\\\\${window.location.host}/eda/#/${routeVal}`
+    homeURL = `${window.location.protocol}//${window.location.host}/eda/#/${routeVal}`
   }
 
   console.log(homeURL)
@@ -584,9 +584,9 @@ export function SchematicNameDialog ({ open, gridRef, routeVal, onClose, schSave
   var homeURL = ''
   console.log(routeVal)
   if (routeVal === 'home') {
-    homeURL = `${window.location.protocol}\\\\${window.location.host}/`
+    homeURL = `${window.location.protocol}//${window.location.host}/`
   } else {
-    homeURL = `${window.location.protocol}\\\\${window.location.host}/eda/#/${routeVal}`
+    homeURL = `${window.location.protocol}//${window.location.host}/eda/#/${routeVal}`
   }
 
   console.log(homeURL)
@@ -862,7 +862,7 @@ export function OpenSchDialog (props) {
                                       <Button
                                         size="small"
                                         color="primary"
-                                        onClick={() => { dispatch(fetchSchematic(sch.save_id)) }}
+                                        onClick={() => { dispatch(fetchSchematic(sch.save_id, sch.version, sch.branch)) }}
                                         variant={schSave.details.save_id === undefined ? 'outlined' : schSave.details.save_id !== sch.save_id ? 'outlined' : 'contained'}
                                       >
                                       Launch
@@ -1040,6 +1040,7 @@ export function SelectLibrariesModal ({ open, close }) {
   const allLibraries = useSelector(state => state.schematicEditorReducer.allLibraries)
   const libraries = useSelector(state => state.schematicEditorReducer.libraries)
   const uploadSuccess = useSelector(state => state.schematicEditorReducer.uploadSuccess)
+  const uploadError = useSelector(state => state.schematicEditorReducer.uploadError)
   const auth = useSelector(state => state.authReducer)
   const dispatch = useDispatch()
   const classes = useStyles()
@@ -1061,11 +1062,21 @@ export function SelectLibrariesModal ({ open, close }) {
       dispatch(fetchAllLibraries())
     }
     if (uploadSuccess === false) {
-      setMessage('An Error Occured')
+      if (uploadError === 400) {
+        setMessage('Upload Failed: Invalid file format. Please upload valid .lib and .dcm files.')
+      } else if (uploadError === 401 || uploadError === 403) {
+        setMessage('Upload Failed: You are not authorized to upload libraries.')
+      } else if (uploadError === 413) {
+        setMessage('Upload Failed: File size too large.')
+      } else if (uploadError === 500) {
+        setMessage('Upload Failed: Server error. Please try again.')
+      } else {
+        setMessage('Upload Failed: An unexpected error occurred.')
+      }
       setsnacOpen(true)
       dispatch(resetUploadSuccess())
     }
-  }, [dispatch, uploadSuccess])
+  }, [dispatch, uploadSuccess, uploadError])
 
   useEffect(() => {
     const updateActive = () => {

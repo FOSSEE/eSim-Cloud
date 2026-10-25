@@ -76,7 +76,7 @@ export const saveSchematic = (title, description, xml, base64, newBranch = false
       api
         .post('save', queryString.stringify(body), config)
         .then((res) => {
-          if (!res.data.duplicate) { setVersions(res.data.version, false, null) }
+          setVersions(res.data.version, false, null)
           dispatch({
             type: actions.SET_SCH_SAVED,
             payload: res.data

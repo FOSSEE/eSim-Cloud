@@ -337,6 +337,35 @@ export function annotate (graph) {
 
   return list
 }
+// Builds the canvas display label for a component (e.g. "R1\n1k") from its
+// base name (e.g. "R1") and properties, mirroring the same value-display
+// rules used when generating the netlist, so editing a component's value
+// via the Properties panel and generating a netlist always produce the
+// same label.
+export function buildComponentCanvasLabel (baseName, properties) {
+  let label = baseName
+  const prefixChar = (properties.PREFIX || '').charAt(0).toLowerCase()
+  if (prefixChar === 'v' || prefixChar === 'i') {
+    if (properties.NAME !== 'SINE' && properties.NAME !== 'EXP' && properties.NAME !== 'PULSE') {
+      if (properties.VALUE !== undefined) {
+        label = label + '\n' + properties.VALUE
+      }
+    }
+  } else if (prefixChar === 'c' || prefixChar === 'l' || prefixChar === 'r') {
+    label = label + '\n' + properties.VALUE
+  } else if (prefixChar === 'm' || prefixChar === 'q') {
+    // MOSFETs and transistors do not show a value line on canvas
+  } else {
+    if (properties.VALUE !== undefined) {
+      label = label + '\n' + properties.VALUE
+    }
+  }
+  if (properties.EXTRA_EXPRESSION && properties.EXTRA_EXPRESSION.length > 0) {
+    label = label + ' ' + properties.EXTRA_EXPRESSION
+  }
+  return label
+}
+
 
 /**
  * Builds SPICE netlist text from mxGraph instance
@@ -444,14 +473,12 @@ export function buildNetlistFromGraph (graph) {
         } else if (comp.NAME === 'DC') {
           if (component.properties.VALUE !== undefined) {
             k = k + ' DC ' + component.properties.VALUE
-            component.value = component.value + '\n' + component.properties.VALUE
           }
         } else if (comp.NAME === 'PULSE') {
           k = k + ` PULSE(${comp.INITIAL_VALUE} ${comp.PULSED_VALUE} ${comp.DELAY_TIME} ${comp.RISE_TIME} ${comp.FALL_TIME} ${comp.PULSE_WIDTH} ${comp.PERIOD} ${comp.PHASE} )`
         } else {
           if (component.properties.VALUE !== undefined) {
             k = k + ' ' + component.properties.VALUE
-            component.value = component.value + '\n' + component.properties.VALUE
           }
         }
       } else if (component.properties.PREFIX.charAt(0) === 'C' || component.properties.PREFIX.charAt(0) === 'c') {
@@ -459,7 +486,6 @@ export function buildNetlistFromGraph (graph) {
         if (component.properties.IC != 0) {
           k = k + ' IC=' + component.properties.IC
         }
-        component.value = component.value + '\n' + component.properties.VALUE
       } else if (component.properties.PREFIX.charAt(0) === 'L' || component.properties.PREFIX.charAt(0) === 'l') {
         k = k + ' ' + component.properties.VALUE
         if (component.properties.IC != 0) {
@@ -468,7 +494,6 @@ export function buildNetlistFromGraph (graph) {
         if (component.properties.DTEMP != 27) {
           k = k + ' dtemp=' + component.properties.DTEMP
         }
-        component.value = component.value + '\n' + component.properties.VALUE
       } else if (component.properties.PREFIX.charAt(0) === 'M' || component.properties.PREFIX.charAt(0) === 'm') {
         if (component.properties.MULTIPLICITY_PARAMETER != 1) {
           k = k + ' m=' + component.properties.MULTIPLICITY_PARAMETER
@@ -497,18 +522,16 @@ export function buildNetlistFromGraph (graph) {
         if (component.properties.PARAMETER_MEASUREMENT_TEMPERATURE != 27) {
           k = k + ' TNOM=' + component.properties.PARAMETER_MEASUREMENT_TEMPERATURE
         }
-        component.value = component.value + '\n' + component.properties.VALUE
       } else {
         if (component.properties.VALUE !== undefined) {
           k = k + ' ' + component.properties.VALUE
-          component.value = component.value + '\n' + component.properties.VALUE
         }
       }
 
       if (component.properties.EXTRA_EXPRESSION && component.properties.EXTRA_EXPRESSION.length > 0) {
         k = k + ' ' + component.properties.EXTRA_EXPRESSION
-        component.value = component.value + ' ' + component.properties.EXTRA_EXPRESSION
       }
+      component.value = buildComponentCanvasLabel(component.value, component.properties)
 
       if (component.properties.MODEL && component.properties.MODEL.length > 0) {
         spiceModels += component.properties.MODEL + '\n'

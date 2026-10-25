@@ -88,6 +88,9 @@ class CustomTokenCreateView(utils.ActionViewMixin, generics.GenericAPIView):
     def _action(self, serializer):
         from rest_framework.authtoken.models import Token
         token, created = Token.objects.get_or_create(user=serializer.user)
+        from django.utils import timezone
+        serializer.user.last_login = timezone.now()
+        serializer.user.save(update_fields=["last_login"])
         data = {
             'auth_token': token.key,
             'user_id': serializer.user.id
@@ -95,3 +98,21 @@ class CustomTokenCreateView(utils.ActionViewMixin, generics.GenericAPIView):
         return Response(
             data=data, status=status.HTTP_200_OK
         )
+
+from authAPI.serializers import UserProfileSerializer, UserProfileUpdateSerializer
+
+
+class UserProfileView(generics.RetrieveUpdateAPIView):
+    """
+    GET: Returns full user profile including date_joined, last_login, name
+    PATCH: Update username, email, first_name, last_name
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return UserProfileUpdateSerializer
+        return UserProfileSerializer
+
+    def get_object(self):
+        return self.request.user

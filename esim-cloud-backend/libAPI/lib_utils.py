@@ -63,9 +63,9 @@ def save_libs(files, path, out_path, library_set):
                 # Get Component name
                 component_svg = os.path.split(component_svg)[-1]
 
-                # Get Corresponding Details
+                if component_svg[:-4] not in component_details:
+                    continue
                 svg_desc = component_details[component_svg[:-4]]
-
                 # Seed DB
                 component = LibraryComponent.objects.filter(
                     name=svg_desc['name'],
