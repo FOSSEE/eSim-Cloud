@@ -3,6 +3,7 @@ from simulationAPI.serializers import TaskSerializer, \
     SpiceModelSerializer, SpiceModelDetailSerializer, \
     SpiceModelUploadSerializer
 from simulationAPI.tasks import process_task
+from simulationAPI.session_integration import notify_session_manager
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.views import APIView
@@ -102,6 +103,7 @@ class NetlistUploader(APIView):
                 serializer.data['task_id'], serializer.data['file'][0]['file'],
                 request)
             task_id = serializer.data['task_id']
+            notify_session_manager(str(request.user.id) if request.user.is_authenticated else str(task_id)[:8])
 
             # ---------------------------------------------------------------
             # Issue #539: Extract optional custom_model_ids from request

@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: simulation-pod-USER_ID
+  labels:
+    app: simulation
+    user: USER_ID
+spec:
+  containers:
+  - name: simulation
+    image: esim-simulation:latest
+    resources:
+      limits:
+        memory: "512Mi"
+        cpu: "1"
+      requests:
+        memory: "256Mi"
+        cpu: "0.5"
+  restartPolicy: Never

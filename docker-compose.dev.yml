@@ -104,6 +104,8 @@ services:
       environment:
         - ALLOW_EMPTY_PASSWORD=yes
         - REDIS_DISABLE_COMMANDS=FLUSHDB,FLUSHALL
+      ports:
+      - "6379:6379"
       volumes:
           - ./redis_data:/data
 
@@ -119,7 +121,7 @@ services:
   db:
     image: postgres:13
     volumes:
-      - ./postgres_data:/var/lib/postgresql/data/
+      - postgres_vol:/var/lib/postgresql/data/
     env_file:
       - .env
 
@@ -136,3 +138,5 @@ volumes:
     driver_opts:
       type: tmpfs
       device: tmpfs
+
+  postgres_vol:
